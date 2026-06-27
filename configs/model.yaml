@@ -1,0 +1,46 @@
+# SecureCoating-Vision: Model Configuration
+
+model:
+  name: "CoatingFusionNet"
+  version: "1.0.0"
+  backbone: "resnet34"
+  pretrained: true
+  num_classes: 5 # [Background, Scratch, Void, Blister, Delamination]
+
+inputs:
+  channels:
+    - name: "optical_r"
+      source: "rgb_camera"
+      index: 0
+    - name: "optical_g"
+      source: "rgb_camera"
+      index: 1
+    - name: "optical_b"
+      source: "rgb_camera"
+      index: 2
+    - name: "thermal"
+      source: "lwir_camera"
+      index: 3
+    - name: "height"
+      source: "laser_profiler"
+      index: 4
+  dimensions:
+    width: 1024
+    height: 1024
+
+inference:
+  device: "cuda" # 'cuda' or 'cpu'
+  precision: "fp16" # 'fp32', 'fp16', 'int8'
+  confidence_threshold: 0.50
+  nms_threshold: 0.45
+
+  # Quality grading thresholds
+  grading:
+    scratch:
+      max_allowable_length_mm: 5.0
+    void:
+      max_allowable_area_mm2: 2.0
+    blister:
+      max_allowable_height_um: 50.0
+    delamination:
+      max_allowable_area_mm2: 10.0

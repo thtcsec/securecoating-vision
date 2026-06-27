@@ -1,0 +1,5 @@
+batch_id,part_id,optical_path,thermal_path,height_path,has_defect,defect_class,timestamp
+BATCH_2026_06A,PART_001,raw/optical/part_001.png,raw/thermal/part_001.png,raw/3d_profile/part_001.png,0,none,2026-06-27T08:00:00Z
+BATCH_2026_06A,PART_002,raw/optical/part_002.png,raw/thermal/part_002.png,raw/3d_profile/part_002.png,1,scratch,2026-06-27T08:01:15Z
+BATCH_2026_06B,PART_003,raw/optical/part_003.png,raw/thermal/part_003.png,raw/3d_profile/part_003.png,1,delamination,2026-06-27T08:05:42Z
+BATCH_2026_06B,PART_004,raw/optical/part_004.png,raw/thermal/part_004.png,raw/3d_profile/part_004.png,0,none,2026-06-27T08:07:00Z

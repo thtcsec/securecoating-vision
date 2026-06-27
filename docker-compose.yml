@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: securecoating-vision-api:latest
+    container_name: coating_inspection_api
+    ports:
+      - "8000:8000"
+    environment:
+      - MODEL_CONFIG=configs/model.yaml
+      - APP_CONFIG=configs/app.yaml
+    volumes:
+      - .:/app
+    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: securecoating-vision-dashboard:latest
+    container_name: coating_inspection_dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      - MODEL_CONFIG=configs/model.yaml
+      - APP_CONFIG=configs/app.yaml
+    volumes:
+      - .:/app
+    depends_on:
+      - api
+    command: streamlit run dashboard/app.py --server.address=0.0.0.0 --server.port=8501

@@ -1,0 +1,17 @@
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local database and artifacts
+data/quality_history.db
+outputs/
+
+# IDE files
+.idea/
+.vscode/
+.DS_Store
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
