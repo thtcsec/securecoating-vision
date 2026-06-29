@@ -5,6 +5,10 @@
 [![FastAPI](https://img.shields.io/badge/API-FastAPI-green.svg)](src/api/main.py)
 [![Dashboard](https://img.shields.io/badge/Dashboard-Streamlit-orange.svg)](dashboard/app.py)
 
+<p align="center">
+  <img src="logo.png" alt="Tsinghua MSE Logo" width="450">
+</p>
+
 **Author:** Trịnh Hoàng Tú  
 **Competition Context:** Prepared for the 2026 AI + Materials Competition, Track 4: AI + Materials Testing and Characterization
 
