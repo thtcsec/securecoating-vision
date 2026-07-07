@@ -158,7 +158,17 @@ if image_source == "Upload Image":
         type=["png", "jpg", "jpeg", "bmp", "tiff"],
         help="Upload a real coating surface image for AI inspection"
     )
-    st.sidebar.caption("Tip: Use any surface/coating image to test defect detection")
+    # Demo sample button
+    use_demo_sample = st.sidebar.button("Or: Use Demo Sample Image", use_container_width=True)
+    if use_demo_sample:
+        # Load a sample from our trained dataset
+        sample_dir = os.path.join(PROJECT_ROOT, "data", "coating_defects", "images", "val")
+        if os.path.exists(sample_dir):
+            samples = [f for f in os.listdir(sample_dir) if f.endswith(('.jpg', '.png'))]
+            if samples:
+                chosen = samples[np.random.randint(0, len(samples))]
+                st.session_state["demo_sample_path"] = os.path.join(sample_dir, chosen)
+    st.sidebar.caption("Tip: Use demo sample to see AI detection on training-domain images")
 
 if image_source == "Camera Simulation":
     st.sidebar.markdown("<h4 style='color:#FFF;'>Defect Injection</h4>", unsafe_allow_html=True)
@@ -222,6 +232,15 @@ if trigger_btn:
         optical = cv2.resize(optical, (w, h), interpolation=cv2.INTER_AREA)
         defect_label = "unknown"  # Real image - let model decide
         uploaded_file.seek(0)  # Reset for potential re-read
+    elif st.session_state.get("demo_sample_path"):
+        # Load demo sample from dataset
+        demo_path = st.session_state.pop("demo_sample_path")
+        optical = cv2.imread(demo_path)
+        if optical is not None:
+            optical = cv2.resize(optical, (w, h), interpolation=cv2.INTER_AREA)
+        else:
+            optical = np.random.randint(160, 195, (h, w, 3), dtype=np.uint8)
+        defect_label = "unknown"
     else:
         # Generate realistic simulated surface (textured, not flat gray)
         # Base: metallic coating surface with grain texture
@@ -496,113 +515,142 @@ with tab1:
     else:
         res = st.session_state.last_result
 
-        # Status banner
-        b1, b2, b3, b4 = st.columns(4)
-        with b1:
-            st.metric("Part ID", res["part_id"])
-        with b2:
-            verdict = "✅ PASS" if res["passed"] else "❌ REJECT"
-            st.metric("Verdict", verdict)
-        with b3:
-            mode = "Degraded" if res["fallback_active"] else "Optimal"
-            st.metric("Sensor Mode", mode)
-        with b4:
-            st.metric("Gate Action", res["gate_action"])
+        # Verdict banner with professional styling
+        if res["passed"]:
+            st.markdown("""<div style="background:linear-gradient(135deg,#1B5E20,#2E7D32);
+                padding:15px 25px;border-radius:10px;margin-bottom:20px;">
+                <span style="font-size:24px;color:#fff;font-weight:700;">
+                PASS</span>
+                <span style="color:#A5D6A7;margin-left:15px;">No critical defects detected. Part cleared for next stage.</span>
+            </div>""", unsafe_allow_html=True)
+        else:
+            n_violations = len(res["reject_reasons"])
+            st.markdown(f"""<div style="background:linear-gradient(135deg,#B71C1C,#D32F2F);
+                padding:15px 25px;border-radius:10px;margin-bottom:20px;">
+                <span style="font-size:24px;color:#fff;font-weight:700;">
+                REJECT</span>
+                <span style="color:#FFCDD2;margin-left:15px;">{n_violations} quality violation(s) — Part diverted to sorting gate.</span>
+            </div>""", unsafe_allow_html=True)
 
-        if not res["passed"]:
-            reasons = res["reject_reasons"]
-            if len(reasons) > 3:
-                st.error(f"**REJECT** — {len(reasons)} quality violations detected. Top issues: {reasons[0]}; {reasons[1]}; ... (+{len(reasons)-2} more)")
-            elif reasons:
-                st.error(f"**REJECT** — {'; '.join(reasons)}")
+        # Main layout: large image left, info right
+        main_c1, main_c2 = st.columns([3, 2])
 
-        # 3-column + overlay sensor display
-        st.markdown("#### Source Modalities & Defect Overlay")
-        img_c1, img_c2, img_c3, img_c4 = st.columns(4)
+        with main_c1:
+            # Professional detection overlay with bboxes + labels
+            seg = res["seg_mask"]
+            overlay = res["optical_img"].copy()
+            class_names = {1: "SCRATCH", 2: "VOID", 3: "BLISTER", 4: "DELAMINATION"}
+            class_colors = {
+                1: (0, 255, 255),    # Cyan
+                2: (255, 100, 255),  # Magenta
+                3: (100, 255, 100),  # Green
+                4: (80, 80, 255),    # Red
+            }
 
-        with img_c1:
+            if np.max(seg) > 0:
+                # Draw semi-transparent mask overlay
+                mask_overlay = np.zeros_like(overlay)
+                for class_id, color in class_colors.items():
+                    mask_region = (seg == class_id).astype(np.uint8)
+                    if np.any(mask_region):
+                        mask_overlay[mask_region == 1] = color
+
+                overlay = cv2.addWeighted(overlay, 0.7, mask_overlay, 0.3, 0)
+
+                # Draw bounding boxes + labels for top defects (professional YOLO style)
+                top_defects = sorted(res["defects"], key=lambda d: d.get("area_mm2", 0), reverse=True)[:10]
+                for defect in top_defects:
+                    bbox = defect.get("bbox", None)
+                    if bbox is None:
+                        continue
+                    x, y, w, h = bbox
+                    cls_id = defect.get("class_id", 1)
+                    cls_name = class_names.get(cls_id, "DEFECT")
+                    color = class_colors.get(cls_id, (255, 255, 255))
+
+                    # Draw box
+                    cv2.rectangle(overlay, (x, y), (x + w, y + h), color, 2)
+                    # Label background
+                    label = f"{cls_name} {defect.get('area_mm2', 0):.1f}mm2"
+                    (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+                    cv2.rectangle(overlay, (x, y - th - 8), (x + tw + 4, y), color, -1)
+                    cv2.putText(overlay, label, (x + 2, y - 4),
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+
             st.image(
-                cv2.cvtColor(res["optical_img"], cv2.COLOR_BGR2RGB),
-                caption="Optical RGB Camera",
+                cv2.cvtColor(overlay, cv2.COLOR_BGR2RGB),
+                caption=f"AI Detection Result — {res['part_id']}",
                 use_container_width=True
             )
 
-        with img_c2:
+        with main_c2:
+            # Inspection summary card
+            st.markdown("##### Inspection Report")
+            st.markdown(f"""
+            | Parameter | Value |
+            |-----------|-------|
+            | Part ID | `{res['part_id']}` |
+            | Verdict | **{'PASS' if res['passed'] else 'REJECT'}** |
+            | Defects Found | {len(res['defects'])} |
+            | Inference Engine | {res['engine']} |
+            | Latency | {res['latency_ms']:.1f} ms |
+            | Sensor Mode | {'Optimal (3-source)' if not res['fallback_active'] else 'Degraded'} |
+            | Gate Signal | {res['gate_action']} |
+            """)
+
+            if not res["passed"] and res["reject_reasons"]:
+                st.markdown("##### Rejection Reasons")
+                for i, reason in enumerate(res["reject_reasons"][:5], 1):
+                    st.markdown(f"- {reason}")
+                if len(res["reject_reasons"]) > 5:
+                    st.caption(f"... +{len(res['reject_reasons'])-5} more")
+
+            # Class legend
+            st.markdown("##### Defect Class Legend")
+            st.markdown("""
+            <span style="color:#00FFFF;">&#9632;</span> SCRATCH &nbsp;&nbsp;
+            <span style="color:#FF64FF;">&#9632;</span> VOID &nbsp;&nbsp;
+            <span style="color:#64FF64;">&#9632;</span> BLISTER &nbsp;&nbsp;
+            <span style="color:#5050FF;">&#9632;</span> DELAMINATION
+            """, unsafe_allow_html=True)
+
+        # Sensor modalities row (smaller, below main view)
+        st.markdown("---")
+        st.markdown("##### Sensor Modalities")
+        s1, s2, s3 = st.columns(3)
+        with s1:
+            st.image(
+                cv2.cvtColor(res["optical_img"], cv2.COLOR_BGR2RGB),
+                caption="RGB Camera",
+                use_container_width=True
+            )
+        with s2:
             if res["thermal_img"] is not None:
                 therm_colored = fusion_mgr.get_colorized_thermal(res["thermal_img"])
-                st.image(
-                    cv2.cvtColor(therm_colored, cv2.COLOR_BGR2RGB),
-                    caption="LWIR Thermal (Heat Map)",
-                    use_container_width=True
-                )
+                st.image(cv2.cvtColor(therm_colored, cv2.COLOR_BGR2RGB),
+                         caption="LWIR Thermal", use_container_width=True)
             else:
-                st.error("🔴 LWIR Thermal: NO SIGNAL")
-
-        with img_c3:
+                st.error("LWIR: OFFLINE")
+        with s3:
             if res["height_img"] is not None:
                 height_colored = fusion_mgr.get_colorized_height(res["height_img"])
-                st.image(
-                    cv2.cvtColor(height_colored, cv2.COLOR_BGR2RGB),
-                    caption="3D Height Profile",
-                    use_container_width=True
-                )
+                st.image(cv2.cvtColor(height_colored, cv2.COLOR_BGR2RGB),
+                         caption="3D Profilometer", use_container_width=True)
             else:
-                st.error("🔴 3D Profiler: NO SIGNAL")
+                st.error("3D: OFFLINE")
 
-        with img_c4:
-            # Segmentation mask overlaid on original image
-            seg = res["seg_mask"]
-            if np.max(seg) > 0:
-                # Create colored overlay: each class gets a distinct color
-                overlay = res["optical_img"].copy()
-                colors = {
-                    1: (0, 255, 255),    # Scratch: cyan
-                    2: (255, 0, 255),    # Void: magenta
-                    3: (0, 255, 0),      # Blister: green
-                    4: (0, 0, 255),      # Delamination: red
-                }
-                for class_id, color in colors.items():
-                    mask_region = (seg == class_id).astype(np.uint8)
-                    if np.any(mask_region):
-                        # Semi-transparent colored overlay
-                        colored = np.zeros_like(overlay)
-                        colored[mask_region == 1] = color
-                        overlay = cv2.addWeighted(overlay, 1.0, colored, 0.5, 0)
-                        # Draw contours for sharp boundaries
-                        contours, _ = cv2.findContours(mask_region, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                        cv2.drawContours(overlay, contours, -1, color, 2)
-                st.image(
-                    cv2.cvtColor(overlay, cv2.COLOR_BGR2RGB),
-                    caption="Defect Segmentation Overlay",
-                    use_container_width=True
-                )
+        # Defect details (collapsible)
+        with st.expander(f"Defect Details ({len(res['defects'])} regions)", expanded=False):
+            if len(res["defects"]) == 0:
+                st.success("No anomalies detected.")
             else:
-                st.image(
-                    cv2.cvtColor(res["optical_img"], cv2.COLOR_BGR2RGB),
-                    caption="No Defects Detected",
-                    use_container_width=True
-                )
-
-        # Defect details table
-        st.markdown("#### Detected Defect Features")
-        if len(res["defects"]) == 0:
-            st.success("No anomalies detected.")
-        else:
-            total_defects = len(res["defects"])
-            df_defects = pd.DataFrame(res["defects"])
-            display_cols = ["defect_id", "class_name", "length_mm", "area_mm2", "peak_height_um"]
-            available_cols = [c for c in display_cols if c in df_defects.columns]
-            # Show summary + top 20 largest defects
-            if total_defects > 20:
-                st.warning(f"Detected **{total_defects} defect regions**. Showing top 20 by area:")
-                df_defects = df_defects.sort_values("area_mm2", ascending=False).head(20)
-            st.dataframe(df_defects[available_cols], use_container_width=True)
-
-        # Engine info
-        st.caption(
-            f"Engine: {res['engine']} | Latency: {res['latency_ms']:.1f}ms | "
-            f"System: {res['system_state']}"
-        )
+                total_defects = len(res["defects"])
+                df_defects = pd.DataFrame(res["defects"])
+                display_cols = ["defect_id", "class_name", "length_mm", "area_mm2", "peak_height_um"]
+                available_cols = [c for c in display_cols if c in df_defects.columns]
+                if total_defects > 15:
+                    df_defects = df_defects.sort_values("area_mm2", ascending=False).head(15)
+                st.dataframe(df_defects[available_cols], use_container_width=True)
 
 # ------ TAB 2: SPC ANALYTICS ------
 with tab2:
