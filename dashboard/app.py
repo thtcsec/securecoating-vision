@@ -144,11 +144,30 @@ depth_connected = st.sidebar.toggle("3D Laser Profiler Online", value=True)
 
 # Defect simulation
 st.sidebar.markdown("---")
-st.sidebar.markdown("<h3 style='color:#FFF;'>Defect Injection</h3>", unsafe_allow_html=True)
-selected_defect = st.sidebar.selectbox(
-    "Simulate Defect Type:",
-    ["None (Pass)", "Scratch", "Void (Sub-surface)", "Blister (Height)", "Delamination"]
+st.sidebar.markdown("<h3 style='color:#FFF;'>Image Source</h3>", unsafe_allow_html=True)
+image_source = st.sidebar.radio(
+    "Input Mode:",
+    ["Upload Image", "Camera Simulation"],
+    index=0
 )
+
+uploaded_file = None
+if image_source == "Upload Image":
+    uploaded_file = st.sidebar.file_uploader(
+        "Upload coating/surface image",
+        type=["png", "jpg", "jpeg", "bmp", "tiff"],
+        help="Upload a real coating surface image for AI inspection"
+    )
+    st.sidebar.caption("Tip: Use any surface/coating image to test defect detection")
+
+if image_source == "Camera Simulation":
+    st.sidebar.markdown("<h4 style='color:#FFF;'>Defect Injection</h4>", unsafe_allow_html=True)
+    selected_defect = st.sidebar.selectbox(
+        "Simulate Defect Type:",
+        ["None (Pass)", "Scratch", "Void (Sub-surface)", "Blister (Height)", "Delamination"]
+    )
+else:
+    selected_defect = "None (Pass)"
 
 # Calibration interface
 st.sidebar.markdown("---")
@@ -188,29 +207,98 @@ if trigger_btn:
     st.session_state.part_counter += 1
     part_id = f"PART_{st.session_state.part_counter:04d}"
 
-    # 1. Generate mock camera frame
+    # 1. Acquire image (real upload or simulated)
     h, w = 1024, 1024
-    optical = np.ones((h, w, 3), dtype=np.uint8) * 185
-    noise = np.random.randint(-8, 8, (h, w, 3), dtype=np.int16)
-    optical = np.clip(optical.astype(np.int16) + noise, 0, 255).astype(np.uint8)
-    cv2.putText(optical, "COATED SURFACE", (360, 520),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (165, 165, 165), 2)
-
-    # Apply defect overlay
     defect_label = "none"
-    if "Scratch" in selected_defect:
-        cv2.line(optical, (150, 200), (750, 240), (40, 40, 40), thickness=7)
-        defect_label = "scratch"
-    elif "Void" in selected_defect:
-        cv2.circle(optical, (600, 500), 85, (80, 60, 80), -1)
-        defect_label = "void"
-    elif "Blister" in selected_defect:
-        cv2.circle(optical, (400, 650), 70, (210, 215, 205), -1)
-        defect_label = "blister"
-    elif "Delamination" in selected_defect:
-        pts = np.array([[350, 350], [650, 330], [680, 580], [370, 600]], np.int32)
-        cv2.fillPoly(optical, [pts], (100, 90, 110))
-        defect_label = "delamination"
+
+    if uploaded_file is not None and image_source == "Upload Image":
+        # Read uploaded real image
+        file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
+        optical = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+        if optical is None:
+            st.sidebar.error("Failed to decode image!")
+            st.stop()
+        # Resize to working resolution
+        optical = cv2.resize(optical, (w, h), interpolation=cv2.INTER_AREA)
+        defect_label = "unknown"  # Real image - let model decide
+        uploaded_file.seek(0)  # Reset for potential re-read
+    else:
+        # Generate realistic simulated surface (textured, not flat gray)
+        # Base: metallic coating surface with grain texture
+        optical = np.random.randint(160, 195, (h, w, 3), dtype=np.uint8)
+        # Add horizontal machining lines (realistic for rolled coating)
+        for y in range(0, h, 4):
+            line_intensity = np.random.randint(-12, 12)
+            optical[y:y+2, :] = np.clip(
+                optical[y:y+2, :].astype(np.int16) + line_intensity, 0, 255
+            ).astype(np.uint8)
+        # Add subtle gradient (illumination variation)
+        gradient = np.linspace(0.92, 1.08, w).reshape(1, -1, 1)
+        optical = np.clip(optical.astype(np.float32) * gradient, 0, 255).astype(np.uint8)
+        # Gaussian blur for realistic camera focus
+        optical = cv2.GaussianBlur(optical, (3, 3), 0.5)
+
+        # Apply defect overlay
+        if "Scratch" in selected_defect:
+            # Realistic scratch: thin dark line with slight irregularity
+            pts = []
+            x, y_pos = 100, np.random.randint(200, 800)
+            for i in range(50):
+                pts.append([x + i * 16, y_pos + np.random.randint(-3, 3)])
+            pts = np.array(pts, dtype=np.int32)
+            cv2.polylines(optical, [pts], False, (35, 30, 28), thickness=np.random.randint(2, 6))
+            defect_label = "scratch"
+        elif "Void" in selected_defect:
+            # Realistic void: dark circular region with soft edges
+            cx, cy = np.random.randint(300, 700), np.random.randint(300, 700)
+            radius = np.random.randint(40, 90)
+            mask = np.zeros((h, w), dtype=np.float32)
+            cv2.circle(mask, (cx, cy), radius, 1.0, -1)
+            mask = cv2.GaussianBlur(mask, (21, 21), 5.0)
+            for c in range(3):
+                optical[:, :, c] = np.clip(
+                    optical[:, :, c].astype(np.float32) - mask * 80, 0, 255
+                ).astype(np.uint8)
+            defect_label = "void"
+        elif "Blister" in selected_defect:
+            # Realistic blister: bright raised spot with rim
+            cx, cy = np.random.randint(300, 700), np.random.randint(300, 700)
+            radius = np.random.randint(30, 70)
+            mask = np.zeros((h, w), dtype=np.float32)
+            cv2.circle(mask, (cx, cy), radius, 1.0, -1)
+            mask = cv2.GaussianBlur(mask, (15, 15), 4.0)
+            for c in range(3):
+                optical[:, :, c] = np.clip(
+                    optical[:, :, c].astype(np.float32) + mask * 50, 0, 255
+                ).astype(np.uint8)
+            # Dark rim around blister
+            cv2.circle(optical, (cx, cy), radius + 5, (120, 115, 110), 2)
+            defect_label = "blister"
+        elif "Delamination" in selected_defect:
+            # Realistic delamination: irregular dark patch with texture change
+            cx, cy = np.random.randint(300, 700), np.random.randint(300, 700)
+            num_pts = np.random.randint(6, 10)
+            pts = []
+            for k in range(num_pts):
+                angle = 2 * np.pi * k / num_pts
+                r = np.random.randint(60, 130)
+                pts.append([int(cx + r * np.cos(angle)), int(cy + r * np.sin(angle))])
+            pts = np.array(pts, dtype=np.int32)
+            # Fill with different texture (peeled coating)
+            overlay = optical.copy()
+            cv2.fillPoly(overlay, [pts], (90, 85, 80))
+            # Add noise inside delamination area
+            mask = np.zeros((h, w), dtype=np.uint8)
+            cv2.fillPoly(mask, [pts], 255)
+            noise_patch = np.random.randint(-20, 20, (h, w, 3), dtype=np.int16)
+            overlay = np.clip(overlay.astype(np.int16) + noise_patch * (mask[:, :, None] > 0), 0, 255).astype(np.uint8)
+            # Blend
+            alpha = 0.7
+            optical = cv2.addWeighted(optical, 1 - alpha * (mask[:, :, None] > 0).astype(np.float32).mean(),
+                                      overlay, alpha * (mask[:, :, None] > 0).astype(np.float32).mean(), 0)
+            optical = np.clip(optical, 0, 255).astype(np.uint8)
+            cv2.polylines(optical, [pts], True, (60, 55, 50), 2)
+            defect_label = "delamination"
 
     # 2. Multi-source fusion
     fusion_result = fusion_mgr.fuse(
