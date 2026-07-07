@@ -463,7 +463,11 @@ with tab1:
             st.metric("Gate Action", res["gate_action"])
 
         if not res["passed"]:
-            st.error(f"**Rejection:** {', '.join(res['reject_reasons'])}")
+            reasons = res["reject_reasons"]
+            if len(reasons) > 3:
+                st.error(f"**REJECT** — {len(reasons)} quality violations detected. Top issues: {reasons[0]}; {reasons[1]}; ... (+{len(reasons)-2} more)")
+            elif reasons:
+                st.error(f"**REJECT** — {'; '.join(reasons)}")
 
         # 3-column + overlay sensor display
         st.markdown("#### Source Modalities & Defect Overlay")
@@ -514,9 +518,14 @@ with tab1:
         if len(res["defects"]) == 0:
             st.success("No anomalies detected.")
         else:
+            total_defects = len(res["defects"])
             df_defects = pd.DataFrame(res["defects"])
             display_cols = ["defect_id", "class_name", "length_mm", "area_mm2", "peak_height_um"]
             available_cols = [c for c in display_cols if c in df_defects.columns]
+            # Show summary + top 20 largest defects
+            if total_defects > 20:
+                st.warning(f"Detected **{total_defects} defect regions**. Showing top 20 by area:")
+                df_defects = df_defects.sort_values("area_mm2", ascending=False).head(20)
             st.dataframe(df_defects[available_cols], use_container_width=True)
 
         # Engine info

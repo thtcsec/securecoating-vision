@@ -82,8 +82,11 @@ def grade_coating(defects, grading_config):
     """
     passed = True
     reject_reasons = []
+    max_reasons = 10  # Cap rejection reasons to avoid spam
 
     for defect in defects:
+        if len(reject_reasons) >= max_reasons:
+            break
         cls_name = defect["class_name"]
         limits = grading_config.get(cls_name, {})
         
@@ -115,8 +118,27 @@ def grade_coating(defects, grading_config):
                 passed = False
                 reject_reasons.append(f"Delamination area {defect['area_mm2']}mm² exceeds limit {max_area}mm²")
                 
+    # Count remaining violations beyond the cap
+    remaining_violations = 0
+    if len(reject_reasons) >= max_reasons:
+        for defect in defects[max_reasons:]:
+            cls_name = defect["class_name"]
+            limits = grading_config.get(cls_name, {})
+            if cls_name == "scratch" and defect["length_mm"] > limits.get("max_allowable_length_mm", 5.0):
+                remaining_violations += 1
+            elif cls_name == "void" and defect["area_mm2"] > limits.get("max_allowable_area_mm2", 2.0):
+                remaining_violations += 1
+            elif cls_name == "blister" and defect["peak_height_um"] > limits.get("max_allowable_height_um", 50.0):
+                remaining_violations += 1
+            elif cls_name == "delamination" and defect["area_mm2"] > limits.get("max_allowable_area_mm2", 10.0):
+                remaining_violations += 1
+                passed = False
+        if remaining_violations > 0:
+            reject_reasons.append(f"... and {remaining_violations} additional violations")
+
     return {
         "passed": passed,
         "reject_reasons": reject_reasons,
+        "total_violations": len(reject_reasons) + remaining_violations,
         "action": "PASS" if passed else "REJECT"
     }
