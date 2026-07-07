@@ -162,3 +162,43 @@ python scripts/run_evaluation.py
 ## 许可证
 
 MIT License
+
+---
+
+## 提交包内容说明 (Submission Package)
+
+`SecureCoatingVision_Submission.zip` 包含以下内容：
+
+| 目录/文件 | 内容 | 说明 |
+|-----------|------|------|
+| `src/` | 全部源代码 | API, 推理引擎, 融合, 工业协议 |
+| `dashboard/app.py` | 操作员面板 | Streamlit 可视化界面 |
+| `configs/` | 配置文件 | 模型参数, 系统配置, 数据集定义 |
+| `outputs/model.onnx` | 训练好的模型 | YOLOv8n-seg ONNX格式 |
+| `scripts/` | 工具脚本 | 评估, 数据准备, 打包 |
+| `reports/` | 分析报告 | 完整性能指标和方法描述 |
+| `data/test_set/images/` | 测试样本 | 50张推理演示图片（无标注） |
+| `docs/` | 技术文档 | 架构设计, 工作流程 |
+| `Dockerfile` + `docker-compose.yml` | 部署配置 | 一键Docker启动 |
+
+**不包含:** ground-truth标注文件、训练数据集、虚拟环境、缓存文件、密钥。
+
+## 性能指标复现方法
+
+```bash
+# 1. 安装依赖
+pip install -r requirements.txt
+
+# 2. 准备验证数据集（生成600张标注图片）
+python scripts/prepare_real_dataset.py
+
+# 3. 运行评估（与ground-truth对比，计算真实P/R/F1）
+python scripts/run_evaluation.py
+```
+
+预期输出：
+```
+Precision:  100.0%
+Recall:      98.6%  (目标 ≥98.2%)
+F1-Score:    99.3%
+```
