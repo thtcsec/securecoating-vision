@@ -68,24 +68,34 @@ Dataset features procedurally generated metallic surface textures with:
 
 ## 4. Detection Performance Metrics
 
-### 4.1 Overall Results (Best Checkpoint)
+> **Reproducibility Note:** All metrics below can be independently reproduced by running:
+> ```bash
+> python scripts/run_evaluation.py
+> ```
+> This script performs real inference on the validation dataset and computes metrics by matching predictions against ground-truth labels at IoU≥0.50.
+
+### 4.1 Overall Results (ONNX Runtime Inference on Validation Set)
 
 | Metric | Box Detection | Instance Segmentation |
 |--------|--------------|----------------------|
-| Precision | 98.5% | 98.5% |
-| Recall | 99.5% | 99.5% |
+| Precision | 100.0% | 100.0% |
+| Recall | 98.6% | 98.6% |
 | mAP@0.5 | 99.4% | 99.4% |
 | mAP@0.5:0.95 | 94.0% | 90.3% |
-| F1-Score | 99.0% | 99.0% |
+| F1-Score | 99.3% | 99.3% |
+
+*Note: Precision/Recall/F1 computed via `scripts/run_evaluation.py` (IoU≥0.50 matching). mAP values from Ultralytics validation during training.*
 
 ### 4.2 Per-Class Performance (Mask Segmentation)
 
 | Class | Precision | Recall | mAP@0.5 | mAP@0.5:0.95 |
 |-------|-----------|--------|---------|---------------|
-| Scratch | 96.2% | 98.0% | 99.0% | 72.9% |
-| Void | 98.9% | 100.0% | 99.5% | 92.4% |
-| Blister | 100.0% | 100.0% | 99.5% | 96.6% |
-| Delamination | 98.8% | 100.0% | 99.5% | 99.5% |
+| Scratch | 100.0% | 96.1% | 99.0% | 72.9% |
+| Void | 100.0% | 100.0% | 99.5% | 92.4% |
+| Blister | 100.0% | 98.2% | 99.5% | 96.6% |
+| Delamination | 100.0% | 100.0% | 99.5% | 99.5% |
+
+*Precision/Recall: from `run_evaluation.py`. mAP: from Ultralytics training validation.*
 
 ### 4.3 Analysis
 - **Scratch** has lower mAP@0.5:0.95 (72.9%) due to thin elongated shape making pixel-precise IoU overlap harder at strict thresholds — this is expected for linear defects
@@ -100,9 +110,11 @@ Dataset features procedurally generated metallic surface textures with:
 
 | Platform | Engine | Latency/Frame | Throughput |
 |----------|--------|---------------|------------|
-| RTX 4050 (PyTorch) | CUDA FP16 | 8.7 ms | 115 FPS |
-| RTX 4050 (ONNX Runtime) | CPU fallback | 55.1 ms | 18 FPS |
-| Docker Container (CPU) | ONNX Runtime | ~80 ms | 12 FPS |
+| RTX 4050 (PyTorch FP16) | CUDA | 8.7 ms | 115 FPS |
+| CPU (ONNX Runtime) | CPUExecutionProvider | 43.8 ms | 22.9 FPS |
+| Docker Container (CPU) | ONNX Runtime | ~80 ms | ~12 FPS |
+
+*CPU latency measured via `scripts/run_evaluation.py`. GPU latency from Ultralytics training benchmarks.*
 
 ### 5.2 Latency Breakdown (GPU Pipeline)
 | Stage | Time |
@@ -188,14 +200,15 @@ LWIR Thermal (1024×1024) ───┤                                       [R,
 
 ## 9. Comparison with Design Targets
 
-| Metric | Target | Achieved | Status |
-|--------|--------|----------|--------|
-| mAP@0.5:0.95 | ≥92.5% | 94.0% (box) | ✅ Exceeded |
-| Defect Recall | ≥98.2% | 99.5% | ✅ Exceeded |
-| Inference Latency | ≤35 ms | 12.5 ms | ✅ 2.8× margin |
-| Line Speed Support | 2.0 m/s | 115 FPS (17× headroom) | ✅ Exceeded |
-| Model Size | Deployable on edge | 12.7 MB (ONNX) | ✅ Lightweight |
-| Sensor Fallback | Graceful degradation | 3-level fallback | ✅ Implemented |
+| Metric | Target | Achieved | Verification |
+|--------|--------|----------|--------------|
+| Precision@IoU0.5 | High | 100.0% | `run_evaluation.py` |
+| Defect Recall | ≥98.2% | 98.6% | `run_evaluation.py` |
+| mAP@0.5:0.95 | ≥92.5% | 94.0% (box) | Ultralytics val |
+| Inference Latency (GPU) | ≤35 ms | 8.7 ms | Training benchmark |
+| Inference Latency (CPU) | — | 43.8 ms | `run_evaluation.py` |
+| Model Size | Deployable on edge | 12.7 MB (ONNX) | File artifact |
+| Sensor Fallback | Graceful degradation | 3-level fallback | Code inspection |
 
 ---
 

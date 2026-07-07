@@ -1,215 +1,269 @@
 """
-SecureCoating-Vision: One-Click Evaluation Script
-===================================================
-Run this script to reproduce all performance metrics reported in the analysis.
-No configuration needed — automatically validates the model on the test dataset.
+SecureCoating-Vision: Reproducible Evaluation Script
+=====================================================
+Computes real detection metrics by running ONNX model inference on the
+validation dataset and comparing predictions against ground-truth labels.
+
+Metrics computed:
+- Per-class and overall Precision, Recall, F1
+- Detection rate (IoU-based matching)
+- Inference latency statistics
+- Full pipeline throughput
 
 Usage:
     python scripts/run_evaluation.py
+
+Prerequisites:
+    - outputs/model.onnx must exist (run training + export first)
+    - data/coating_defects/images/val/ and labels/val/ must exist
 """
 
 import os
 import sys
 import time
 import numpy as np
+import cv2
+from collections import defaultdict
 
-# Setup paths
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(PROJECT_ROOT)
 sys.path.insert(0, os.path.join(PROJECT_ROOT, "src"))
 
-
-def print_header():
-    print()
-    print("=" * 70)
-    print("  SecureCoating-Vision: Automated Performance Evaluation")
-    print("  Track 4: AI + Materials Testing and Characterization")
-    print("=" * 70)
-    print()
+CLASS_NAMES = {0: "scratch", 1: "void", 2: "blister", 3: "delamination"}
 
 
-def check_model():
-    """Verify model file exists."""
-    model_path = "outputs/model.onnx"
-    if os.path.exists(model_path):
-        size_mb = os.path.getsize(model_path) / (1024 * 1024)
-        print(f"  [OK] Model found: {model_path} ({size_mb:.1f} MB)")
-        return True
-    else:
-        print(f"  [!!] Model not found: {model_path}")
-        print("       Run training first: python src/training/train_yolo.py train --epochs 50")
-        return False
+def load_gt_labels(label_path, img_h=640, img_w=640):
+    """Parse YOLO segmentation label file into class IDs and bounding boxes."""
+    labels = []
+    if not os.path.exists(label_path):
+        return labels
+    with open(label_path, 'r') as f:
+        for line in f:
+            parts = line.strip().split()
+            if len(parts) < 5:
+                continue
+            class_id = int(parts[0])
+            # Parse polygon points, compute bounding box
+            coords = [float(x) for x in parts[1:]]
+            xs = [coords[i] * img_w for i in range(0, len(coords), 2)]
+            ys = [coords[i] * img_h for i in range(1, len(coords), 2)]
+            if not xs or not ys:
+                continue
+            x1, y1 = min(xs), min(ys)
+            x2, y2 = max(xs), max(ys)
+            labels.append({
+                "class_id": class_id,
+                "bbox": [x1, y1, x2 - x1, y2 - y1],  # x, y, w, h
+                "area": (x2 - x1) * (y2 - y1)
+            })
+    return labels
 
 
-def check_dataset():
-    """Verify test dataset exists."""
-    test_dir = "data/test_set/images"
-    if os.path.exists(test_dir):
-        n_images = len([f for f in os.listdir(test_dir) if f.endswith(('.jpg', '.png'))])
-        print(f"  [OK] Test dataset: {n_images} images")
-        return n_images > 0
-    print("  [!!] Test dataset not found")
-    return False
+def compute_iou(box1, box2):
+    """Compute IoU between two boxes [x, y, w, h]."""
+    x1 = max(box1[0], box2[0])
+    y1 = max(box1[1], box2[1])
+    x2 = min(box1[0] + box1[2], box2[0] + box2[2])
+    y2 = min(box1[1] + box1[3], box2[1] + box2[3])
+
+    inter = max(0, x2 - x1) * max(0, y2 - y1)
+    area1 = box1[2] * box1[3]
+    area2 = box2[2] * box2[3]
+    union = area1 + area2 - inter
+
+    return inter / (union + 1e-6)
 
 
-def run_inference_benchmark():
-    """Benchmark inference latency on test images."""
+def match_detections(gt_labels, detections, iou_threshold=0.5):
+    """Match detections to ground truth using IoU threshold."""
+    tp = 0
+    fp = 0
+    fn = 0
+    matched_gt = set()
+    class_results = defaultdict(lambda: {"tp": 0, "fp": 0, "fn": 0})
+
+    # Sort detections by confidence (highest first)
+    sorted_dets = sorted(detections, key=lambda d: d.get("confidence", 0), reverse=True)
+
+    for det in sorted_dets:
+        det_bbox = det.get("box", None)
+        if det_bbox is None:
+            continue
+        # Convert from [x1, y1, x2, y2] to [x, y, w, h] if needed
+        if len(det_bbox) == 4:
+            if det_bbox[2] > det_bbox[0] and det_bbox[3] > det_bbox[1]:
+                # x1, y1, x2, y2 format
+                det_bbox = [det_bbox[0], det_bbox[1],
+                           det_bbox[2] - det_bbox[0], det_bbox[3] - det_bbox[1]]
+
+        det_class = det.get("class_id", 0)
+        best_iou = 0
+        best_gt_idx = -1
+
+        for i, gt in enumerate(gt_labels):
+            if i in matched_gt:
+                continue
+            if gt["class_id"] != det_class:
+                continue
+            iou = compute_iou(det_bbox, gt["bbox"])
+            if iou > best_iou:
+                best_iou = iou
+                best_gt_idx = i
+
+        if best_iou >= iou_threshold and best_gt_idx >= 0:
+            tp += 1
+            matched_gt.add(best_gt_idx)
+            class_results[det_class]["tp"] += 1
+        else:
+            fp += 1
+            class_results[det_class]["fp"] += 1
+
+    # Count false negatives (unmatched GT)
+    for i, gt in enumerate(gt_labels):
+        if i not in matched_gt:
+            fn += 1
+            class_results[gt["class_id"]]["fn"] += 1
+
+    return tp, fp, fn, class_results
+
+
+def run_evaluation():
+    """Main evaluation routine."""
     from inference.onnx_engine import InferenceEngine
-    import cv2
 
-    engine = InferenceEngine("outputs/model.onnx", imgsz=640, conf_thresh=0.5)
-    print(f"\n  Inference Engine: {engine.active_provider}")
+    print()
+    print("=" * 70)
+    print("  SecureCoating-Vision: Reproducible Model Evaluation")
+    print("  Computing real metrics against ground-truth validation labels")
+    print("=" * 70)
 
-    test_dir = "data/test_set/images"
-    images = [f for f in os.listdir(test_dir) if f.endswith(('.jpg', '.png'))][:50]
+    # Check prerequisites
+    model_path = "outputs/model.onnx"
+    val_img_dir = "data/coating_defects/images/val"
+    val_lbl_dir = "data/coating_defects/labels/val"
 
+    if not os.path.exists(model_path):
+        print(f"\n  [ERROR] Model not found: {model_path}")
+        print("  Run: python src/training/train_yolo.py train --epochs 50")
+        sys.exit(1)
+
+    if not os.path.exists(val_img_dir) or not os.path.exists(val_lbl_dir):
+        print(f"\n  [ERROR] Validation data not found.")
+        print("  Run: python scripts/prepare_real_dataset.py")
+        sys.exit(1)
+
+    # Load engine
+    engine = InferenceEngine(model_path, imgsz=640, conf_thresh=0.5)
+    print(f"\n  Model: {model_path} ({os.path.getsize(model_path)/1024/1024:.1f} MB)")
+    print(f"  Provider: {engine.active_provider}")
+
+    # Get validation images
+    images = sorted([f for f in os.listdir(val_img_dir) if f.endswith(('.jpg', '.png'))])
+    print(f"  Validation images: {len(images)}")
+    print(f"\n  Running inference + evaluation...")
+
+    # Evaluate
+    total_tp, total_fp, total_fn = 0, 0, 0
+    all_class_results = defaultdict(lambda: {"tp": 0, "fp": 0, "fn": 0})
     latencies = []
-    detections_total = 0
-    class_counts = {0: 0, 1: 0, 2: 0, 3: 0}
+    total_gt = 0
+    total_det = 0
 
     for img_name in images:
-        img = cv2.imread(os.path.join(test_dir, img_name))
+        img_path = os.path.join(val_img_dir, img_name)
+        lbl_name = img_name.rsplit('.', 1)[0] + '.txt'
+        lbl_path = os.path.join(val_lbl_dir, lbl_name)
+
+        img = cv2.imread(img_path)
         if img is None:
             continue
 
+        h, w = img.shape[:2]
+
+        # Load ground truth
+        gt_labels = load_gt_labels(lbl_path, h, w)
+        total_gt += len(gt_labels)
+
+        # Run inference
         result = engine.infer(img)
         latencies.append(result["latency_ms"])
-        detections_total += result["num_defects"]
+        detections = result.get("detections", [])
+        total_det += len(detections)
 
-        for det in result.get("detections", []):
-            cid = det.get("class_id", 0)
-            if cid in class_counts:
-                class_counts[cid] += 1
+        # Match predictions to ground truth
+        tp, fp, fn, class_results = match_detections(gt_labels, detections, iou_threshold=0.5)
+        total_tp += tp
+        total_fp += fp
+        total_fn += fn
 
-    return {
-        "num_images": len(latencies),
-        "avg_latency_ms": np.mean(latencies),
-        "min_latency_ms": np.min(latencies),
-        "max_latency_ms": np.max(latencies),
-        "p95_latency_ms": np.percentile(latencies, 95),
-        "throughput_fps": 1000.0 / np.mean(latencies),
-        "total_detections": detections_total,
-        "class_counts": class_counts,
-        "provider": engine.active_provider,
-    }
+        for cls_id, counts in class_results.items():
+            all_class_results[cls_id]["tp"] += counts["tp"]
+            all_class_results[cls_id]["fp"] += counts["fp"]
+            all_class_results[cls_id]["fn"] += counts["fn"]
 
+    # Compute metrics
+    precision = total_tp / (total_tp + total_fp + 1e-6)
+    recall = total_tp / (total_tp + total_fn + 1e-6)
+    f1 = 2 * precision * recall / (precision + recall + 1e-6)
 
-def run_pipeline_test():
-    """Test full pipeline: fusion + inference + grading + industrial signal."""
-    from inference.predictor import CoatingPredictor
-    from inference.sensor_fusion import SensorFusionManager
-    from inference.failsafe import FailSafeManager
-    from inference.postprocess import extract_defects_from_mask, grade_coating
-    from industrial.protocol_manager import IndustrialProtocolManager
-    import yaml
-    import cv2
-
-    cfg = yaml.safe_load(open("configs/model.yaml"))
-    app_cfg = yaml.safe_load(open("configs/app.yaml"))
-
-    predictor = CoatingPredictor(cfg)
-    fusion = SensorFusionManager(target_size=(1024, 1024), enable_mock=True)
-    failsafe = FailSafeManager(max_inference_timeout_ms=5000.0)
-    industrial = IndustrialProtocolManager(app_cfg.get("industrial_io", {}))
-
-    # Run on a sample image
-    test_dir = "data/test_set/images"
-    images = [f for f in os.listdir(test_dir) if f.endswith(('.jpg', '.png'))]
-    img = cv2.imread(os.path.join(test_dir, images[0]))
-    img = cv2.resize(img, (1024, 1024))
-
-    # Full pipeline
-    start = time.time()
-    fusion_result = fusion.fuse(img, thermal_online=True, profiler_online=True)
-    result = failsafe.safe_predict(predictor, img, fusion_result.thermal_frame, fusion_result.height_frame)
-    seg_mask = result.get("segmentation_mask", np.zeros((1024, 1024), dtype=np.uint8))
-    defects = extract_defects_from_mask(seg_mask, fusion_result.height_frame, pixel_to_mm_ratio=0.1)
-    grade = grade_coating(defects, cfg.get("inference", {}).get("grading", {}))
-    ind = industrial.process_inspection_result("PART_TEST", "BATCH_TEST", defects, grade)
-    total_ms = (time.time() - start) * 1000
-
-    return {
-        "pipeline_latency_ms": total_ms,
-        "defects_detected": len(defects),
-        "grade": "PASS" if grade["passed"] else "REJECT",
-        "gate_action": ind["gate_action"],
-        "engine": result.get("engine", "Unknown"),
-        "system_state": result.get("system_state", "Unknown"),
-    }
-
-
-def print_results(bench, pipeline):
-    """Print formatted evaluation report."""
-    class_names = {0: "Scratch", 1: "Void", 2: "Blister", 3: "Delamination"}
-
+    # Print results
     print("\n" + "=" * 70)
-    print("  EVALUATION RESULTS")
+    print("  EVALUATION RESULTS (IoU threshold = 0.50)")
     print("=" * 70)
 
-    print("\n  [1] INFERENCE PERFORMANCE")
-    print("  " + "-" * 40)
-    print(f"  Provider:           {bench['provider']}")
-    print(f"  Images Tested:      {bench['num_images']}")
-    print(f"  Avg Latency:        {bench['avg_latency_ms']:.1f} ms")
-    print(f"  P95 Latency:        {bench['p95_latency_ms']:.1f} ms")
-    print(f"  Min Latency:        {bench['min_latency_ms']:.1f} ms")
-    print(f"  Throughput:         {bench['throughput_fps']:.1f} FPS")
-    print(f"  Total Detections:   {bench['total_detections']}")
+    print(f"\n  Overall (across {len(images)} images, {total_gt} GT instances):")
+    print(f"  {'─' * 50}")
+    print(f"  {'Metric':<25} {'Value':<15} {'Target':<15}")
+    print(f"  {'─' * 50}")
+    print(f"  {'Precision':<25} {precision*100:.1f}%")
+    print(f"  {'Recall':<25} {recall*100:.1f}%{'≥98.2%':>15}")
+    print(f"  {'F1-Score':<25} {f1*100:.1f}%")
+    print(f"  {'Total Detections':<25} {total_det}")
+    print(f"  {'True Positives':<25} {total_tp}")
+    print(f"  {'False Positives':<25} {total_fp}")
+    print(f"  {'False Negatives':<25} {total_fn}")
 
-    print("\n  [2] DETECTION DISTRIBUTION")
-    print("  " + "-" * 40)
-    for cid, count in bench['class_counts'].items():
-        print(f"  {class_names[cid]:15s}:  {count} instances")
+    print(f"\n  Per-Class Breakdown:")
+    print(f"  {'─' * 60}")
+    print(f"  {'Class':<15} {'TP':<6} {'FP':<6} {'FN':<6} {'Precision':<12} {'Recall':<12}")
+    print(f"  {'─' * 60}")
+    for cls_id in sorted(all_class_results.keys()):
+        r = all_class_results[cls_id]
+        cls_p = r["tp"] / (r["tp"] + r["fp"] + 1e-6)
+        cls_r = r["tp"] / (r["tp"] + r["fn"] + 1e-6)
+        name = CLASS_NAMES.get(cls_id, f"class_{cls_id}")
+        print(f"  {name:<15} {r['tp']:<6} {r['fp']:<6} {r['fn']:<6} {cls_p*100:<12.1f} {cls_r*100:<12.1f}")
 
-    print("\n  [3] FULL PIPELINE TEST")
-    print("  " + "-" * 40)
-    print(f"  Engine:             {pipeline['engine']}")
-    print(f"  Pipeline Latency:   {pipeline['pipeline_latency_ms']:.1f} ms")
-    print(f"  Defects Found:      {pipeline['defects_detected']}")
-    print(f"  Quality Grade:      {pipeline['grade']}")
-    print(f"  Gate Action:        {pipeline['gate_action']}")
-    print(f"  System State:       {pipeline['system_state']}")
+    print(f"\n  Latency Statistics ({engine.active_provider}):")
+    print(f"  {'─' * 50}")
+    print(f"  {'Mean':<25} {np.mean(latencies):.1f} ms")
+    print(f"  {'Median':<25} {np.median(latencies):.1f} ms")
+    print(f"  {'P95':<25} {np.percentile(latencies, 95):.1f} ms")
+    print(f"  {'Min':<25} {np.min(latencies):.1f} ms")
+    print(f"  {'Max':<25} {np.max(latencies):.1f} ms")
+    print(f"  {'Throughput':<25} {1000.0/np.mean(latencies):.1f} FPS")
 
-    print("\n  [4] BENCHMARK METRICS (from training)")
-    print("  " + "-" * 40)
-    print(f"  Model:              YOLOv8n-seg (3.26M params, 11.3 GFLOPs)")
-    print(f"  mAP@0.5:           99.4%")
-    print(f"  mAP@0.5:0.95:      94.0% (box) / 90.3% (mask)")
-    print(f"  Recall:             99.5%")
-    print(f"  Precision:          98.5%")
-    print(f"  Training Epochs:    50")
-    print(f"  Training Time:      17 minutes (RTX 4050)")
-
-    print("\n  [5] SYSTEM CAPABILITIES")
-    print("  " + "-" * 40)
-    print(f"  Multi-Source Fusion:  RGB + Thermal + 3D (5-channel)")
-    print(f"  Fail-Safe Levels:     3 (Optimal → Degraded → Emergency)")
-    print(f"  Industrial I/O:       OPC UA + Modbus TCP (simulated)")
-    print(f"  API Endpoints:        13 (FastAPI)")
-    print(f"  Deployment:           Docker Compose (API + Dashboard)")
-    print(f"  Quality Traceability: SQLite + SPC alarms")
+    print(f"\n  Model Specifications:")
+    print(f"  {'─' * 50}")
+    print(f"  {'Architecture':<25} YOLOv8n-seg")
+    print(f"  {'Parameters':<25} 3,258,844")
+    print(f"  {'GFLOPs':<25} 11.3")
+    print(f"  {'Input Size':<25} 640x640")
+    print(f"  {'Export Format':<25} ONNX (opset 12)")
+    print(f"  {'File Size':<25} {os.path.getsize(model_path)/1024/1024:.1f} MB")
 
     print("\n" + "=" * 70)
-    print("  EVALUATION COMPLETE")
+    print("  EVALUATION COMPLETE — Results are reproducible by re-running this script")
     print("=" * 70)
     print()
 
+    return {
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
+        "avg_latency_ms": np.mean(latencies),
+    }
+
 
 if __name__ == "__main__":
-    print_header()
-
-    print("  Checking prerequisites...")
-    model_ok = check_model()
-    data_ok = check_dataset()
-
-    if not model_ok or not data_ok:
-        print("\n  Cannot proceed. Please ensure model and test data are available.")
-        sys.exit(1)
-
-    print("\n  Running inference benchmark (50 images)...")
-    bench = run_inference_benchmark()
-
-    print("  Running full pipeline test...")
-    pipeline = run_pipeline_test()
-
-    print_results(bench, pipeline)
+    run_evaluation()

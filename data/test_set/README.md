@@ -1,12 +1,11 @@
-# Test Dataset
+# Test Dataset (Inference Samples)
 
-50 sample images with ground-truth segmentation annotations for evaluation.
+50 sample coating surface images for demonstrating inference capabilities.
 
 ## Format
-- `images/` — Input images (640×640 JPEG)
-- `labels/` — YOLO segmentation polygon annotations (class_id x1 y1 x2 y2 ... xn yn)
+- `images/` — Input images (640x640 JPEG, metallic coating surfaces with defects)
 
-## Classes
+## Classes (detected by model)
 | ID | Name | Description |
 |----|------|-------------|
 | 0 | scratch | Linear surface cracks/scratches |
@@ -16,6 +15,14 @@
 
 ## Usage
 ```bash
-# Run validation on test set
-yolo val task=segment model=outputs/model.onnx data=configs/dataset.yaml split=val
+# Run inference on test images
+python scripts/run_evaluation.py
+
+# Or use the dashboard: upload any image from images/ folder
+streamlit run dashboard/app.py
 ```
+
+## Note
+These images are provided for inference demonstration only.
+Ground-truth annotations are held separately for validation and are not included in this package.
+Full validation metrics are reproduced via `scripts/run_evaluation.py` using the training validation split.
