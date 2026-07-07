@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   api:
     build:
@@ -12,9 +10,21 @@ services:
     environment:
       - MODEL_CONFIG=configs/model.yaml
       - APP_CONFIG=configs/app.yaml
+      - PYTHONPATH=/app
     volumes:
-      - .:/app
-    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000
+      - ./outputs:/app/outputs
+      - ./data:/app/data
+      - ./logs:/app/logs
+    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --workers 2
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - coating_net
 
   dashboard:
     build:
@@ -27,8 +37,25 @@ services:
     environment:
       - MODEL_CONFIG=configs/model.yaml
       - APP_CONFIG=configs/app.yaml
+      - PYTHONPATH=/app
     volumes:
-      - .:/app
+      - ./outputs:/app/outputs
+      - ./data:/app/data
+      - ./logs:/app/logs
     depends_on:
-      - api
-    command: streamlit run dashboard/app.py --server.address=0.0.0.0 --server.port=8501
+      api:
+        condition: service_healthy
+    command: streamlit run dashboard/app.py --server.address=0.0.0.0 --server.port=8501 --server.headless=true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    networks:
+      - coating_net
+
+networks:
+  coating_net:
+    driver: bridge

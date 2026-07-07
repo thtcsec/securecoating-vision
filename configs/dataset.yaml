@@ -1,0 +1,28 @@
+# SecureCoating-Vision: YOLOv8 Dataset Configuration
+# This file defines the dataset structure for training YOLOv8 segmentation models.
+# Place your images/labels following the YOLO format in the paths below.
+
+# Root dataset path (absolute or relative to where training script runs)
+path: data/coating_defects
+
+# Train/Val/Test splits
+train: images/train
+val: images/val
+test: images/test
+
+# Number of classes
+nc: 4
+
+# Class names matching defect categories
+names:
+  0: scratch
+  1: void
+  2: blister
+  3: delamination
+
+# Dataset metadata
+metadata:
+  description: "CoatingVision 2026 - Surface coating defect segmentation"
+  version: "1.0"
+  source: "Multi-source sensor fusion inspection system"
+  annotation_format: "YOLO segmentation (polygon masks)"

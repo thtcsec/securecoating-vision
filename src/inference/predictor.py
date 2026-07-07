@@ -1,3 +1,4 @@
+import os
 import time
 import logging
 import numpy as np
@@ -44,7 +45,14 @@ class SimpleFusionNetwork(nn.Module):
 class CoatingPredictor:
     def __init__(self, model_config):
         self.config = model_config
-        self.device = torch.device(self.config.get("inference", {}).get("device", "cpu"))
+        
+        # Resolve device with graceful CUDA fallback
+        requested_device = self.config.get("inference", {}).get("device", "cpu")
+        if requested_device == "cuda" and not torch.cuda.is_available():
+            logger.warning("CUDA requested but not available. Falling back to CPU.")
+            self.device = torch.device("cpu")
+        else:
+            self.device = torch.device(requested_device)
         
         # Instantiate network
         self.num_classes = self.config.get("model", {}).get("num_classes", 5)
@@ -52,12 +60,36 @@ class CoatingPredictor:
         self.model.to(self.device)
         self.model.eval()
         
+        # Try to load ONNX engine for accelerated inference
+        self.onnx_engine = None
+        self._init_onnx_engine()
+        
         # Setup homography calibration targets (mock values)
         # Used to warp Thermal and 3D Height profiles to align with RGB camera frame
         self.h_thermal_to_rgb = np.eye(3, dtype=np.float32)
         self.h_depth_to_rgb = np.eye(3, dtype=np.float32)
         
         logger.info(f"CoatingPredictor initialized on device: {self.device}")
+        if self.onnx_engine and self.onnx_engine.is_loaded:
+            logger.info(f"ONNX Engine active: {self.onnx_engine.active_provider}")
+
+    def _init_onnx_engine(self):
+        """Initialize ONNX Runtime engine if model.onnx is available."""
+        try:
+            from inference.onnx_engine import InferenceEngine
+            onnx_path = os.path.join("outputs", "model.onnx")
+            conf = self.config.get("inference", {}).get("confidence_threshold", 0.5)
+            iou = self.config.get("inference", {}).get("nms_threshold", 0.45)
+            self.onnx_engine = InferenceEngine(
+                model_path=onnx_path,
+                imgsz=640,
+                conf_thresh=conf,
+                iou_thresh=iou,
+                device="auto"
+            )
+        except Exception as e:
+            logger.info(f"ONNX engine not available, using PyTorch fallback: {e}")
+            self.onnx_engine = None
 
     def align_sensors(self, optical, thermal, height):
         """
@@ -126,6 +158,10 @@ class CoatingPredictor:
     def predict(self, optical, thermal=None, height=None):
         """
         Run aligned multi-source inputs through the forward pass.
+        
+        Uses ONNX Runtime engine if available (faster, production-ready),
+        otherwise falls back to PyTorch SimpleFusionNetwork.
+        
         Returns:
             dict containing class scores, segmentation masks, inference time, and status.
         """
@@ -134,10 +170,29 @@ class CoatingPredictor:
         # Spatial registration warp
         aligned_thermal, aligned_height = self.align_sensors(optical, thermal, height)
         
-        # Normalization and stacking
-        input_tensor, fallback_active = self.preprocess(optical, aligned_thermal, aligned_height)
+        # Determine fallback status from sensor availability
+        _, fallback_active = self.preprocess(optical, aligned_thermal, aligned_height)
         
-        # Inference
+        # Try ONNX engine first (YOLOv8 seg on RGB only - production path)
+        if self.onnx_engine is not None and self.onnx_engine.is_loaded:
+            onnx_result = self.onnx_engine.infer(optical)
+            latency_ms = (time.time() - start_time) * 1000.0
+            
+            return {
+                "class_probabilities": [0.0] * self.num_classes,
+                "predicted_class_id": int(np.max(onnx_result["segmentation_mask"])),
+                "segmentation_mask": onnx_result["segmentation_mask"],
+                "detections": onnx_result.get("detections", []),
+                "latency_ms": latency_ms,
+                "fallback_active": fallback_active,
+                "status": "Degraded Mode" if fallback_active else "Optimal",
+                "engine": "ONNX Runtime"
+            }
+        
+        # Fallback: PyTorch fusion network (5-channel input)
+        input_tensor, fallback_active = self.preprocess(optical, aligned_thermal, aligned_height)
+        orig_h, orig_w = optical.shape[:2]
+        
         with torch.no_grad():
             cls_out, seg_out = self.model(input_tensor)
             
@@ -146,8 +201,12 @@ class CoatingPredictor:
             predicted_class = int(np.argmax(class_probs))
             
             # Get class probability map for segmentation mask
-            seg_probs = torch.softmax(seg_out, dim=1).cpu().numpy()[0] # Shape (Classes, H, W)
+            seg_probs = torch.softmax(seg_out, dim=1).cpu().numpy()[0]  # Shape (Classes, H, W)
             seg_mask = np.argmax(seg_probs, axis=0).astype(np.uint8)
+            
+            # Ensure mask matches original input dimensions
+            if seg_mask.shape[0] != orig_h or seg_mask.shape[1] != orig_w:
+                seg_mask = cv2.resize(seg_mask, (orig_w, orig_h), interpolation=cv2.INTER_NEAREST)
             
         latency_ms = (time.time() - start_time) * 1000.0
         
@@ -155,7 +214,9 @@ class CoatingPredictor:
             "class_probabilities": class_probs.tolist(),
             "predicted_class_id": predicted_class,
             "segmentation_mask": seg_mask,
+            "detections": [],
             "latency_ms": latency_ms,
             "fallback_active": fallback_active,
-            "status": "Degraded Mode" if fallback_active else "Optimal"
+            "status": "Degraded Mode" if fallback_active else "Optimal",
+            "engine": "PyTorch (Fusion)"
         }

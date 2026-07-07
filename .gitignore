@@ -1,20 +1,39 @@
+# Virtual environment
+.venv/
+venv/
+env/
+
 # Python caches
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.egg-info/
 
 # Local database and artifacts
 data/quality_history.db
+data/coating_defects/
 outputs/
+runs/
+logs/
 
 # IDE files
 .idea/
 .vscode/
+.kiro/
 .DS_Store
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
 
-
+# Environment variables
 .env
+
+# Model weights (too large for git)
+*.onnx
+*.pt
+*.pth
+*.engine
+
+# Docker volumes
+docker-data/

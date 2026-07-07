@@ -1,10 +1,35 @@
-fastapi>=0.95.0
-uvicorn>=0.21.0
-pydantic>=1.10.0
-PyYAML>=6.0
-numpy>=1.22.0
-opencv-python-headless>=4.5.0
-streamlit>=1.20.0
-torch>=1.12.0
-matplotlib>=3.5.0
-pandas>=1.4.0
+# SecureCoating-Vision: Local Development Dependencies
+# For Docker deployment, see requirements-docker.txt
+
+# Core API
+fastapi>=0.104.0
+uvicorn>=0.24.0
+pydantic>=2.5.0
+python-multipart>=0.0.6
+
+# Configuration
+PyYAML>=6.0.1
+
+# Scientific computing
+numpy>=1.24.0
+pandas>=2.1.0
+
+# Computer vision
+opencv-python-headless>=4.8.0
+
+# Deep learning (install GPU version manually for local dev):
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+torch>=2.1.0
+torchvision>=0.16.0
+
+# ONNX Runtime (use onnxruntime-gpu for local GPU inference)
+onnxruntime>=1.16.0
+
+# YOLOv8 training
+ultralytics>=8.1.0
+
+# Dashboard
+streamlit>=1.29.0
+
+# Visualization
+matplotlib>=3.8.0

@@ -1,0 +1,32 @@
+# SecureCoating-Vision: Docker Dependencies (CPU-only, lightweight)
+# For local GPU development, use: pip install -r requirements.txt
+
+# Core API
+fastapi==0.104.1
+uvicorn==0.24.0
+pydantic==2.5.2
+python-multipart==0.0.6
+
+# Configuration
+PyYAML==6.0.1
+
+# Scientific computing
+numpy==1.24.4
+pandas==2.1.4
+
+# Computer vision (headless for Docker)
+opencv-python-headless==4.8.1.78
+
+# PyTorch CPU-only (much smaller download ~200MB vs 2.5GB)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.1.2+cpu
+torchvision==0.16.2+cpu
+
+# ONNX Runtime CPU
+onnxruntime==1.16.3
+
+# Dashboard
+streamlit==1.29.0
+
+# Visualization
+matplotlib==3.8.2
