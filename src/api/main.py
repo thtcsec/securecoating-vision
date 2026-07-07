@@ -42,7 +42,12 @@ logging.basicConfig(
 logger = logging.getLogger("SecureCoatingVision.API")
 
 # Adjust pathing for module imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+SRC_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if SRC_DIR not in sys.path:
+    sys.path.insert(0, SRC_DIR)
+# Ensure working directory is project root for config file access
+PROJECT_ROOT = os.path.dirname(SRC_DIR)
+os.chdir(PROJECT_ROOT)
 from inference.predictor import CoatingPredictor
 from inference.postprocess import extract_defects_from_mask, grade_coating
 from inference.sensor_fusion import SensorFusionManager

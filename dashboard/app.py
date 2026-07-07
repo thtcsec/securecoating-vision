@@ -71,7 +71,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Path resolution for module imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SRC_DIR = os.path.join(PROJECT_ROOT, "src")
+sys.path.insert(0, SRC_DIR)
+os.chdir(PROJECT_ROOT)
+
 from inference.predictor import CoatingPredictor
 from inference.postprocess import extract_defects_from_mask, grade_coating
 from inference.sensor_fusion import SensorFusionManager
