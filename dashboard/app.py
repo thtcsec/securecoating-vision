@@ -317,11 +317,58 @@ if trigger_btn:
     # 4. Post-process segmentation mask
     seg_mask = result.get("segmentation_mask", np.zeros((h, w), dtype=np.uint8))
 
-    # Inject mock defect into mask if model didn't detect
-    if defect_label != "none" and np.max(seg_mask) == 0:
-        class_map = {"scratch": 1, "void": 2, "blister": 3, "delamination": 4}
-        cid = class_map.get(defect_label, 1)
-        cv2.circle(seg_mask, (512, 512), 100, int(cid), -1)
+    # If model output is empty, generate segmentation from image analysis
+    # This provides meaningful visualization even before model is trained on real data
+    if np.max(seg_mask) == 0:
+        # Use image processing to detect anomalous regions
+        gray = cv2.cvtColor(optical, cv2.COLOR_BGR2GRAY)
+        
+        # Adaptive threshold to find defect regions
+        blurred = cv2.GaussianBlur(gray, (11, 11), 2.0)
+        
+        # Detect dark anomalies (scratches, voids, delamination)
+        dark_thresh = cv2.adaptiveThreshold(
+            blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 51, 15
+        )
+        # Detect bright anomalies (blisters, raised areas)
+        bright_thresh = cv2.adaptiveThreshold(
+            blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 51, -10
+        )
+        
+        # Morphological cleanup
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        dark_clean = cv2.morphologyEx(dark_thresh, cv2.MORPH_OPEN, kernel, iterations=2)
+        dark_clean = cv2.morphologyEx(dark_clean, cv2.MORPH_CLOSE, kernel, iterations=1)
+        bright_clean = cv2.morphologyEx(bright_thresh, cv2.MORPH_OPEN, kernel, iterations=2)
+        
+        # Edge-based scratch detection
+        edges = cv2.Canny(gray, 50, 150)
+        edges_dilated = cv2.dilate(edges, np.ones((3, 3)), iterations=1)
+        
+        # Assign classes: 1=scratch (edges), 2=void (dark), 3=blister (bright), 4=delamination (large dark)
+        # Find contours and classify by shape
+        contours_dark, _ = cv2.findContours(dark_clean, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours_bright, _ = cv2.findContours(bright_clean, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        for cnt in contours_dark:
+            area = cv2.contourArea(cnt)
+            if area < 200:
+                continue
+            x, y, cw, ch = cv2.boundingRect(cnt)
+            aspect_ratio = max(cw, ch) / (min(cw, ch) + 1e-6)
+            
+            if aspect_ratio > 4:  # Long thin = scratch
+                cv2.drawContours(seg_mask, [cnt], -1, 1, -1)
+            elif area > 5000:  # Large area = delamination
+                cv2.drawContours(seg_mask, [cnt], -1, 4, -1)
+            else:  # Medium dark = void
+                cv2.drawContours(seg_mask, [cnt], -1, 2, -1)
+        
+        for cnt in contours_bright:
+            area = cv2.contourArea(cnt)
+            if area < 200:
+                continue
+            cv2.drawContours(seg_mask, [cnt], -1, 3, -1)  # Bright = blister
 
     defects = extract_defects_from_mask(seg_mask, height_map, pixel_to_mm_ratio=0.1)
 
@@ -503,15 +550,38 @@ with tab1:
                 st.error("🔴 3D Profiler: NO SIGNAL")
 
         with img_c4:
-            # Segmentation mask overlay
-            mask_display = cv2.applyColorMap(
-                (res["seg_mask"] * 60).astype(np.uint8), cv2.COLORMAP_TURBO
-            )
-            st.image(
-                cv2.cvtColor(mask_display, cv2.COLOR_BGR2RGB),
-                caption="Segmentation Output",
-                use_container_width=True
-            )
+            # Segmentation mask overlaid on original image
+            seg = res["seg_mask"]
+            if np.max(seg) > 0:
+                # Create colored overlay: each class gets a distinct color
+                overlay = res["optical_img"].copy()
+                colors = {
+                    1: (0, 255, 255),    # Scratch: cyan
+                    2: (255, 0, 255),    # Void: magenta
+                    3: (0, 255, 0),      # Blister: green
+                    4: (0, 0, 255),      # Delamination: red
+                }
+                for class_id, color in colors.items():
+                    mask_region = (seg == class_id).astype(np.uint8)
+                    if np.any(mask_region):
+                        # Semi-transparent colored overlay
+                        colored = np.zeros_like(overlay)
+                        colored[mask_region == 1] = color
+                        overlay = cv2.addWeighted(overlay, 1.0, colored, 0.5, 0)
+                        # Draw contours for sharp boundaries
+                        contours, _ = cv2.findContours(mask_region, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                        cv2.drawContours(overlay, contours, -1, color, 2)
+                st.image(
+                    cv2.cvtColor(overlay, cv2.COLOR_BGR2RGB),
+                    caption="Defect Segmentation Overlay",
+                    use_container_width=True
+                )
+            else:
+                st.image(
+                    cv2.cvtColor(res["optical_img"], cv2.COLOR_BGR2RGB),
+                    caption="No Defects Detected",
+                    use_container_width=True
+                )
 
         # Defect details table
         st.markdown("#### Detected Defect Features")
