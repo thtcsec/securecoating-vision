@@ -1,0 +1,5 @@
+Class,TP,FP,FN,Precision,Recall
+delamination,0,7,6,0.0,0.0
+void,10,6,0,0.625,1.0
+blister,8,4,0,0.6667,1.0
+scratch,2,0,4,1.0,0.3333

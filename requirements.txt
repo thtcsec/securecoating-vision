@@ -1,5 +1,6 @@
 # SecureCoating-Vision: Local Development Dependencies
 # For Docker deployment, see requirements-docker.txt
+# For GPU CUDA acceleration, see requirements-gpu.txt
 
 # Core API
 fastapi>=0.104.0
@@ -17,17 +18,14 @@ pandas>=2.1.0
 # Computer vision
 opencv-python-headless>=4.8.0
 
-# Deep learning — local GPU (RTX):
-#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+# Deep learning (CPU/Universal PyTorch)
 torch>=2.1.0
 torchvision>=0.16.0
 
-# ONNX Runtime — CUDA 12 systems: onnxruntime-gpu==1.19.2
-# (1.27+ needs CUDA 13). CPU-only fallback: onnxruntime
-onnxruntime-gpu==1.19.2; platform_system=="Windows" or platform_system=="Linux"
-onnxruntime>=1.16.0; platform_system=="Darwin"
+# ONNX Runtime (CPU default for universal compatibility across evaluation machines)
+onnxruntime>=1.16.0
 
-# YOLOv8 training
+# YOLOv8 segmentation
 ultralytics>=8.1.0
 
 # Dashboard

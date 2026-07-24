@@ -48,7 +48,8 @@ WHITELIST = [
     "configs/dataset.yaml",
     # Scripts
     "scripts/run_evaluation.py",
-    "scripts/prepare_real_dataset.py",
+    "scripts/generate_synthetic_coating_defects.py",
+    "scripts/prepare_synthetic_dataset.py",
     "scripts/download_dataset.py",
     "scripts/build_submission.py",
     "scripts/smoke_live.py",
@@ -72,19 +73,26 @@ WHITELIST = [
     "docker-compose.yml",
     "requirements.txt",
     "requirements-docker.txt",
+    "requirements-gpu.txt",
     ".dockerignore",
     ".env.example",
     # Data (images ONLY, no labels)
     "data/README.md",
-    "data/sample_metadata.csv",
-    "data/test_set/README.md",
+    "reports/evaluation_results.json" if os.path.exists("reports/evaluation_results.json") else None,
+    "reports/evaluation_results.csv" if os.path.exists("reports/evaluation_results.csv") else None,
+    "reports/dataset_manifest.json" if os.path.exists("reports/dataset_manifest.json") else None,
+    "reports/model_sha256.txt" if os.path.exists("reports/model_sha256.txt") else None,
+    "reports/environment.txt" if os.path.exists("reports/environment.txt") else None,
+    "reports/evaluation_command.txt" if os.path.exists("reports/evaluation_command.txt") else None,
     # Model artifacts (REQUIRED)
     "outputs/model.onnx",
     "outputs/best.pt",
 ]
-# Directories to include (images only from test_set)
+# Directories to include (test_set and evaluation dataset with labels)
 IMAGE_DIRS = [
     ("data/test_set/images", "data/test_set/images"),
+    ("data/evaluation/images", "data/evaluation/images"),
+    ("data/evaluation/labels", "data/evaluation/labels"),
 ]
 
 # Explicitly EXCLUDED (safety check)
@@ -116,7 +124,7 @@ def is_blacklisted(path):
         return True
     if name.endswith(".db") or name.endswith(".zip"):
         return True
-    if "labels" in parts or "coating_defects" in parts or "yolo_training" in parts:
+    if ("labels" in parts and "evaluation" not in parts) or "coating_defects" in parts or "yolo_training" in parts:
         return True
     if "runs" in parts or ".ipynb_checkpoints" in parts or "node_modules" in parts:
         return True
@@ -190,12 +198,12 @@ def build_zip():
             else:
                 skipped_files.append(f"(missing) {filepath}")
 
-        # Add image directories (no labels!)
+        # Add image and evaluation label directories
         for src_dir, zip_dir in IMAGE_DIRS:
             full_dir = os.path.join(PROJECT_ROOT, src_dir)
             if os.path.exists(full_dir):
                 for fname in sorted(os.listdir(full_dir)):
-                    if fname.endswith(('.jpg', '.png', '.jpeg')):
+                    if fname.endswith(('.jpg', '.png', '.jpeg', '.txt')):
                         fpath = os.path.join(full_dir, fname)
                         arcname = f"{zip_dir}/{fname}"
                         if not is_blacklisted(arcname):
@@ -213,26 +221,27 @@ def build_zip():
     print("  SAFETY CHECK:")
     with zipfile.ZipFile(OUTPUT_ZIP, 'r') as zf:
         all_names = zf.namelist()
-        has_labels = any("label" in n.lower() for n in all_names)
+        has_train_labels_leak = any("coating_defects/labels" in n.lower() for n in all_names)
         has_pycache = any("__pycache__" in n for n in all_names)
         has_env = any(".env" in n and not n.endswith(".example") for n in all_names)
-        has_gt = any("ground" in n.lower() or "annotation" in n.lower() for n in all_names)
+        has_gt_leak = any("ground_truth_train" in n.lower() for n in all_names)
 
         has_onnx = any(n.endswith("outputs/model.onnx") or n == "outputs/model.onnx" for n in all_names)
         has_pt = any(n.endswith("outputs/best.pt") or n == "outputs/best.pt" for n in all_names)
         img_count = sum(1 for n in all_names if n.startswith("data/test_set/images/") and n.lower().endswith((".jpg", ".jpeg", ".png")))
+        eval_lbl_count = sum(1 for n in all_names if n.startswith("data/evaluation/labels/") and n.endswith(".txt"))
         has_yolo_engine = any(n.endswith("yolo_engine.py") for n in all_names)
 
-        print(f"    Labels present:     {'FAIL' if has_labels else 'CLEAN'}")
+        print(f"    Train Labels Leak:  {'FAIL' if has_train_labels_leak else 'CLEAN'}")
         print(f"    __pycache__:        {'FAIL' if has_pycache else 'CLEAN'}")
         print(f"    .env secrets:       {'FAIL' if has_env else 'CLEAN'}")
-        print(f"    Ground truth leak:  {'FAIL' if has_gt else 'CLEAN'}")
         print(f"    model.onnx:         {'OK' if has_onnx else 'FAIL'}")
         print(f"    best.pt:            {'OK' if has_pt else 'FAIL'}")
         print(f"    yolo_engine.py:     {'OK' if has_yolo_engine else 'FAIL'}")
         print(f"    test images:        {img_count}")
+        print(f"    evaluation labels:  {eval_lbl_count}")
 
-        if has_labels or has_pycache or has_env or has_gt or not has_onnx or not has_pt or img_count < 10:
+        if has_train_labels_leak or has_pycache or has_env or has_gt_leak or not has_onnx or not has_pt or img_count < 10 or eval_lbl_count < 10:
             print("\n  WARNING: ZIP failed safety / completeness checks!")
             sys.exit(1)
         else:

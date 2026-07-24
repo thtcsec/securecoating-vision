@@ -1,0 +1,7 @@
+# SecureCoating-Vision: GPU CUDA Accelerated Dependencies
+# Use this file if deploying on NVIDIA RTX / Jetson edge devices with CUDA 12
+
+-r requirements.txt
+
+# GPU Accelerated ONNX Runtime
+onnxruntime-gpu==1.19.2

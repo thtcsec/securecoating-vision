@@ -16,16 +16,21 @@ ONNX_PATH = os.path.join(ROOT, "outputs", "model.onnx")
 TEST_IMG = os.path.join(ROOT, "data", "test_set", "images", "defect_val_00000.jpg")
 
 
+import importlib.util
+
+ORT_AVAILABLE = importlib.util.find_spec("onnxruntime") is not None
+
+
 class TestOnnxEngine(unittest.TestCase):
-    @unittest.skipUnless(os.path.isfile(ONNX_PATH), "outputs/model.onnx not present")
+    @unittest.skipUnless(ORT_AVAILABLE and os.path.isfile(ONNX_PATH), "onnxruntime package or outputs/model.onnx not present")
     def test_model_loads(self):
         engine = InferenceEngine(ONNX_PATH, imgsz=640, conf_thresh=0.35)
         self.assertTrue(engine.is_loaded)
         self.assertIn("ExecutionProvider", engine.active_provider)
 
     @unittest.skipUnless(
-        os.path.isfile(ONNX_PATH) and os.path.isfile(TEST_IMG),
-        "ONNX model or test image missing",
+        ORT_AVAILABLE and os.path.isfile(ONNX_PATH) and os.path.isfile(TEST_IMG),
+        "onnxruntime package, ONNX model, or test image missing",
     )
     def test_infer_detects_scratch_sample(self):
         engine = InferenceEngine(ONNX_PATH, imgsz=640, conf_thresh=0.35)

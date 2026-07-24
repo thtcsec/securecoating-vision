@@ -79,8 +79,8 @@ class InferenceEngine:
         try:
             import onnxruntime as ort
         except ImportError:
-            logger.error("onnxruntime not installed. Install with: pip install onnxruntime-gpu")
-            raise ImportError("onnxruntime is required for ONNX inference")
+            logger.error("onnxruntime not installed. Install with: pip install onnxruntime (or pip install onnxruntime-gpu for CUDA)")
+            raise ImportError("onnxruntime is required for ONNX inference. Install with: pip install onnxruntime")
 
         if not os.path.exists(self.model_path):
             logger.warning(
