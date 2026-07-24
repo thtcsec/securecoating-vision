@@ -48,6 +48,7 @@ WHITELIST = [
     "configs/dataset.yaml",
     # Scripts
     "scripts/run_evaluation.py",
+    "scripts/run_ultralytics_validation.py",
     "scripts/generate_synthetic_coating_defects.py",
     "scripts/prepare_synthetic_dataset.py",
     "scripts/download_dataset.py",
@@ -56,6 +57,7 @@ WHITELIST = [
     "scripts/verify_inject.py",
     "scripts/run_api.ps1",
     "scripts/run_dashboard.ps1",
+    "configs/evaluation.yaml",
     # Documentation
     "README.md",
     "README_CN.md",
@@ -74,12 +76,14 @@ WHITELIST = [
     "requirements.txt",
     "requirements-docker.txt",
     "requirements-gpu.txt",
+    "requirements-lock.txt",
     ".dockerignore",
     ".env.example",
     # Data (images ONLY, no labels)
     "data/README.md",
     "reports/evaluation_results.json" if os.path.exists("reports/evaluation_results.json") else None,
     "reports/evaluation_results.csv" if os.path.exists("reports/evaluation_results.csv") else None,
+    "reports/ultralytics_validation_results.json" if os.path.exists("reports/ultralytics_validation_results.json") else None,
     "reports/dataset_manifest.json" if os.path.exists("reports/dataset_manifest.json") else None,
     "reports/model_sha256.txt" if os.path.exists("reports/model_sha256.txt") else None,
     "reports/environment.txt" if os.path.exists("reports/environment.txt") else None,

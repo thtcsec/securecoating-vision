@@ -1,0 +1,20 @@
+# SecureCoating-Vision: Ultralytics Evaluation Subset Configuration
+# Used by python scripts/run_ultralytics_validation.py out-of-the-box
+
+path: data/evaluation
+train: images
+val: images
+
+nc: 4
+
+names:
+  0: scratch
+  1: void
+  2: blister
+  3: delamination
+
+metadata:
+  description: "SecureCoating-Vision Demonstration Evaluation Subset"
+  version: "2.0"
+  source: "Procedurally generated synthetic coating defect images"
+  annotation_format: "YOLO segmentation (polygon masks)"

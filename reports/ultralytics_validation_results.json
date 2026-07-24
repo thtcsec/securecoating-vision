@@ -1,0 +1,8 @@
+{
+  "model": "outputs/best.pt",
+  "config": "configs/evaluation.yaml",
+  "box_map50": 0.4901,
+  "box_map50_95": 0.4318,
+  "mask_map50": 0.4421,
+  "mask_map50_95": 0.3591
+}

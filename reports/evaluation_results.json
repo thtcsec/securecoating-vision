@@ -1,4 +1,9 @@
 {
+  "timestamp": "2026-07-24T10:20:55Z",
+  "provider": "CPUExecutionProvider",
+  "hardware": "AMD / Intel x86_64 CPU (Universal evaluation context)",
+  "warmup_runs": 10,
+  "measured_runs": 50,
   "dataset_path": "data/evaluation/images",
   "total_images": 50,
   "total_gt_instances": 30,
@@ -9,9 +14,9 @@
     "f1_score": 0.597
   },
   "latency_ms": {
-    "mean": 47.65,
-    "median": 47.32,
-    "p95": 54.24
+    "mean": 43.91,
+    "median": 44.09,
+    "p95": 46.67
   },
   "per_class": {
     "delamination": {

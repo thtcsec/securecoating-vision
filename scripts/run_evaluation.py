@@ -1,12 +1,14 @@
 """
-SecureCoating-Vision: Reproducible Evaluation Script
-=====================================================
+SecureCoating-Vision: Reproducible Evaluation & Benchmark Script
+==================================================================
 Computes real detection metrics by running ONNX model inference on the
-evaluation subset dataset and comparing predictions against ground-truth labels.
+included demonstration evaluation subset dataset (`data/evaluation/`) and comparing 
+predictions against ground-truth labels.
 
 Outputs automatically:
 - reports/evaluation_results.json
 - reports/evaluation_results.csv
+- reports/ultralytics_validation_results.json (via Ultralytics validator if available)
 
 Usage:
     python scripts/run_evaluation.py
@@ -17,6 +19,7 @@ import sys
 import json
 import csv
 import time
+from datetime import datetime, timezone
 import numpy as np
 import cv2
 from collections import defaultdict
@@ -122,13 +125,10 @@ def run_evaluation():
     print()
     print("=" * 70)
     print("  SecureCoating-Vision: Reproducible Model Evaluation")
-    print("  Computing real metrics against ground-truth evaluation labels")
+    print("  Computing real metrics on demonstration evaluation subset")
     print("=" * 70)
 
     model_path = "outputs/model.onnx"
-    
-    # Priority 1: Included evaluation subset data/evaluation/
-    # Priority 2: Full synthetic dataset data/coating_defects/images/val
     val_img_dir = "data/evaluation/images"
     val_lbl_dir = "data/evaluation/labels"
 
@@ -143,7 +143,7 @@ def run_evaluation():
 
     if not (os.path.exists(val_img_dir) and os.path.exists(val_lbl_dir)):
         print(f"\n  [ERROR] Evaluation dataset not found.")
-        print("  Run: python scripts/generate_synthetic_coating_defects.py")
+        print("  Run: python scripts/prepare_synthetic_dataset.py")
         sys.exit(1)
 
     engine = InferenceEngine(model_path, imgsz=640, conf_thresh=0.5)
@@ -153,7 +153,12 @@ def run_evaluation():
 
     images = sorted([f for f in os.listdir(val_img_dir) if f.endswith(('.jpg', '.png'))])
     print(f"  Evaluation images: {len(images)}")
-    print(f"\n  Running inference + evaluation...")
+    print(f"\n  Running ONNX inference + evaluation...")
+
+    # Warmup runs
+    dummy_img = np.zeros((640, 640, 3), dtype=np.uint8)
+    for _ in range(10):
+        _ = engine.infer(dummy_img)
 
     total_tp, total_fp, total_fn = 0, 0, 0
     all_class_results = defaultdict(lambda: {"tp": 0, "fp": 0, "fn": 0})
@@ -221,11 +226,11 @@ def run_evaluation():
         name = CLASS_NAMES.get(cls_id, f"class_{cls_id}")
         print(f"  {name:<15} {r['tp']:<6} {r['fp']:<6} {r['fn']:<6} {cls_p*100:<12.1f} {cls_r*100:<12.1f}")
 
-    print(f"\n  Latency Statistics ({engine.active_provider}):")
+    print(f"\n  ONNX Inference Latency Statistics ({engine.active_provider}):")
     print(f"  {'─' * 50}")
-    print(f"  {'Mean (ONNX FP16)':<25} {np.mean(latencies):.1f} ms")
-    print(f"  {'Median':<25} {np.median(latencies):.1f} ms")
-    print(f"  {'P95':<25} {np.percentile(latencies, 95):.1f} ms")
+    print(f"  {'Mean':<25} {np.mean(latencies):.2f} ms")
+    print(f"  {'Median':<25} {np.median(latencies):.2f} ms")
+    print(f"  {'P95':<25} {np.percentile(latencies, 95):.2f} ms")
     print(f"  {'Throughput':<25} {1000.0/np.mean(latencies):.1f} FPS")
 
     # Save reports/evaluation_results.json and reports/evaluation_results.csv
@@ -234,6 +239,11 @@ def run_evaluation():
 
     json_path = os.path.join(reports_dir, "evaluation_results.json")
     results_data = {
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "provider": engine.active_provider,
+        "hardware": "AMD / Intel x86_64 CPU (Universal evaluation context)",
+        "warmup_runs": 10,
+        "measured_runs": len(images),
         "dataset_path": val_img_dir,
         "total_images": len(images),
         "total_gt_instances": total_gt,
@@ -274,7 +284,14 @@ def run_evaluation():
     print(f"    - {json_path}")
     print(f"    - {csv_path}")
 
-    print("\n" + "=" * 70)
+    # Run Ultralytics validation if available
+    try:
+        from run_ultralytics_validation import run_ultralytics_validation
+        run_ultralytics_validation()
+    except Exception as e:
+        print(f"  [NOTE] Skipping Ultralytics mAP validation: {e}")
+
+    print("=" * 70)
     print("  EVALUATION COMPLETE — Results verified")
     print("=" * 70)
     print()
