@@ -24,11 +24,13 @@ Endpoints:
 
 import os
 import sys
+import uuid
 import yaml
 import logging
 import uvicorn
-from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import numpy as np
@@ -76,6 +78,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Optional API key (set SECURECOATING_API_KEY to enable)
+API_KEY = os.environ.get("SECURECOATING_API_KEY", "").strip()
+
+
+@app.middleware("http")
+async def optional_api_key_guard(request: Request, call_next):
+    if API_KEY and request.url.path.startswith("/api/"):
+        provided = request.headers.get("x-api-key", "")
+        if provided != API_KEY:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Invalid or missing X-API-Key"},
+            )
+    return await call_next(request)
+
 # --- Configuration Loading ---
 CONFIG_PATH = os.environ.get("MODEL_CONFIG", "configs/model.yaml")
 APP_CONFIG_PATH = os.environ.get("APP_CONFIG", "configs/app.yaml")
@@ -85,8 +102,69 @@ with open(CONFIG_PATH, "r") as f:
 with open(APP_CONFIG_PATH, "r") as f:
     app_config = yaml.safe_load(f)
 
+TEST_SET_DIR = os.path.join(PROJECT_ROOT, "data", "test_set", "images")
+
+
+def _decode_upload(file_bytes: bytes) -> np.ndarray:
+    """Decode uploaded image bytes to BGR uint8."""
+    arr = np.frombuffer(file_bytes, dtype=np.uint8)
+    image = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    if image is None:
+        raise HTTPException(status_code=400, detail="Could not decode uploaded image")
+    return image
+
+
+def _load_sample_image(sample_name: str) -> np.ndarray:
+    """Load a demo image from data/test_set/images (basename only)."""
+    safe_name = os.path.basename(sample_name)
+    path = os.path.join(TEST_SET_DIR, safe_name)
+    if not os.path.isfile(path):
+        raise HTTPException(
+            status_code=404,
+            detail=f"Sample '{safe_name}' not found under data/test_set/images",
+        )
+    image = cv2.imread(path)
+    if image is None:
+        raise HTTPException(status_code=400, detail=f"Failed to read sample '{safe_name}'")
+    return image
+
+
+def _synthetic_optical(h: int, w: int, simulate_defect: Optional[str]) -> np.ndarray:
+    """Camera-simulation canvas used when no real image is supplied."""
+    optical = np.ones((h, w, 3), dtype=np.uint8) * 180
+    noise = np.random.randint(-8, 8, (h, w, 3), dtype=np.int16)
+    optical = np.clip(optical.astype(np.int16) + noise, 0, 255).astype(np.uint8)
+
+    if simulate_defect == "scratch":
+        cv2.line(optical, (150, 300), (800, 320), (40, 40, 40), thickness=6)
+    elif simulate_defect == "void":
+        cv2.circle(optical, (500, 600), 80, (80, 60, 80), -1)
+    elif simulate_defect == "blister":
+        cv2.circle(optical, (400, 450), 60, (210, 215, 210), -1)
+    elif simulate_defect == "delamination":
+        pts = np.array([[400, 400], [600, 380], [650, 550], [420, 580]], dtype=np.int32)
+        cv2.fillPoly(optical, [pts], (100, 90, 110))
+    return optical
+
+
+def _attach_confidences(defects: list, detections: list) -> list:
+    """Attach model confidence scores onto graded defect records."""
+    if not detections:
+        for d in defects:
+            d.setdefault("confidence", None)
+        return defects
+    by_class: Dict[str, float] = {}
+    for det in detections:
+        name = det.get("class_name", "")
+        conf = float(det.get("confidence", 0.0))
+        by_class[name] = max(by_class.get(name, 0.0), conf)
+    for d in defects:
+        d["confidence"] = round(by_class.get(d.get("class_name", ""), 0.0), 4) or None
+    return defects
+
+
 # --- Initialize Core Engines ---
-# 1. Predictor (PyTorch + ONNX fallback)
+# 1. Predictor (ONNX YOLOv8-seg primary, PyTorch fusion fallback)
 predictor = CoatingPredictor(model_config)
 
 # 2. Sensor Fusion Manager
@@ -115,6 +193,7 @@ industrial_mgr = IndustrialProtocolManager(industrial_config)
 class InspectionResponse(BaseModel):
     part_id: str
     batch_id: str
+    run_id: str
     status: str
     passed: bool
     reject_reasons: list
@@ -124,6 +203,8 @@ class InspectionResponse(BaseModel):
     system_state: str
     gate_action: str
     engine: str
+    model_version: str = "2.0.0"
+    detections: list = []
 
 
 class HealthResponse(BaseModel):
@@ -133,6 +214,8 @@ class HealthResponse(BaseModel):
     device: str
     model_version: str
     onnx_available: bool
+    yolo_available: bool = False
+    primary_engine: str = "unknown"
     system_state: str
     sensors: Dict[str, str]
 
@@ -142,66 +225,73 @@ class HealthResponse(BaseModel):
 def health_check():
     """System health check with component status."""
     health = failsafe.get_health_report()
-    onnx_loaded = (
-        predictor.onnx_engine is not None and predictor.onnx_engine.is_loaded
-    )
     return {
         "status": "HEALTHY" if health["system_state"] != "OFFLINE" else "DEGRADED",
         "device": str(predictor.device),
         "model_version": model_config.get("model", {}).get("version", "2.0.0"),
-        "onnx_available": onnx_loaded,
+        "onnx_available": predictor.onnx_available,
+        "yolo_available": predictor.yolo_available,
+        "primary_engine": (
+            predictor.yolo_engine.active_provider
+            if predictor.yolo_available
+            else (
+                predictor.onnx_engine.active_provider
+                if predictor.onnx_available
+                else "PyTorchFusion"
+            )
+        ),
         "system_state": health["system_state"],
         "sensors": health["sensors"]
     }
 
 
 @app.post("/api/inspect", response_model=InspectionResponse)
-def inspect(
+async def inspect(
     background_tasks: BackgroundTasks,
     batch_id: str = Form("BATCH_DEFAULT"),
     part_id: str = Form("PART_000"),
     simulate_defect: Optional[str] = Form(None),
+    sample_name: Optional[str] = Form(None),
     thermal_online: bool = Form(True),
-    profiler_online: bool = Form(True)
+    profiler_online: bool = Form(True),
+    image: Optional[UploadFile] = File(None),
 ):
     """
     Full inspection pipeline: acquire -> fuse -> infer -> grade -> signal.
-    
-    Processes a simulated coating inspection with multi-sensor fusion,
-    YOLOv8 segmentation, quality grading, and PLC reject signaling.
+
+    Image sources (priority):
+    1. multipart `image` upload
+    2. `sample_name` from data/test_set/images (e.g. defect_val_00000.jpg)
+    3. camera simulation canvas (+ optional simulate_defect overlay)
     """
-    # 1. Simulate sensor acquisition (mock camera frame)
-    h, w = 1024, 1024
-    optical = np.ones((h, w, 3), dtype=np.uint8) * 180
+    using_real_image = False
 
-    # Add base texture
-    noise = np.random.randint(-8, 8, (h, w, 3), dtype=np.int16)
-    optical = np.clip(optical.astype(np.int16) + noise, 0, 255).astype(np.uint8)
+    if image is not None and image.filename:
+        optical = _decode_upload(await image.read())
+        using_real_image = True
+    elif sample_name:
+        optical = _load_sample_image(sample_name)
+        using_real_image = True
+    else:
+        optical = _synthetic_optical(1024, 1024, simulate_defect)
 
-    # Optional defect simulation overlays
-    if simulate_defect == "scratch":
-        cv2.line(optical, (150, 300), (800, 320), (40, 40, 40), thickness=6)
-    elif simulate_defect == "void":
-        cv2.circle(optical, (500, 600), 80, (80, 60, 80), -1)
-    elif simulate_defect == "blister":
-        cv2.circle(optical, (400, 450), 60, (210, 215, 210), -1)
-    elif simulate_defect == "delamination":
-        pts = np.array([[400, 400], [600, 380], [650, 550], [420, 580]], dtype=np.int32)
-        cv2.fillPoly(optical, [pts], (100, 90, 110))
+    h, w = optical.shape[:2]
 
     # 2. Multi-source sensor fusion
     fusion_result = fusion_manager.fuse(
         rgb_image=optical,
         thermal_online=thermal_online,
-        profiler_online=profiler_online
+        profiler_online=profiler_online,
     )
 
     thermal = fusion_result.thermal_frame
     height = fusion_result.height_frame
 
-    # 3. Update fail-safe sensor status
+    # 3. Update fail-safe sensor status from THIS request (non-sticky intent)
     failsafe.health.thermal_sensor_ok = thermal_online
     failsafe.health.profiler_sensor_ok = profiler_online
+    failsafe.health.rgb_sensor_ok = True
+    failsafe._update_system_state()
 
     # 4. Safe prediction with fail-safe wrapping
     result = failsafe.safe_predict(predictor, optical, thermal, height)
@@ -210,24 +300,18 @@ def inspect(
     seg_mask = result.get("segmentation_mask", np.zeros((h, w), dtype=np.uint8))
     defects = extract_defects_from_mask(seg_mask, height, pixel_to_mm_ratio=0.1)
 
-    # Override with simulated defect if model didn't detect (for demo)
-    if simulate_defect and len(defects) == 0:
+    # Camera-sim only: if synthetic overlay was not detected, plant a visible region
+    # so grading/PLC demo still works without claiming false ONNX detections.
+    if (
+        not using_real_image
+        and simulate_defect
+        and len(defects) == 0
+        and not (predictor.yolo_available or predictor.onnx_available)
+    ):
         class_map = {"scratch": 1, "void": 2, "blister": 3, "delamination": 4}
         cid = class_map.get(simulate_defect, 1)
-        cv2.circle(seg_mask, (512, 512), 100, int(cid), -1)
+        cv2.circle(seg_mask, (w // 2, h // 2), min(h, w) // 10, int(cid), -1)
         defects = extract_defects_from_mask(seg_mask, height, pixel_to_mm_ratio=0.1)
-        # Fallback stub if still empty
-        if len(defects) == 0:
-            defects.append({
-                "defect_id": f"{simulate_defect}_0",
-                "class_id": cid,
-                "class_name": simulate_defect,
-                "bbox": [412, 412, 200, 200],
-                "length_mm": 8.5 if simulate_defect == "scratch" else 2.0,
-                "width_mm": 1.0,
-                "area_mm2": 5.2 if simulate_defect in ["void", "delamination"] else 2.0,
-                "peak_height_um": 180.0 if simulate_defect == "blister" else 0.0
-            })
 
     # 6. Grade the coating against quality rules
     grading_rules = model_config.get("inference", {}).get("grading", {})
@@ -238,29 +322,39 @@ def inspect(
         part_id=part_id,
         batch_id=batch_id,
         defects=defects,
-        grade_result=grade
+        grade_result=grade,
     )
 
     # 8. Log to Quality Memory database
     max_len = max([d["length_mm"] for d in defects]) if defects else 0.0
     max_area = max([d["area_mm2"] for d in defects]) if defects else 0.0
     peak_h = max([d["peak_height_um"] for d in defects]) if defects else 0.0
+    primary_class = (
+        simulate_defect
+        or (defects[0]["class_name"] if defects else "none")
+    )
+    detections = result.get("detections", [])
+    defects = _attach_confidences(defects, detections)
+    run_id = f"RUN_{uuid.uuid4().hex[:12].upper()}"
 
     quality_mem.add_entry(
         batch_id=batch_id,
         part_id=part_id,
         has_defect=not grade["passed"],
-        defect_class=simulate_defect or "none",
+        defect_class=primary_class,
         max_length=max_len,
         max_area=max_area,
         peak_height=peak_h,
         latency=result.get("latency_ms", 0.0),
-        fallback=result.get("fallback_active", False)
+        fallback=result.get("fallback_active", False),
+        model_version=result.get("model_version", predictor.model_version),
+        run_id=run_id,
     )
 
     return {
         "part_id": part_id,
         "batch_id": batch_id,
+        "run_id": run_id,
         "status": result.get("status", "Unknown"),
         "passed": grade["passed"],
         "reject_reasons": grade["reject_reasons"],
@@ -269,8 +363,29 @@ def inspect(
         "fallback_active": result.get("fallback_active", False),
         "system_state": result.get("system_state", "OPTIMAL"),
         "gate_action": industrial_result["gate_action"],
-        "engine": result.get("engine", "PyTorch (Fusion)")
+        "engine": result.get("engine", "unknown"),
+        "model_version": result.get("model_version", predictor.model_version),
+        "detections": detections,
     }
+
+
+@app.get("/api/samples")
+def list_demo_samples():
+    """List demo images available under data/test_set/images."""
+    if not os.path.isdir(TEST_SET_DIR):
+        return {"samples": [], "directory": TEST_SET_DIR}
+    samples = sorted(
+        f
+        for f in os.listdir(TEST_SET_DIR)
+        if f.lower().endswith((".jpg", ".jpeg", ".png", ".bmp"))
+    )
+    return {"samples": samples, "count": len(samples), "directory": "data/test_set/images"}
+
+
+@app.get("/api/metrics/latency")
+def latency_metrics(batch_id: Optional[str] = None, limit: int = 200):
+    """Latency p50/p95 vs 35ms competition target."""
+    return quality_mem.get_latency_stats(batch_id=batch_id, limit=limit)
 
 
 @app.get("/api/batch/{batch_id}/stats")
@@ -328,9 +443,16 @@ def system_health_report():
         "fusion": fusion_status,
         "industrial": industrial_mgr.get_plc_state(),
         "model": {
-            "onnx_loaded": predictor.onnx_engine is not None and predictor.onnx_engine.is_loaded,
-            "onnx_provider": predictor.onnx_engine.active_provider if predictor.onnx_engine else "N/A",
+            "yolo_loaded": predictor.yolo_available,
+            "yolo_provider": (
+                predictor.yolo_engine.active_provider if predictor.yolo_available else "N/A"
+            ),
+            "onnx_loaded": predictor.onnx_available,
+            "onnx_provider": (
+                predictor.onnx_engine.active_provider if predictor.onnx_available else "N/A"
+            ),
             "pytorch_device": str(predictor.device),
+            "model_version": predictor.model_version,
         }
     }
 

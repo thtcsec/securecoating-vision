@@ -26,6 +26,20 @@ from typing import Optional, Dict, List, Any
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+import asyncio
+
+# Try to import pymodbus & asyncua for real industrial communication
+try:
+    from pymodbus.client import ModbusTcpClient
+    pymodbus_available = True
+except ImportError:
+    pymodbus_available = False
+
+try:
+    from asyncua import Client as OpcUaClient
+    asyncua_available = True
+except ImportError:
+    asyncua_available = False
 
 logger = logging.getLogger("SecureCoatingVision.Industrial")
 
@@ -303,14 +317,41 @@ class IndustrialProtocolManager:
 
     def _write_opc_ua(self, part_id: str, action: GateAction, defect_info: Dict):
         """
-        Simulate OPC UA node write to PLC.
-        
-        In production, this would use the opcua/asyncua library to connect
-        to opc.tcp://192.168.1.100:4840 and write to the configured nodes.
+        Simulate OPC UA node write to PLC, or perform actual write if enabled and library available.
         """
         if not self.enabled:
             return
 
+        # Real connection attempt if mock mode is disabled and asyncua is available
+        if not self.mock_mode and asyncua_available:
+            async def write_opc_node():
+                client = OpcUaClient(url=self.opc_endpoint)
+                await client.connect()
+                try:
+                    node = client.get_node(self.opc_node_reject)
+                    val = True if action == GateAction.REJECT else False
+                    await node.write_value(val)
+                    logger.info(f"[OPC UA] Real write: Node {self.opc_node_reject} = {val}")
+                finally:
+                    await client.disconnect()
+
+            try:
+                # Run the coroutine synchronously with timeout protection
+                asyncio.run(asyncio.wait_for(write_opc_node(), timeout=1.0))
+                
+                # Update state
+                if action == GateAction.REJECT:
+                    self.plc_state.opc_reject_node = True
+                    self.plc_state.opc_last_defect_class = defect_info.get("classes", ["unknown"])[0]
+                    self.plc_state.defect_counter_register += 1
+                elif action == GateAction.PASS:
+                    self.plc_state.opc_reject_node = False
+                self.plc_state.batch_counter_register += 1
+                return
+            except Exception as e:
+                logger.warning(f"[OPC UA] Real connection failed: {e}. Falling back to mock write.")
+
+        # Mock Mode / Fallback write
         # Simulate network latency (1-5ms to local PLC)
         time.sleep(0.002)
 
@@ -325,20 +366,39 @@ class IndustrialProtocolManager:
         self.plc_state.batch_counter_register += 1
 
         logger.debug(
-            f"[OPC UA] Write to {self.opc_endpoint} | "
+            f"[OPC UA] Mock Write to {self.opc_endpoint} | "
             f"Node: {self.opc_node_reject} = {action.value} | Part: {part_id}"
         )
 
     def _write_modbus(self, part_id: str, action: GateAction):
         """
-        Simulate Modbus TCP register write.
-        
-        In production, this would use pymodbus to connect to the PLC
-        and write holding register values.
+        Simulate Modbus TCP register write, or perform actual write if enabled and library available.
         """
         if not self.enabled:
             return
 
+        # Real connection attempt if mock mode is disabled and pymodbus is available
+        if not self.mock_mode and pymodbus_available:
+            try:
+                client = ModbusTcpClient(self.plc_ip, port=self.modbus_port, timeout=1.0)
+                if client.connect():
+                    val = 1 if action == GateAction.REJECT else 0
+                    client.write_register(self.modbus_register_reject, val, slave=self.modbus_slave_id)
+                    client.close()
+                    logger.info(f"[MODBUS TCP] Real write: Reg[{self.modbus_register_reject}] = {val} on {self.plc_ip}")
+                    
+                    # Update simulated registers
+                    if action == GateAction.REJECT:
+                        self.plc_state.reject_gate_register = 1
+                    elif action == GateAction.PASS:
+                        self.plc_state.reject_gate_register = 0
+                    return
+                else:
+                    logger.warning(f"[MODBUS TCP] Connection failed to {self.plc_ip}:{self.modbus_port}. Falling back to mock write.")
+            except Exception as e:
+                logger.warning(f"[MODBUS TCP] Real connection failed: {e}. Falling back to mock write.")
+
+        # Mock Mode / Fallback write
         # Simulate Modbus transaction (3-8ms)
         time.sleep(0.003)
 
@@ -349,7 +409,7 @@ class IndustrialProtocolManager:
             self.plc_state.reject_gate_register = 0
 
         logger.debug(
-            f"[MODBUS TCP] Write to {self.plc_ip}:{self.modbus_port} | "
+            f"[MODBUS TCP] Mock Write to {self.plc_ip}:{self.modbus_port} | "
             f"Slave={self.modbus_slave_id} Reg[{self.modbus_register_reject}] = "
             f"{self.plc_state.reject_gate_register} | Part: {part_id}"
         )

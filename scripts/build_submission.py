@@ -21,6 +21,7 @@ WHITELIST = [
     "src/api/main.py",
     "src/inference/__init__.py" if os.path.exists("src/inference/__init__.py") else None,
     "src/inference/onnx_engine.py",
+    "src/inference/yolo_engine.py",
     "src/inference/predictor.py",
     "src/inference/postprocess.py",
     "src/inference/sensor_fusion.py",
@@ -34,6 +35,13 @@ WHITELIST = [
     "src/utils/__init__.py",
     # Dashboard
     "dashboard/app.py",
+    # Tests
+    "tests/test_failsafe.py",
+    "tests/test_sensor_fusion.py",
+    "tests/test_postprocess.py",
+    "tests/test_onnx_engine.py",
+    "tests/test_predictor.py",
+    "tests/test_api.py",
     # Configs
     "configs/app.yaml",
     "configs/model.yaml",
@@ -43,6 +51,10 @@ WHITELIST = [
     "scripts/prepare_real_dataset.py",
     "scripts/download_dataset.py",
     "scripts/build_submission.py",
+    "scripts/smoke_live.py",
+    "scripts/verify_inject.py",
+    "scripts/run_api.ps1",
+    "scripts/run_dashboard.ps1",
     # Documentation
     "README.md",
     "README_CN.md",
@@ -53,20 +65,23 @@ WHITELIST = [
     "docs/system_architecture.md",
     "docs/inspection_workflow.md",
     "docs/scoring_rubric_mapping.md",
+    "docs/presentation_pitch.md",
+    "Al + Materials Competition Application Form.docx",
     # Deployment
     "Dockerfile",
     "docker-compose.yml",
     "requirements.txt",
     "requirements-docker.txt",
     ".dockerignore",
+    ".env.example",
     # Data (images ONLY, no labels)
     "data/README.md",
     "data/sample_metadata.csv",
     "data/test_set/README.md",
-    # Model artifact
+    # Model artifacts (REQUIRED)
     "outputs/model.onnx",
+    "outputs/best.pt",
 ]
-
 # Directories to include (images only from test_set)
 IMAGE_DIRS = [
     ("data/test_set/images", "data/test_set/images"),
@@ -92,9 +107,19 @@ BLACKLIST_PATTERNS = [
 
 
 def is_blacklisted(path):
-    for pattern in BLACKLIST_PATTERNS:
-        if pattern in path:
-            return True
+    # Exact / segment-aware exclusions (avoid false positives like .env.example)
+    parts = path.replace("\\", "/").split("/")
+    name = parts[-1] if parts else path
+    if name in {".env", ".git", ".venv"}:
+        return True
+    if "__pycache__" in parts or name.endswith((".pyc", ".pyo")):
+        return True
+    if name.endswith(".db") or name.endswith(".zip"):
+        return True
+    if "labels" in parts or "coating_defects" in parts or "yolo_training" in parts:
+        return True
+    if "runs" in parts or ".ipynb_checkpoints" in parts or "node_modules" in parts:
+        return True
     return False
 
 
@@ -102,6 +127,47 @@ def build_zip():
     print(f"Building submission ZIP: {OUTPUT_ZIP}")
     print(f"Project root: {PROJECT_ROOT}")
     print()
+
+    required = ["outputs/model.onnx", "outputs/best.pt", "data/test_set/images"]
+    missing_required = []
+    for req in required:
+        path = os.path.join(PROJECT_ROOT, req)
+        if req.endswith("images"):
+            if not os.path.isdir(path) or not any(
+                f.lower().endswith((".jpg", ".jpeg", ".png")) for f in os.listdir(path)
+            ):
+                missing_required.append(req)
+        elif not os.path.isfile(path):
+            missing_required.append(req)
+    if missing_required:
+        print("  [ERROR] Required artifacts missing:")
+        for m in missing_required:
+            print(f"    - {m}")
+        sys.exit(1)
+    print("  Required artifacts present: outputs/model.onnx, outputs/best.pt, test_set images")
+
+    # Run unit tests before building
+    print("  RUNNING UNIT TESTS:")
+    import subprocess
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "tests", "-q", "--tb=line"],
+        cwd=PROJECT_ROOT,
+    )
+    if result.returncode != 0:
+        print("\n  [ERROR] Unit tests failed! Submission build aborted.")
+        sys.exit(1)
+    print("  All unit tests PASSED.\n")
+
+    # Live inject verification if API is up (non-fatal if down)
+    print("  RUNNING LIVE INJECT CHECK (optional if API offline):")
+    live = subprocess.run(
+        [sys.executable, "scripts/verify_inject.py"],
+        cwd=PROJECT_ROOT,
+    )
+    if live.returncode != 0:
+        print("  [WARN] Live inject check failed or API offline — continuing if unit tests passed.")
+    else:
+        print("  Live inject check PASSED.\n")
 
     if os.path.exists(OUTPUT_ZIP):
         os.remove(OUTPUT_ZIP)
@@ -152,13 +218,22 @@ def build_zip():
         has_env = any(".env" in n and not n.endswith(".example") for n in all_names)
         has_gt = any("ground" in n.lower() or "annotation" in n.lower() for n in all_names)
 
+        has_onnx = any(n.endswith("outputs/model.onnx") or n == "outputs/model.onnx" for n in all_names)
+        has_pt = any(n.endswith("outputs/best.pt") or n == "outputs/best.pt" for n in all_names)
+        img_count = sum(1 for n in all_names if n.startswith("data/test_set/images/") and n.lower().endswith((".jpg", ".jpeg", ".png")))
+        has_yolo_engine = any(n.endswith("yolo_engine.py") for n in all_names)
+
         print(f"    Labels present:     {'FAIL' if has_labels else 'CLEAN'}")
         print(f"    __pycache__:        {'FAIL' if has_pycache else 'CLEAN'}")
         print(f"    .env secrets:       {'FAIL' if has_env else 'CLEAN'}")
         print(f"    Ground truth leak:  {'FAIL' if has_gt else 'CLEAN'}")
+        print(f"    model.onnx:         {'OK' if has_onnx else 'FAIL'}")
+        print(f"    best.pt:            {'OK' if has_pt else 'FAIL'}")
+        print(f"    yolo_engine.py:     {'OK' if has_yolo_engine else 'FAIL'}")
+        print(f"    test images:        {img_count}")
 
-        if has_labels or has_pycache or has_env or has_gt:
-            print("\n  WARNING: ZIP contains prohibited content!")
+        if has_labels or has_pycache or has_env or has_gt or not has_onnx or not has_pt or img_count < 10:
+            print("\n  WARNING: ZIP failed safety / completeness checks!")
             sys.exit(1)
         else:
             print("\n  All safety checks PASSED.")

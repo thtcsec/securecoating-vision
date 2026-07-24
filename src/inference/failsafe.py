@@ -398,6 +398,8 @@ class FailSafeManager:
             "fallback_active": True,
             "status": "EMERGENCY - Inspection Suspended",
             "system_state": SystemState.EMERGENCY.value,
+            "engine": "EMERGENCY",
+            "model_version": "n/a",
             "error_reason": reason,
             "sensors_online": {
                 "rgb": self.health.rgb_sensor_ok,

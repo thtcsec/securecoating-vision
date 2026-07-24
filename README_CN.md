@@ -5,6 +5,7 @@
 </p>
 
 **参赛选手:** Trịnh Hoàng Tú  
+**学术导师 (Academic Supervisor):** Kris Singh — CEO, SRII；清华大学访问教授；澳大利亚纽卡斯尔大学实践兼职教授；曾任 IBM / AMD / Intel / National Semiconductor 高管  
 **赛道:** 赛道四：AI + 材料检测与表征  
 **单位:** Ho Chi Minh City University of Foreign Languages – Information Technology (HUFLIT)
 

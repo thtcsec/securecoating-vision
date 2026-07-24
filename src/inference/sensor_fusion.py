@@ -343,9 +343,11 @@ class SensorFusionManager:
             elif self.enable_mock:
                 thermal_frame = self.generate_mock_thermal(rgb_image)
 
-            # Spatial alignment
+            # Spatial alignment to RGB frame size (W, H for cv2)
             if thermal_frame is not None:
-                thermal_frame = self.align_frame(thermal_frame, self.H_thermal_to_rgb)
+                thermal_frame = self.align_frame(
+                    thermal_frame, self.H_thermal_to_rgb, target_size=(w, h)
+                )
         else:
             logger.warning("[SENSOR] LWIR Thermal camera OFFLINE - using zero-fill fallback")
 
@@ -357,9 +359,11 @@ class SensorFusionManager:
             elif self.enable_mock:
                 height_frame = self.generate_mock_height(rgb_image)
 
-            # Spatial alignment
+            # Spatial alignment to RGB frame size (W, H for cv2)
             if height_frame is not None:
-                height_frame = self.align_frame(height_frame, self.H_profiler_to_rgb)
+                height_frame = self.align_frame(
+                    height_frame, self.H_profiler_to_rgb, target_size=(w, h)
+                )
         else:
             logger.warning("[SENSOR] 3D Laser Profiler OFFLINE - using zero-fill fallback")
 

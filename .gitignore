@@ -35,5 +35,8 @@ logs/
 *.pth
 *.engine
 
+# Zip archives
+*.zip
+
 # Docker volumes
 docker-data/

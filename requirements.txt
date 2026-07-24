@@ -10,20 +10,22 @@ python-multipart>=0.0.6
 # Configuration
 PyYAML>=6.0.1
 
-# Scientific computing
-numpy>=1.24.0
+# Scientific computing (numpy<2 keeps ultralytics 8.2 happy)
+numpy>=1.24.0,<2.0
 pandas>=2.1.0
 
 # Computer vision
 opencv-python-headless>=4.8.0
 
-# Deep learning (install GPU version manually for local dev):
-#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+# Deep learning — local GPU (RTX):
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
 torch>=2.1.0
 torchvision>=0.16.0
 
-# ONNX Runtime (use onnxruntime-gpu for local GPU inference)
-onnxruntime>=1.16.0
+# ONNX Runtime — CUDA 12 systems: onnxruntime-gpu==1.19.2
+# (1.27+ needs CUDA 13). CPU-only fallback: onnxruntime
+onnxruntime-gpu==1.19.2; platform_system=="Windows" or platform_system=="Linux"
+onnxruntime>=1.16.0; platform_system=="Darwin"
 
 # YOLOv8 training
 ultralytics>=8.1.0
@@ -33,3 +35,8 @@ streamlit>=1.29.0
 
 # Visualization
 matplotlib>=3.8.0
+
+# Testing
+pytest>=7.4.0
+httpx>=0.25.0
+requests>=2.31.0

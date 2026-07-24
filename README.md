@@ -9,11 +9,14 @@
   <img src="logo.png" alt="Tsinghua MSE Logo" width="450">
 </p>
 
-**Author:** Trịnh Hoàng Tú  
-**Competition Context:** Prepared for the 2026 AI + Materials Competition, Track 4: AI + Materials Testing and Characterization
+**Author:** Trịnh Hoàng Tú (HUFLIT)  
+**Academic Supervisor:** Kris Singh — CEO, SRII; Visiting Professor, Tsinghua University; Adj. Professor of Practice, University of Newcastle; former executive at IBM, AMD, Intel, and National Semiconductor  
+**Competition Context:** Prepared for the **2026 Global AI + Materials Innovation Application Competition (全球AI+材料创新应用大赛)**, hosted by Tsinghua University School of Materials Science and Engineering (清华大学材料学院) and co-hosts.  
+**Track:** Track 4 — AI + Materials Testing and Characterization (AI + 材料检测与表征)  
+**Submission Deadline:** July 31, 2026 (Final Defense: Late August 2026 — 6-min pitch + 2-min Q&A)
 
 > [!NOTE]
-> This project is developed for the 2026 AI + Materials Competition. Computing resources may be adapted to supported platforms such as Volcengine, Alibaba Cloud, Paratera, Sugon, or Ctyun, subject to account availability and competition rules.
+> This project is developed for the 2026 Global AI + Materials Competition. Computing resources are aligned with official competition power supporters, including Volcengine (北京火山引擎), Alibaba Cloud (阿里云), Paratera (并行科技), Sugon (曙光智算), and Ctyun.
 
 A production-inspired prototype for a multi-source fusion vision inspection system, designed to explore and demonstrate the feasibility of detecting, classifying, and tracking coating defects (e.g., voids, scratches, thin areas, and adhesion failures) in real-time.
 
@@ -104,16 +107,28 @@ This repository is packaged for rapid evaluation, featuring a clean local setup,
 git clone https://github.com/thtcsec/securecoating-vision.git
 cd securecoating-vision
 
-# Install dependencies
+# Create / use project virtualenv on the project drive (recommended — avoids filling system disk)
+python -m venv .venv
+# Windows PowerShell:
+.\.venv\Scripts\Activate.ps1
+# Linux/macOS:
+# source .venv/bin/activate
+
+# Install dependencies INTO .venv only
 pip install -r requirements.txt
+# GPU PyTorch (if needed):
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 
 # Start the REST API
-python src/api/main.py
+python -m uvicorn src.api.main:app --host 127.0.0.1 --port 8000
+# Or: powershell -File scripts/run_api.ps1
 
-# In a separate terminal, start the Streamlit Dashboard
+# In a separate terminal (with .venv activated), start the Streamlit Dashboard
 streamlit run dashboard/app.py
+# Or: powershell -File scripts/run_dashboard.ps1
 ```
 
+> **Important:** Always activate `.venv` before `pip install`. Do not install into the global/user Python site-packages (especially on Windows `AppData` on C:).
 #### 2. Running in Production (Docker)
 ```bash
 docker-compose up --build

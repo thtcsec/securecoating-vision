@@ -122,11 +122,20 @@ st.markdown(
     "🔍 SecureCoating-Vision</h1>",
     unsafe_allow_html=True
 )
+if predictor.yolo_available:
+    engine_badge = f"YOLO ready ({predictor.yolo_engine.active_provider})"
+elif predictor.onnx_available:
+    engine_badge = f"ONNX ready ({predictor.onnx_engine.active_provider})"
+else:
+    engine_badge = "No weights — PyTorch fusion fallback"
 st.markdown(
-    "<p style='text-align:center; color:#8C9BAE; font-size:15px; margin-bottom:25px;'>"
+    "<p style='text-align:center; color:#8C9BAE; font-size:15px; margin-bottom:8px;'>"
     "Multi-Sensor Fusion Inspection Console &middot; Real-Time Quality Analytics "
     "&middot; Industrial I/O Control</p>",
     unsafe_allow_html=True
+)
+st.caption(
+    f"Model v{predictor.model_version} · Engine: {engine_badge}"
 )
 
 # ============================================================
@@ -135,6 +144,27 @@ st.markdown(
 st.sidebar.markdown("<h2 style='color:#FFF;'>System Control Panel</h2>", unsafe_allow_html=True)
 active_batch = st.sidebar.text_input("Active Batch ID", value="BATCH_2026_07A")
 part_num = st.sidebar.number_input("Starting Part Number", min_value=1, value=10, step=1)
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("<h3 style='color:#FFF;'>Backend</h3>", unsafe_allow_html=True)
+use_api_backend = st.sidebar.toggle("Use REST API backend", value=True)
+api_base = st.sidebar.text_input("API Base URL", value="http://127.0.0.1:8000")
+if use_api_backend:
+    try:
+        import requests as _req
+        health = _req.get(f"{api_base.rstrip('/')}/health", timeout=3).json()
+        st.sidebar.success(
+            f"API: {health.get('status')} · {health.get('primary_engine', '?')}"
+        )
+        lat = _req.get(f"{api_base.rstrip('/')}/api/metrics/latency", timeout=3).json()
+        if lat.get("count", 0) > 0:
+            st.sidebar.caption(
+                f"Latency p50={lat['p50_ms']}ms · p95={lat['p95_ms']}ms · "
+                f"≤35ms: {lat['within_target_pct']}%"
+            )
+    except Exception as exc:
+        st.sidebar.warning(f"API unreachable — falling back to local engine ({exc.__class__.__name__})")
+        use_api_backend = False
 
 # Sensor health toggles
 st.sidebar.markdown("---")
@@ -152,23 +182,31 @@ image_source = st.sidebar.radio(
 )
 
 uploaded_file = None
+selected_test_sample = None
 if image_source == "Upload Image":
     uploaded_file = st.sidebar.file_uploader(
         "Upload coating/surface image",
         type=["png", "jpg", "jpeg", "bmp", "tiff"],
         help="Upload a real coating surface image for AI inspection"
     )
-    # Demo sample button
-    use_demo_sample = st.sidebar.button("Or: Use Demo Sample Image", use_container_width=True)
-    if use_demo_sample:
-        # Load a sample from our trained dataset
-        sample_dir = os.path.join(PROJECT_ROOT, "data", "coating_defects", "images", "val")
-        if os.path.exists(sample_dir):
-            samples = [f for f in os.listdir(sample_dir) if f.endswith(('.jpg', '.png'))]
-            if samples:
-                chosen = samples[np.random.randint(0, len(samples))]
-                st.session_state["demo_sample_path"] = os.path.join(sample_dir, chosen)
-    st.sidebar.caption("Tip: Use demo sample to see AI detection on training-domain images")
+    test_dir = os.path.join(PROJECT_ROOT, "data", "test_set", "images")
+    test_samples = []
+    if os.path.isdir(test_dir):
+        test_samples = sorted(
+            f for f in os.listdir(test_dir)
+            if f.lower().endswith((".jpg", ".jpeg", ".png"))
+        )
+    selected_test_sample = st.sidebar.selectbox(
+        "Or inject from test_set:",
+        options=["(none)"] + test_samples,
+        index=1 if test_samples else 0,
+        help="Pick a labeled demo image then click Trigger Physical Scan",
+    )
+    if selected_test_sample and selected_test_sample != "(none)" and uploaded_file is None:
+        st.session_state["demo_sample_path"] = os.path.join(test_dir, selected_test_sample)
+        st.session_state["_last_demo_path"] = st.session_state["demo_sample_path"]
+        st.sidebar.caption(f"Ready: `{selected_test_sample}` — press Trigger to inspect")
+    st.sidebar.caption("Tip: upload your own photo OR pick a test_set image above")
 
 if image_source == "Camera Simulation":
     st.sidebar.markdown("<h4 style='color:#FFF;'>Defect Injection</h4>", unsafe_allow_html=True)
@@ -228,17 +266,37 @@ if trigger_btn:
         if optical is None:
             st.sidebar.error("Failed to decode image!")
             st.stop()
-        # Resize to working resolution
-        optical = cv2.resize(optical, (w, h), interpolation=cv2.INTER_AREA)
+        # Keep native resolution (letterboxed inside ONNX engine); cap oversized frames
+        max_side = 1280
+        oh, ow = optical.shape[:2]
+        scale = min(1.0, max_side / max(oh, ow))
+        if scale < 1.0:
+            optical = cv2.resize(
+                optical,
+                (int(ow * scale), int(oh * scale)),
+                interpolation=cv2.INTER_AREA,
+            )
+        h, w = optical.shape[:2]
         defect_label = "unknown"  # Real image - let model decide
         uploaded_file.seek(0)  # Reset for potential re-read
     elif st.session_state.get("demo_sample_path"):
         # Load demo sample from dataset
         demo_path = st.session_state.pop("demo_sample_path")
+        st.session_state["_last_demo_path"] = demo_path
         optical = cv2.imread(demo_path)
         if optical is not None:
-            optical = cv2.resize(optical, (w, h), interpolation=cv2.INTER_AREA)
+            max_side = 1280
+            oh, ow = optical.shape[:2]
+            scale = min(1.0, max_side / max(oh, ow))
+            if scale < 1.0:
+                optical = cv2.resize(
+                    optical,
+                    (int(ow * scale), int(oh * scale)),
+                    interpolation=cv2.INTER_AREA,
+                )
+            h, w = optical.shape[:2]
         else:
+            h, w = 1024, 1024
             optical = np.random.randint(160, 195, (h, w, 3), dtype=np.uint8)
         defect_label = "unknown"
     else:
@@ -328,18 +386,65 @@ if trigger_btn:
     thermal = fusion_result.thermal_frame
     height_map = fusion_result.height_frame
 
-    # 3. Run inference with fail-safe
+    api_payload = None
+    if use_api_backend:
+        try:
+            import requests as _req
+            form = {
+                "batch_id": active_batch,
+                "part_id": part_id,
+                "thermal_online": str(thermal_connected).lower(),
+                "profiler_online": str(depth_connected).lower(),
+            }
+            files = None
+            demo_path = st.session_state.get("_last_demo_path")
+            if image_source == "Upload Image" and uploaded_file is not None:
+                uploaded_file.seek(0)
+                files = {"image": (uploaded_file.name, uploaded_file.read(), uploaded_file.type or "image/jpeg")}
+            elif demo_path:
+                form["sample_name"] = os.path.basename(demo_path)
+            elif defect_label not in ("none", "unknown"):
+                form["simulate_defect"] = defect_label
+            resp = _req.post(
+                f"{api_base.rstrip('/')}/api/inspect",
+                data=form,
+                files=files,
+                timeout=120,
+            )
+            resp.raise_for_status()
+            api_payload = resp.json()
+        except Exception as api_err:
+            st.sidebar.error(f"API inspect failed: {api_err}")
+            api_payload = None
+
+    # 3. Run inference with fail-safe (local overlay / fallback if API down)
     failsafe.health.thermal_sensor_ok = thermal_connected
     failsafe.health.profiler_sensor_ok = depth_connected
     result = failsafe.safe_predict(predictor, optical, thermal, height_map)
+    if api_payload:
+        # Prefer API as source of truth for grading / PLC / engine metadata
+        result = {
+            **result,
+            "latency_ms": api_payload.get("latency_ms", result.get("latency_ms", 0.0)),
+            "engine": api_payload.get("engine", result.get("engine")),
+            "fallback_active": api_payload.get("fallback_active", result.get("fallback_active")),
+            "system_state": api_payload.get("system_state", result.get("system_state")),
+            "model_version": api_payload.get("model_version", result.get("model_version")),
+            "detections": api_payload.get("detections", result.get("detections", [])),
+            "run_id": api_payload.get("run_id"),
+        }
 
-    # 4. Post-process segmentation mask
-    seg_mask = result.get("segmentation_mask", np.zeros((h, w), dtype=np.uint8))
+    # 4. Post-process segmentation mask (trust YOLO/ONNX — do NOT invent CV masks)
+    seg_mask = result.get("segmentation_mask", np.zeros((h, w), dtype=np.uint8)).copy()
 
-    # If model output is empty, generate segmentation from image analysis
-    # This provides meaningful visualization even before model is trained on real data
-    if np.max(seg_mask) == 0:
-        # Use image processing to detect anomalous regions
+    # Legacy classic-CV fill only when no trained model is loaded AND camera-sim injected a defect
+    if (
+        np.max(seg_mask) == 0
+        and defect_label not in ("none", "unknown")
+        and not (predictor.yolo_available or predictor.onnx_available)
+    ):
+        # If model output is empty, generate segmentation from image analysis
+        # This provides meaningful visualization even before model is trained on real data
         gray = cv2.cvtColor(optical, cv2.COLOR_BGR2GRAY)
         
         # Adaptive threshold to find defect regions
@@ -389,40 +494,64 @@ if trigger_btn:
                 continue
             cv2.drawContours(seg_mask, [cnt], -1, 3, -1)  # Bright = blister
 
-    defects = extract_defects_from_mask(seg_mask, height_map, pixel_to_mm_ratio=0.1)
+    # Prefer API defects/grading; otherwise grade locally from the segmentation mask
+    if api_payload and api_payload.get("defects_found") is not None:
+        defects = api_payload["defects_found"]
+    else:
+        defects = extract_defects_from_mask(seg_mask, height_map, pixel_to_mm_ratio=0.1)
+        model_dets = result.get("detections") or []
+        if model_dets:
+            by_class = {}
+            for det in model_dets:
+                name = det.get("class_name", "")
+                by_class[name] = max(by_class.get(name, 0.0), float(det.get("confidence", 0.0)))
+            for d in defects:
+                d["confidence"] = round(by_class.get(d.get("class_name", ""), 0.0), 4) or None
 
     # 5. Grade coating
     rules = model_config.get("inference", {}).get("grading", {})
-    grade = grade_coating(defects, rules)
+    if api_payload:
+        grade = {
+            "passed": api_payload.get("passed", True),
+            "reject_reasons": api_payload.get("reject_reasons", []),
+            "action": "PASS" if api_payload.get("passed", True) else "REJECT",
+        }
+        industrial_result = {"gate_action": api_payload.get("gate_action", "HOLD")}
+    else:
+        grade = grade_coating(defects, rules)
+        industrial_result = industrial_mgr.process_inspection_result(
+            part_id=part_id,
+            batch_id=active_batch,
+            defects=defects,
+            grade_result=grade
+        )
 
-    # 6. Industrial signaling
-    industrial_result = industrial_mgr.process_inspection_result(
-        part_id=part_id,
-        batch_id=active_batch,
-        defects=defects,
-        grade_result=grade
-    )
-
-    # 7. Log to DB
+    # 7. Log to DB (skip when API already persisted the inspection)
     max_len = max([d["length_mm"] for d in defects]) if defects else 0.0
     max_area = max([d["area_mm2"] for d in defects]) if defects else 0.0
     peak_h = max([d["peak_height_um"] for d in defects]) if defects else 0.0
 
-    quality_mem.add_entry(
-        batch_id=active_batch,
-        part_id=part_id,
-        has_defect=not grade["passed"],
-        defect_class=defect_label,
-        max_length=max_len,
-        max_area=max_area,
-        peak_height=peak_h,
-        latency=result.get("latency_ms", 0.0),
-        fallback=result.get("fallback_active", False)
-    )
+    if not api_payload:
+        quality_mem.add_entry(
+            batch_id=active_batch,
+            part_id=part_id,
+            has_defect=not grade["passed"],
+            defect_class=defect_label if defect_label != "unknown" else (
+                defects[0]["class_name"] if defects else "none"
+            ),
+            max_length=max_len,
+            max_area=max_area,
+            peak_height=peak_h,
+            latency=result.get("latency_ms", 0.0),
+            fallback=result.get("fallback_active", False),
+            model_version=result.get("model_version", predictor.model_version),
+            run_id=result.get("run_id"),
+        )
 
     # Store result in session
     st.session_state.last_result = {
         "part_id": part_id,
+        "run_id": result.get("run_id") or (api_payload or {}).get("run_id"),
         "passed": grade["passed"],
         "reject_reasons": grade["reject_reasons"],
         "defects": defects,
@@ -590,6 +719,7 @@ with tab1:
             | Parameter | Value |
             |-----------|-------|
             | Part ID | `{res['part_id']}` |
+            | Run ID | `{res.get('run_id') or '—'}` |
             | Verdict | **{'PASS' if res['passed'] else 'REJECT'}** |
             | Defects Found | {len(res['defects'])} |
             | Inference Engine | {res['engine']} |
@@ -646,7 +776,10 @@ with tab1:
             else:
                 total_defects = len(res["defects"])
                 df_defects = pd.DataFrame(res["defects"])
-                display_cols = ["defect_id", "class_name", "length_mm", "area_mm2", "peak_height_um"]
+                display_cols = [
+                    "defect_id", "class_name", "confidence",
+                    "length_mm", "area_mm2", "peak_height_um",
+                ]
                 available_cols = [c for c in display_cols if c in df_defects.columns]
                 if total_defects > 15:
                     df_defects = df_defects.sort_values("area_mm2", ascending=False).head(15)
