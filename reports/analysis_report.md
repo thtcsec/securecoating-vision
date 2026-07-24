@@ -3,7 +3,7 @@
 **Project:** Multi-Sensor Fusion AI Platform for Inline Coating Defect Inspection  
 **Track:** Track 4 — AI + Materials Testing and Characterization  
 **Author:** Trịnh Hoàng Tú (HUFLIT)  
-**Academic Supervisor:** Kris Singh (SRII; Visiting Professor, Tsinghua University)  
+**External Advisor:** Kris Singh (Founder & CEO, SRII; Visiting Professor, Tsinghua University)  
 **Date:** July 2026  
 
 ---

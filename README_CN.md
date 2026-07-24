@@ -5,7 +5,7 @@
 </p>
 
 **参赛选手:** Trịnh Hoàng Tú  
-**学术导师 (Academic Supervisor):** Kris Singh — CEO, SRII；清华大学访问教授；澳大利亚纽卡斯尔大学实践兼职教授；曾任 IBM / AMD / Intel / National Semiconductor 高管  
+**外部顾问 (External Advisor):** Kris Singh — SRII 创始人兼 CEO；清华大学访问教授  
 **竞赛名称:** 2026年全球AI+材料创新应用大赛 (清华大学材料学院及联合主办单位)  
 **赛道:** 赛道四：AI + 材料检测与表征  
 **作品提交截止日期:** 2026年7月31日 (决赛答辩：2026年8月下旬 — 6分钟陈述作品+2分钟回答提问)  

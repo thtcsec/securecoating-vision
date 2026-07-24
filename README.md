@@ -10,7 +10,7 @@
 </p>
 
 **Author:** Trịnh Hoàng Tú (HUFLIT)  
-**Academic Supervisor:** Kris Singh — CEO, SRII; Visiting Professor, Tsinghua University; Adj. Professor of Practice, University of Newcastle; former executive at IBM, AMD, Intel, and National Semiconductor  
+**External Advisor:** Kris Singh — Founder and CEO, SRII; Visiting Professor, Tsinghua University  
 **Competition Context:** Prepared for the **2026 Global AI + Materials Innovation Application Competition (全球AI+材料创新应用大赛)**, hosted by Tsinghua University School of Materials Science and Engineering (清华大学材料学院) and co-hosts.  
 **Track:** Track 4 — AI + Materials Testing and Characterization (AI + 材料检测与表征)  
 **Submission Deadline:** July 31, 2026 (Final Defense: Late August 2026 — 6-min pitch + 2-min Q&A)
@@ -27,7 +27,7 @@ This project targets high detection accuracy and low-latency processing through 
 
 ### Target Performance Metrics (Design Specifications)
 *   **Defect Detection Accuracy (mAP@0.5:0.95):** Target of $\ge 92.5\%$ across critical defect classes (Scratch, Void, Blister, Delamination, Under-coating) under evaluation.
-*   **Defect Recall Rate:** Target of $\ge 98.2\%$ for critical safety defects, designed to ensure zero escapes to the next manufacturing step.
+*   **Defect Recall Rate:** Target of $\ge 98.2\%$ for critical safety defects, designed to reduce defect escape risk to near-zero before downstream cell assembly steps.
 *   **Inference Latency:** Design target of $\le 35\text{ ms} $ per inspection zone (combining sensor calibration, fusion, and model execution).
 *   **Inspection Throughput:** Aimed at supporting production line speeds of up to $2.0\text{ m/s}$ under simulated continuous rolling inspection constraints.
 
@@ -92,9 +92,11 @@ Our system is designed to demonstrate compatibility with standard Smart Factory 
 This repository is packaged for rapid evaluation, featuring a clean local setup, containerized services, and an interactive QA dashboard.
 
 ### Submission Package Checklist
-*   `README.md`: Direct mapping to competition tracks and scores.
-*   `docs/`: Deep-dive architectural drawings and workflows.
-*   `src/`: Modular Python pipeline implementing model inference, training, evaluation, and industrial communication.
+*   `README.md` & `README_CN.md`: Direct mapping to competition tracks, deadlines, and scoring criteria.
+*   `Al + Materials Competition Application Form.docx`: Official filled competition application form.
+*   `docs/`: Architectural drawings, workflows, and `presentation_pitch.md` (6-Minute Final Defense Script + 2-Minute Q&A prep).
+*   `src/`: Modular Python pipeline implementing ONNX inference, fail-safe degradation, traceability, and industrial PLC signaling.
+*   `scripts/`: Automation scripts including `generate_synthetic_coating_defects.py` (contour-derived polygon generator with exact class quotas & 20% negative baseline samples) and `build_submission.py`.
 *   `dashboard/`: Streamlit interactive dashboard showing real-time defect maps, multi-source inputs, and quality graphs.
 *   `configs/`: Configurable thresholds, network parameters, and inference settings.
 *   `docker-compose.yml`: Zero-config startup template.
