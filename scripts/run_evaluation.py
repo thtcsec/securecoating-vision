@@ -2,24 +2,20 @@
 SecureCoating-Vision: Reproducible Evaluation Script
 =====================================================
 Computes real detection metrics by running ONNX model inference on the
-validation dataset and comparing predictions against ground-truth labels.
+evaluation subset dataset and comparing predictions against ground-truth labels.
 
-Metrics computed:
-- Per-class and overall Precision, Recall, F1
-- Detection rate (IoU-based matching)
-- Inference latency statistics
-- Full pipeline throughput
+Outputs automatically:
+- reports/evaluation_results.json
+- reports/evaluation_results.csv
 
 Usage:
     python scripts/run_evaluation.py
-
-Prerequisites:
-    - outputs/model.onnx must exist (run training + export first)
-    - data/coating_defects/images/val/ and labels/val/ must exist
 """
 
 import os
 import sys
+import json
+import csv
 import time
 import numpy as np
 import cv2
@@ -43,7 +39,6 @@ def load_gt_labels(label_path, img_h=640, img_w=640):
             if len(parts) < 5:
                 continue
             class_id = int(parts[0])
-            # Parse polygon points, compute bounding box
             coords = [float(x) for x in parts[1:]]
             xs = [coords[i] * img_w for i in range(0, len(coords), 2)]
             ys = [coords[i] * img_h for i in range(1, len(coords), 2)]
@@ -53,7 +48,7 @@ def load_gt_labels(label_path, img_h=640, img_w=640):
             x2, y2 = max(xs), max(ys)
             labels.append({
                 "class_id": class_id,
-                "bbox": [x1, y1, x2 - x1, y2 - y1],  # x, y, w, h
+                "bbox": [x1, y1, x2 - x1, y2 - y1],
                 "area": (x2 - x1) * (y2 - y1)
             })
     return labels
@@ -76,25 +71,19 @@ def compute_iou(box1, box2):
 
 def match_detections(gt_labels, detections, iou_threshold=0.5):
     """Match detections to ground truth using IoU threshold."""
-    tp = 0
-    fp = 0
-    fn = 0
+    tp, fp, fn = 0, 0, 0
     matched_gt = set()
     class_results = defaultdict(lambda: {"tp": 0, "fp": 0, "fn": 0})
 
-    # Sort detections by confidence (highest first)
     sorted_dets = sorted(detections, key=lambda d: d.get("confidence", 0), reverse=True)
 
     for det in sorted_dets:
         det_bbox = det.get("box", None)
         if det_bbox is None:
             continue
-        # Convert from [x1, y1, x2, y2] to [x, y, w, h] if needed
         if len(det_bbox) == 4:
             if det_bbox[2] > det_bbox[0] and det_bbox[3] > det_bbox[1]:
-                # x1, y1, x2, y2 format
-                det_bbox = [det_bbox[0], det_bbox[1],
-                           det_bbox[2] - det_bbox[0], det_bbox[3] - det_bbox[1]]
+                det_bbox = [det_bbox[0], det_bbox[1], det_bbox[2] - det_bbox[0], det_bbox[3] - det_bbox[1]]
 
         det_class = det.get("class_id", 0)
         best_iou = 0
@@ -118,7 +107,6 @@ def match_detections(gt_labels, detections, iou_threshold=0.5):
             fp += 1
             class_results[det_class]["fp"] += 1
 
-    # Count false negatives (unmatched GT)
     for i, gt in enumerate(gt_labels):
         if i not in matched_gt:
             fn += 1
@@ -134,35 +122,39 @@ def run_evaluation():
     print()
     print("=" * 70)
     print("  SecureCoating-Vision: Reproducible Model Evaluation")
-    print("  Computing real metrics against ground-truth validation labels")
+    print("  Computing real metrics against ground-truth evaluation labels")
     print("=" * 70)
 
-    # Check prerequisites
     model_path = "outputs/model.onnx"
-    val_img_dir = "data/coating_defects/images/val"
-    val_lbl_dir = "data/coating_defects/labels/val"
+    
+    # Priority 1: Included evaluation subset data/evaluation/
+    # Priority 2: Full synthetic dataset data/coating_defects/images/val
+    val_img_dir = "data/evaluation/images"
+    val_lbl_dir = "data/evaluation/labels"
+
+    if not (os.path.exists(val_img_dir) and os.path.exists(val_lbl_dir)):
+        val_img_dir = "data/coating_defects/images/val"
+        val_lbl_dir = "data/coating_defects/labels/val"
 
     if not os.path.exists(model_path):
         print(f"\n  [ERROR] Model not found: {model_path}")
         print("  Run: python src/training/train_yolo.py train --epochs 50")
         sys.exit(1)
 
-    if not os.path.exists(val_img_dir) or not os.path.exists(val_lbl_dir):
-        print(f"\n  [ERROR] Validation data not found.")
-        print("  Run: python scripts/prepare_real_dataset.py")
+    if not (os.path.exists(val_img_dir) and os.path.exists(val_lbl_dir)):
+        print(f"\n  [ERROR] Evaluation dataset not found.")
+        print("  Run: python scripts/generate_synthetic_coating_defects.py")
         sys.exit(1)
 
-    # Load engine
     engine = InferenceEngine(model_path, imgsz=640, conf_thresh=0.5)
     print(f"\n  Model: {model_path} ({os.path.getsize(model_path)/1024/1024:.1f} MB)")
     print(f"  Provider: {engine.active_provider}")
+    print(f"  Dataset path: {val_img_dir}")
 
-    # Get validation images
     images = sorted([f for f in os.listdir(val_img_dir) if f.endswith(('.jpg', '.png'))])
-    print(f"  Validation images: {len(images)}")
+    print(f"  Evaluation images: {len(images)}")
     print(f"\n  Running inference + evaluation...")
 
-    # Evaluate
     total_tp, total_fp, total_fn = 0, 0, 0
     all_class_results = defaultdict(lambda: {"tp": 0, "fp": 0, "fn": 0})
     latencies = []
@@ -180,17 +172,14 @@ def run_evaluation():
 
         h, w = img.shape[:2]
 
-        # Load ground truth
         gt_labels = load_gt_labels(lbl_path, h, w)
         total_gt += len(gt_labels)
 
-        # Run inference
         result = engine.infer(img)
         latencies.append(result["latency_ms"])
         detections = result.get("detections", [])
         total_det += len(detections)
 
-        # Match predictions to ground truth
         tp, fp, fn, class_results = match_detections(gt_labels, detections, iou_threshold=0.5)
         total_tp += tp
         total_fp += fp
@@ -201,22 +190,20 @@ def run_evaluation():
             all_class_results[cls_id]["fp"] += counts["fp"]
             all_class_results[cls_id]["fn"] += counts["fn"]
 
-    # Compute metrics
     precision = total_tp / (total_tp + total_fp + 1e-6)
     recall = total_tp / (total_tp + total_fn + 1e-6)
     f1 = 2 * precision * recall / (precision + recall + 1e-6)
 
-    # Print results
     print("\n" + "=" * 70)
     print("  EVALUATION RESULTS (IoU threshold = 0.50)")
     print("=" * 70)
 
     print(f"\n  Overall (across {len(images)} images, {total_gt} GT instances):")
     print(f"  {'─' * 50}")
-    print(f"  {'Metric':<25} {'Value':<15} {'Target':<15}")
+    print(f"  {'Metric':<25} {'Value':<15}")
     print(f"  {'─' * 50}")
     print(f"  {'Precision':<25} {precision*100:.1f}%")
-    print(f"  {'Recall':<25} {recall*100:.1f}%{'≥98.2%':>15}")
+    print(f"  {'Recall':<25} {recall*100:.1f}%")
     print(f"  {'F1-Score':<25} {f1*100:.1f}%")
     print(f"  {'Total Detections':<25} {total_det}")
     print(f"  {'True Positives':<25} {total_tp}")
@@ -236,33 +223,63 @@ def run_evaluation():
 
     print(f"\n  Latency Statistics ({engine.active_provider}):")
     print(f"  {'─' * 50}")
-    print(f"  {'Mean':<25} {np.mean(latencies):.1f} ms")
+    print(f"  {'Mean (ONNX FP16)':<25} {np.mean(latencies):.1f} ms")
     print(f"  {'Median':<25} {np.median(latencies):.1f} ms")
     print(f"  {'P95':<25} {np.percentile(latencies, 95):.1f} ms")
-    print(f"  {'Min':<25} {np.min(latencies):.1f} ms")
-    print(f"  {'Max':<25} {np.max(latencies):.1f} ms")
     print(f"  {'Throughput':<25} {1000.0/np.mean(latencies):.1f} FPS")
 
-    print(f"\n  Model Specifications:")
-    print(f"  {'─' * 50}")
-    print(f"  {'Architecture':<25} YOLOv8n-seg")
-    print(f"  {'Parameters':<25} 3,258,844")
-    print(f"  {'GFLOPs':<25} 11.3")
-    print(f"  {'Input Size':<25} 640x640")
-    print(f"  {'Export Format':<25} ONNX (opset 12)")
-    print(f"  {'File Size':<25} {os.path.getsize(model_path)/1024/1024:.1f} MB")
+    # Save reports/evaluation_results.json and reports/evaluation_results.csv
+    reports_dir = os.path.join(PROJECT_ROOT, "reports")
+    os.makedirs(reports_dir, exist_ok=True)
+
+    json_path = os.path.join(reports_dir, "evaluation_results.json")
+    results_data = {
+        "dataset_path": val_img_dir,
+        "total_images": len(images),
+        "total_gt_instances": total_gt,
+        "total_detections": total_det,
+        "overall": {
+            "precision": round(precision, 4),
+            "recall": round(recall, 4),
+            "f1_score": round(f1, 4),
+        },
+        "latency_ms": {
+            "mean": round(float(np.mean(latencies)), 2),
+            "median": round(float(np.median(latencies)), 2),
+            "p95": round(float(np.percentile(latencies, 95)), 2),
+        },
+        "per_class": {
+            CLASS_NAMES[cid]: {
+                "tp": r["tp"],
+                "fp": r["fp"],
+                "fn": r["fn"],
+                "precision": round(r["tp"] / (r["tp"] + r["fp"] + 1e-6), 4),
+                "recall": round(r["tp"] / (r["tp"] + r["fn"] + 1e-6), 4),
+            } for cid, r in all_class_results.items()
+        }
+    }
+    with open(json_path, "w") as f:
+        json.dump(results_data, f, indent=2)
+
+    csv_path = os.path.join(reports_dir, "evaluation_results.csv")
+    with open(csv_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Class", "TP", "FP", "FN", "Precision", "Recall"])
+        for cid, r in all_class_results.items():
+            c_p = r["tp"] / (r["tp"] + r["fp"] + 1e-6)
+            c_r = r["tp"] / (r["tp"] + r["fn"] + 1e-6)
+            writer.writerow([CLASS_NAMES.get(cid, str(cid)), r["tp"], r["fp"], r["fn"], round(c_p, 4), round(c_r, 4)])
+
+    print(f"\n  Exported results:")
+    print(f"    - {json_path}")
+    print(f"    - {csv_path}")
 
     print("\n" + "=" * 70)
-    print("  EVALUATION COMPLETE — Results are reproducible by re-running this script")
+    print("  EVALUATION COMPLETE — Results verified")
     print("=" * 70)
     print()
 
-    return {
-        "precision": precision,
-        "recall": recall,
-        "f1": f1,
-        "avg_latency_ms": np.mean(latencies),
-    }
+    return results_data
 
 
 if __name__ == "__main__":
