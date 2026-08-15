@@ -33,6 +33,7 @@ streamlit>=1.29.0
 
 # Visualization
 matplotlib>=3.8.0
+plotly>=6.0.0
 
 # Testing
 pytest>=7.4.0

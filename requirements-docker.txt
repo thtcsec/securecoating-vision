@@ -25,8 +25,9 @@ torchvision>=0.16.0
 # ONNX Runtime CPU
 onnxruntime>=1.16.0
 
-# Dashboard
+# Dashboard & 3D Visualization
 streamlit>=1.29.0
+plotly>=6.0.0
 
 # Optional utilities (CPU docker does not need ultralytics for inference-only)
 # Ultralytics enables .pt path; ONNX Runtime handles model.onnx without it.

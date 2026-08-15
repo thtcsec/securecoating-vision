@@ -261,6 +261,40 @@ class SensorFusionManager:
 
         return height_map
 
+    def generate_mock_frame(
+        self,
+        defect_type: str = "random"
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Generate synthetic high-resolution multi-modal sensor frames (RGB, Thermal, 3D Height).
+        
+        Args:
+            defect_type: 'scratch', 'void', 'blister', 'delamination', 'none', or 'random'
+            
+        Returns:
+            Tuple of (optical_bgr, thermal_celsius, height_um)
+        """
+        h, w = self.target_size
+        optical = np.ones((h, w, 3), dtype=np.uint8) * 160
+        noise = np.random.randint(-10, 10, (h, w, 3), dtype=np.int16)
+        optical = np.clip(optical.astype(np.int16) + noise, 0, 255).astype(np.uint8)
+
+        if defect_type == "random":
+            defect_type = np.random.choice(["scratch", "void", "blister", "delamination"])
+
+        if defect_type == "scratch":
+            cv2.line(optical, (200, 300), (800, 320), (40, 40, 40), 4)
+        elif defect_type == "void":
+            cv2.circle(optical, (512, 512), 45, (80, 80, 80), -1)
+        elif defect_type == "blister":
+            cv2.circle(optical, (750, 700), 60, (230, 230, 230), -1)
+        elif defect_type == "delamination":
+            cv2.ellipse(optical, (350, 650), (90, 50), 30, 0, 360, (50, 50, 50), -1)
+
+        thermal = self.generate_mock_thermal(optical)
+        height = self.generate_mock_height(optical)
+        return optical, thermal, height
+
     def align_frame(
         self,
         frame: np.ndarray,

@@ -56,6 +56,11 @@ from inference.sensor_fusion import SensorFusionManager
 from inference.failsafe import FailSafeManager
 from traceability.quality_memory import QualityMemory
 from industrial.protocol_manager import IndustrialProtocolManager
+from industrial.web_synchronizer import WebSynchronizer, RollMetadata
+from inference.electrode_metrology import ElectrodeMetrologyEngine
+from inference.multi_stage_pipeline import MultiStageIndustrialPipeline
+from traceability.root_cause_engine import RootCauseDiagnosticEngine
+from traceability.roll_certificate import RollCertificateGenerator
 
 # --- Application Setup ---
 app = FastAPI(
@@ -187,6 +192,25 @@ quality_mem = QualityMemory(db_path)
 # 5. Industrial Protocol Manager (OPC UA / Modbus TCP)
 industrial_config = app_config.get("industrial_io", {})
 industrial_mgr = IndustrialProtocolManager(industrial_config)
+
+# 6. Web Motion & Continuous Roll Synchronizer
+web_synchronizer = WebSynchronizer()
+
+# 7. Physics-Informed Battery Electrode Metrology
+electrode_metrology = ElectrodeMetrologyEngine(pixel_to_mm_ratio=0.1)
+
+# 8. AI Closed-Loop Root-Cause Diagnostics
+root_cause_engine = RootCauseDiagnosticEngine()
+
+# 9. Multi-Stage Industrial Pipeline Orchestrator
+multi_stage_pipeline = MultiStageIndustrialPipeline(
+    predictor=predictor,
+    fusion_manager=fusion_manager,
+    failsafe_manager=failsafe,
+    industrial_manager=industrial_mgr,
+    web_synchronizer=web_synchronizer,
+    pixel_to_mm_ratio=0.1
+)
 
 
 # --- Response Models ---
@@ -455,6 +479,87 @@ def system_health_report():
             "model_version": predictor.model_version,
         }
     }
+
+
+# =========================================================================
+# NEW INDUSTRIAL ENDPOINTS (FINAL ROUND ENHANCEMENTS)
+# =========================================================================
+
+@app.post("/api/pipeline/multi-stage")
+def run_multi_stage_pipeline(
+    part_id: Optional[str] = Form(None),
+    sample_name: Optional[str] = Form(None),
+    cross_web_pos_mm: float = Form(325.0),
+    enable_plc_signal: bool = Form(True)
+):
+    """
+    Execute the complete 7-stage multi-modal industrial inspection workflow:
+    1. Web Motion & Encoder Synchronization
+    2. Multi-Modal Physical Acquisition (Brightfield, Darkfield, Lock-in Thermography, 3D Laser)
+    3. Homography Registration & 5-Channel Fusion
+    4. Edge AI TensorRT/ONNX Instance Segmentation
+    5. Physics-Informed Battery Electrode Metrology & T/CIAPS 0006 / QC/T 743 Audit
+    6. Hardware Rejection Interlock
+    7. AI Closed-Loop Equipment Diagnostics & Parameter Tuning
+    """
+    try:
+        sample_name = sample_id or f"PART_SAMPLE_{int(time.time()*1000)}"
+        result = pipeline.execute_inspection(sample_id=sample_name)
+        return {
+            "status": "success",
+            "data": result.to_summary_dict()
+        }
+    except Exception as e:
+        logger.error(f"Multi-stage inspection failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/roll/{roll_id}/map")
+def get_roll_defect_map(roll_id: str):
+    """Retrieve 2D defect coordinates across the full jumbo roll for digital twin visualization."""
+    summary = web_synchronizer.get_roll_defect_summary()
+    return {
+        "summary": summary,
+        "defect_records": web_synchronizer.roll_defect_map,
+        "total_records": len(web_synchronizer.roll_defect_map)
+    }
+
+
+@app.get("/api/roll/{roll_id}/certificate")
+def get_roll_certificate(
+    roll_id: str,
+    batch_id: str = "BATCH_2026_08A",
+    electrode_type: str = "Cathode_LFP"
+):
+    """
+    Generate an official, tamper-evident Battery Electrode Quality Inspection Certificate
+    with SHA-256 cryptographic verification and GB/T 38823-2020 compliance audit.
+    """
+    summary = web_synchronizer.get_roll_defect_summary()
+    spc = quality_mem.check_spc_alarms(batch_id)
+    root_cause = root_cause_engine.diagnose_batch(web_synchronizer.roll_defect_map)
+
+    cert = RollCertificateGenerator.build_certificate(
+        roll_id=roll_id,
+        batch_id=batch_id,
+        inspected_length_m=summary["inspected_length_m"],
+        total_length_m=summary["total_roll_length_m"],
+        defect_records=web_synchronizer.roll_defect_map,
+        spc_status=spc.get("status", "IN CONTROL"),
+        root_cause_summary=root_cause.primary_root_cause,
+        electrode_type=electrode_type
+    )
+    return cert.to_dict()
+
+
+@app.post("/api/diagnostics/root-cause")
+def get_root_cause_diagnostics(batch_id: str = "BATCH_2026_08A"):
+    """
+    AI Closed-Loop Diagnostics: attributes coating defects to upstream equipment
+    and recommends parameter adjustments (Slot-Die gap, Oven Zone temperatures, Mixer vacuum).
+    """
+    report = root_cause_engine.diagnose_batch(web_synchronizer.roll_defect_map)
+    return report.to_dict()
 
 
 if __name__ == "__main__":
