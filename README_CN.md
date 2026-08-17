@@ -12,7 +12,7 @@
 </p>
 
 **队伍编号 (Team ID):** 71  
-**队长 (Team Leader):** Trịnh Hoàng Tú (HUFLIT)  
+**队长 (Team Leader):** Trịnh Hoàng Tú — 胡志明市外语信息科技大学 (HUFLIT)  
 **学术顾问 (Academic Supervisor):** Kris Singh — SRII 首席执行官；清华大学客座教授；纽卡斯尔大学实践教授；前 IBM、AMD、Intel、国家半导体高级管理人员  
 **竞赛背景 (Competition Context):** 清华大学材料学院主办 **2026 全球 AI+材料创新应用大赛** (2026 Global AI + Materials Innovation Application Competition)  
 **参赛赛道 (Track):** 赛道四 — AI + 材料检测与表征 (AI + Materials Testing and Characterization)  

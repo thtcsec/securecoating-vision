@@ -13,7 +13,7 @@
 </p>
 
 **Team ID:** 71  
-**Team Leader:** Trịnh Hoàng Tú (HUFLIT)  
+**Team Leader:** Trịnh Hoàng Tú — Ho Chi Minh City University of Foreign Languages - Information Technology (HUFLIT)  
 **Academic Supervisor:** Kris Singh — CEO, SRII; Visiting Professor, Tsinghua University; Adj. Professor of Practice, University of Newcastle; former executive at IBM, AMD, Intel, and National Semiconductor  
 **Competition Context:** Prepared for the **2026 Global AI + Materials Innovation Application Competition (全球AI+材料创新应用大赛)**, hosted by Tsinghua University School of Materials Science and Engineering (清华大学材料学院).  
 **Track:** Track 4 — AI + Materials Testing and Characterization (AI + 材料检测与表征)  

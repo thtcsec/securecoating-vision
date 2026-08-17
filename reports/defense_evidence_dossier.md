@@ -4,7 +4,7 @@
 **Project:** SecureCoating-Vision — Multi-Modal Inline Battery Electrode Quality Metrology & Traceability  
 **Institution:** Tsinghua University MSE Competition (2026 Finals)  
 **Supervising Advisor:** Prof. Kris Singh (SRII / Visiting Prof. Tsinghua University)  
-**Lead Developer:** Team 71 (Trịnh Hoàng Tú, HUFLIT)  
+**Lead Developer:** Team 71 — Trịnh Hoàng Tú, Ho Chi Minh City University of Foreign Languages - Information Technology (HUFLIT)  
 
 ---
 

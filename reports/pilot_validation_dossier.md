@@ -4,7 +4,7 @@
 **Evaluation Standard:** Plant Electrode QA Specification & GB/T 38031 Battery Safety Baseline  
 **Compilation Date:** 2026-08-17 20:59:08  
 **Supervising Advisor:** Prof. Kris Singh (SRII / Visiting Prof. Tsinghua University)  
-**Lead Developer:** Team 71 (Trịnh Hoàng Tú, HUFLIT)
+**Lead Developer:** Team 71 — Trịnh Hoàng Tú, Ho Chi Minh City University of Foreign Languages - Information Technology (HUFLIT)  
 
 ---
 
