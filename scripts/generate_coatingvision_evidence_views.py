@@ -8,6 +8,8 @@ or a production performance claim.
 
 from __future__ import annotations
 
+import argparse
+import json
 from pathlib import Path
 
 import cv2
@@ -15,17 +17,23 @@ import numpy as np
 
 
 ROOT = Path(__file__).resolve().parents[1]
-IMAGE = ROOT / "data/external/coatingvision/segmentation/images/image_565.jpg"
-MASK = ROOT / "data/external/coatingvision/segmentation/masks/image_565.png"
 OUT = ROOT / "reports/coatingvision_visual_evidence"
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--image-id", default="565", help="CoatingVision image id, e.g. 1548")
+    parser.add_argument("--model-overlay", help="Optional path to a real model overlay for a candidate zoom.")
+    parser.add_argument("--model-json", help="Optional path to the matching raw model-output JSON.")
+    args = parser.parse_args()
+    image_id = str(args.image_id)
+    image_path = ROOT / f"data/external/coatingvision/segmentation/images/image_{image_id}.jpg"
+    mask_path = ROOT / f"data/external/coatingvision/segmentation/masks/image_{image_id}.png"
     OUT.mkdir(parents=True, exist_ok=True)
-    image = cv2.imread(str(IMAGE), cv2.IMREAD_COLOR)
-    mask = cv2.imread(str(MASK), cv2.IMREAD_UNCHANGED)
+    image = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
+    mask = cv2.imread(str(mask_path), cv2.IMREAD_UNCHANGED)
     if image is None or mask is None:
-        raise FileNotFoundError("Missing CoatingVision image_565 or its segmentation mask")
+        raise FileNotFoundError(f"Missing CoatingVision image_{image_id} or its segmentation mask")
 
     # Contrast-limited adaptive histogram equalization makes the captured
     # surface texture easier to inspect without creating or adding defects.
@@ -47,9 +55,22 @@ def main() -> int:
         image[foreground], 0.45, red[foreground], 0.55, 0
     )
 
-    cv2.imwrite(str(OUT / "image_565_optical_raw.png"), image)
-    cv2.imwrite(str(OUT / "image_565_contrast_clahe.png"), enhanced)
-    cv2.imwrite(str(OUT / "image_565_ground_truth_overlay.png"), gt_overlay)
+    cv2.imwrite(str(OUT / f"image_{image_id}_optical_raw.png"), image)
+    cv2.imwrite(str(OUT / f"image_{image_id}_contrast_clahe.png"), enhanced)
+    cv2.imwrite(str(OUT / f"image_{image_id}_ground_truth_overlay.png"), gt_overlay)
+
+    if args.model_overlay and args.model_json:
+        overlay = cv2.imread(str(ROOT / args.model_overlay), cv2.IMREAD_COLOR)
+        payload = json.loads((ROOT / args.model_json).read_text(encoding="utf-8"))
+        detections = payload.get("detections", [])
+        if overlay is None or not detections:
+            raise ValueError("Expected a readable model overlay with at least one raw detection")
+        x1, y1, x2, y2 = [int(v) for v in detections[0]["box"]]
+        h, w = overlay.shape[:2]
+        left, right = max(0, x1 - 150), min(w, x2 + 180)
+        top, bottom = max(0, y1 - 110), min(h, y2 + 70)
+        zoom = overlay[top:bottom, left:right]
+        cv2.imwrite(str(OUT / f"image_{image_id}_yolo_candidate_zoom.png"), zoom)
     return 0
 
 
