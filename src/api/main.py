@@ -24,6 +24,7 @@ Endpoints:
 
 import os
 import sys
+import time
 import uuid
 import yaml
 import logging
@@ -31,7 +32,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 import numpy as np
 import cv2
@@ -152,19 +153,50 @@ def _synthetic_optical(h: int, w: int, simulate_defect: Optional[str]) -> np.nda
     return optical
 
 
+MAX_UPLOAD_SIZE = 30 * 1024 * 1024  # 30 MB limit
+
+
 def _attach_confidences(defects: list, detections: list) -> list:
-    """Attach model confidence scores onto graded defect records."""
+    """Attach model confidence scores onto graded defect records using spatial bounding matching."""
     if not detections:
         for d in defects:
             d.setdefault("confidence", None)
         return defects
-    by_class: Dict[str, float] = {}
-    for det in detections:
-        name = det.get("class_name", "")
-        conf = float(det.get("confidence", 0.0))
-        by_class[name] = max(by_class.get(name, 0.0), conf)
+
+    matched_dets = set()
     for d in defects:
-        d["confidence"] = round(by_class.get(d.get("class_name", ""), 0.0), 4) or None
+        d_cx = float(d.get("center_x", 0.0))
+        d_cy = float(d.get("center_y", 0.0))
+        d_class = d.get("class_name", "")
+
+        best_conf = None
+        best_dist = float("inf")
+        best_idx = -1
+
+        for i, det in enumerate(detections):
+            if i in matched_dets:
+                continue
+            if det.get("class_name", "") != d_class:
+                continue
+
+            box = det.get("box", [0, 0, 0, 0])
+            if len(box) == 4:
+                b_cx = (box[0] + box[2]) / 2.0
+                b_cy = (box[1] + box[3]) / 2.0
+                dist = (d_cx - b_cx) ** 2 + (d_cy - b_cy) ** 2
+                if dist < best_dist:
+                    best_dist = dist
+                    best_conf = float(det.get("confidence", 0.0))
+                    best_idx = i
+
+        if best_idx >= 0:
+            matched_dets.add(best_idx)
+            d["confidence"] = round(best_conf, 4) if best_conf is not None else None
+        else:
+            # Fallback to class-level confidence if specific instance spatial match is ambiguous
+            matching_confs = [float(det.get("confidence", 0.0)) for det in detections if det.get("class_name") == d_class]
+            d["confidence"] = round(matching_confs[0], 4) if matching_confs else None
+
     return defects
 
 
@@ -220,15 +252,15 @@ class InspectionResponse(BaseModel):
     run_id: str
     status: str
     passed: bool
-    reject_reasons: list
+    reject_reasons: list = Field(default_factory=list)
     latency_ms: float
-    defects_found: list
+    defects_found: list = Field(default_factory=list)
     fallback_active: bool
     system_state: str
     gate_action: str
     engine: str
     model_version: str = "2.0.0"
-    detections: list = []
+    detections: list = Field(default_factory=list)
 
 
 class HealthResponse(BaseModel):
@@ -291,7 +323,13 @@ async def inspect(
     using_real_image = False
 
     if image is not None and image.filename:
-        optical = _decode_upload(await image.read())
+        raw_bytes = await image.read()
+        if len(raw_bytes) > MAX_UPLOAD_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Uploaded image exceeds maximum payload limit of {MAX_UPLOAD_SIZE // (1024 * 1024)}MB."
+            )
+        optical = _decode_upload(raw_bytes)
         using_real_image = True
     elif sample_name:
         optical = _load_sample_image(sample_name)
@@ -375,6 +413,11 @@ async def inspect(
         run_id=run_id,
     )
 
+    sanitized_detections = [
+        {k: v for k, v in d.items() if not isinstance(v, np.ndarray)}
+        for d in detections if isinstance(d, dict)
+    ]
+
     return {
         "part_id": part_id,
         "batch_id": batch_id,
@@ -389,7 +432,7 @@ async def inspect(
         "gate_action": industrial_result["gate_action"],
         "engine": result.get("engine", "unknown"),
         "model_version": result.get("model_version", predictor.model_version),
-        "detections": detections,
+        "detections": sanitized_detections,
     }
 
 
@@ -498,13 +541,13 @@ def run_multi_stage_pipeline(
     2. Multi-Modal Physical Acquisition (Brightfield, Darkfield, Lock-in Thermography, 3D Laser)
     3. Homography Registration & 5-Channel Fusion
     4. Edge AI TensorRT/ONNX Instance Segmentation
-    5. Physics-Informed Battery Electrode Metrology & T/CIAPS 0006 / QC/T 743 Audit
+    5. Physics-Informed Battery Electrode Metrology & GB/T 38031 Safety Audit
     6. Hardware Rejection Interlock
     7. AI Closed-Loop Equipment Diagnostics & Parameter Tuning
     """
     try:
-        sample_name = sample_id or f"PART_SAMPLE_{int(time.time()*1000)}"
-        result = pipeline.execute_inspection(sample_id=sample_name)
+        sid = sample_name or part_id or f"PART_SAMPLE_{int(time.time()*1000)}"
+        result = multi_stage_pipeline.execute_inspection(sample_id=sid)
         return {
             "status": "success",
             "data": result.to_summary_dict()
@@ -512,6 +555,7 @@ def run_multi_stage_pipeline(
     except Exception as e:
         logger.error(f"Multi-stage inspection failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @app.get("/api/roll/{roll_id}/map")
@@ -560,6 +604,30 @@ def get_root_cause_diagnostics(batch_id: str = "BATCH_2026_08A"):
     """
     report = root_cause_engine.diagnose_batch(web_synchronizer.roll_defect_map)
     return report.to_dict()
+
+
+@app.get("/api/spc/passport")
+def get_digital_battery_passport():
+    """
+    Generate EU DPP / CATL-compliant Digital Battery Passport with Six Sigma Cpk,
+    Spatial FFT mechanical diagnostics, and Slitting Yield Optimization.
+    """
+    passport = multi_stage_pipeline.get_gigafactory_spc_summary()
+    return passport
+
+
+@app.get("/api/spc/slitting-yield")
+def get_slitting_yield_plan():
+    """
+    Smart Slitting Yield Optimizer:
+    Evaluates EV/ESS grade recovery yield and calculates optimal splice cutting positions.
+    """
+    passport = multi_stage_pipeline.get_gigafactory_spc_summary()
+    return {
+        "slitting_optimization": passport.get("slitting_optimization", {}),
+        "lane_cpk_summary": passport.get("six_sigma_quality_summary", {}),
+        "mechanical_anomalies": passport.get("mechanical_health_diagnostics", [])
+    }
 
 
 if __name__ == "__main__":

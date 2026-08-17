@@ -1,51 +1,80 @@
 {
-  "timestamp": "2026-07-24T10:20:55Z",
+  "timestamp": "2026-08-17T14:15:14.468237+00:00",
   "provider": "CPUExecutionProvider",
-  "hardware": "AMD / Intel x86_64 CPU (Universal evaluation context)",
-  "warmup_runs": 10,
-  "measured_runs": 50,
-  "dataset_path": "data/evaluation/images",
+  "dataset_path": "data/evaluation",
   "total_images": 50,
   "total_gt_instances": 30,
-  "total_detections": 37,
-  "overall": {
-    "precision": 0.5405,
-    "recall": 0.6667,
-    "f1_score": 0.597
+  "total_detections": 40,
+  "iou_threshold": 0.5,
+  "confidence_threshold": 0.25,
+  "seed": 42,
+  "detection_metrics": {
+    "box_precision": 0.5,
+    "box_recall": 0.6667,
+    "box_f1_score": 0.5714
+  },
+  "segmentation_metrics": {
+    "mask_precision": 0.0,
+    "mask_recall": 0.0,
+    "mask_f1_score": 0.0,
+    "overall_mean_mask_iou": 0.0562
+  },
+  "ultralytics_map_metrics": {
+    "box_map50": 0.4901,
+    "box_map50_95": 0.4318,
+    "mask_map50": 0.4421,
+    "mask_map50_95": 0.3591
   },
   "latency_ms": {
-    "mean": 43.91,
-    "median": 44.09,
-    "p95": 46.67
+    "mean": 100.9,
+    "median": 104.44,
+    "p95": 112.66,
+    "throughput_fps": 9.9
   },
   "per_class": {
-    "delamination": {
-      "tp": 0,
-      "fp": 7,
-      "fn": 6,
-      "precision": 0.0,
-      "recall": 0.0
+    "scratch": {
+      "box_tp": 2,
+      "box_fp": 1,
+      "box_fn": 4,
+      "box_precision": 0.6667,
+      "box_recall": 0.3333,
+      "mask_tp": 0,
+      "mask_fp": 3,
+      "mask_fn": 6,
+      "mean_mask_iou": 0.3568
     },
     "void": {
-      "tp": 10,
-      "fp": 6,
-      "fn": 0,
-      "precision": 0.625,
-      "recall": 1.0
+      "box_tp": 10,
+      "box_fp": 6,
+      "box_fn": 0,
+      "box_precision": 0.625,
+      "box_recall": 1.0,
+      "mask_tp": 0,
+      "mask_fp": 16,
+      "mask_fn": 10,
+      "mean_mask_iou": 0.0057
     },
     "blister": {
-      "tp": 8,
-      "fp": 4,
-      "fn": 0,
-      "precision": 0.6667,
-      "recall": 1.0
+      "box_tp": 8,
+      "box_fp": 4,
+      "box_fn": 0,
+      "box_precision": 0.6667,
+      "box_recall": 1.0,
+      "mask_tp": 0,
+      "mask_fp": 12,
+      "mask_fn": 8,
+      "mean_mask_iou": 0.0119
     },
-    "scratch": {
-      "tp": 2,
-      "fp": 0,
-      "fn": 4,
-      "precision": 1.0,
-      "recall": 0.3333
+    "delamination": {
+      "box_tp": 0,
+      "box_fp": 9,
+      "box_fn": 6,
+      "box_precision": 0.0,
+      "box_recall": 0.0,
+      "mask_tp": 0,
+      "mask_fp": 9,
+      "mask_fn": 6,
+      "mean_mask_iou": 0.0
     }
   }
 }

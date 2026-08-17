@@ -41,8 +41,10 @@ deck_montage.png
 *.pth
 *.engine
 
-# Zip archives
+# Zip archives and PDFs (Protect competition materials)
 *.zip
+*.pdf
+docs/final/
 
 # Docker volumes
 docker-data/

@@ -1,0 +1,122 @@
+{
+  "input_image": "data/external/coatingvision/detection/images/image_1001.jpg",
+  "input_source": "CoatingVision dataset, CC BY 4.0, Figshare DOI 10.6084/m9.figshare.29260121.v1",
+  "input_is_real_optical_data": true,
+  "secondary_sensor_data": "not supplied; model ran in RGB-only degraded mode",
+  "engine": "YOLO (Ultralytics/0)",
+  "latency_ms": 88.13,
+  "detections": [
+    {
+      "box": [
+        488.67706298828125,
+        313.12310791015625,
+        639.3084106445312,
+        479.36175537109375
+      ],
+      "confidence": 0.8043763637542725,
+      "class_id": 3,
+      "class_name": "delamination"
+    },
+    {
+      "box": [
+        38.24273681640625,
+        111.8004150390625,
+        117.85807800292969,
+        480.0
+      ],
+      "confidence": 0.6696538925170898,
+      "class_id": 0,
+      "class_name": "scratch"
+    },
+    {
+      "box": [
+        270.462646484375,
+        289.40240478515625,
+        347.4703369140625,
+        480.0
+      ],
+      "confidence": 0.5678532719612122,
+      "class_id": 0,
+      "class_name": "scratch"
+    }
+  ],
+  "seven_stage_pipeline": {
+    "sample_id": "image_1001",
+    "roll_coordinate": {
+      "roll_id": "ROLL_2026_CATL_001",
+      "frame_id": 1,
+      "linear_pos_m": 0.099,
+      "cross_pos_mm": 325.0,
+      "lane_id": 3,
+      "encoder_pulse_count": 9900,
+      "capture_monotonic_s": 93301.859
+    },
+    "total_latency_ms": 63.4,
+    "stage_latencies_ms": {
+      "stage_1_web_sync_ms": 0.02,
+      "stage_2_acquisition_ms": 10.63,
+      "stage_3_fusion_ms": 19.05,
+      "stage_4_ai_inference_ms": 33.64,
+      "stage_5_metrology_ms": 0.0,
+      "stage_6_decision_plc_ms": 0.01,
+      "stage_7_root_cause_ms": 0.04
+    },
+    "overall_verdict": "REJECT",
+    "quality_tier": "GRADE_B_QUARANTINE",
+    "standards_compliant": true,
+    "rejection_reasons": [
+      "RGB-only evidence mode: calibrated thermal/profilometer data unavailable -> HOLD for QA; no release decision or dimensional metrology"
+    ],
+    "plc_gate_action": "HOLD",
+    "defects_count": 0,
+    "defect_metrology": [],
+    "root_cause_report": {
+      "primary_root_cause": "Process In Statistical Control",
+      "affected_equipment": "All Upstream Stations Optimal",
+      "confidence_score": 0.98,
+      "defect_signature": "Zero Critical Anomalies Detected",
+      "severity_level": "NOMINAL",
+      "action_items": [],
+      "timestamp": "2026-08-17T16:56:53.909634"
+    },
+    "system_health": "DEGRADED",
+    "timestamp": "2026-08-17T16:56:53.909634",
+    "raw_detections": [
+      {
+        "box": [
+          488.67706298828125,
+          313.12310791015625,
+          639.3084106445312,
+          479.36175537109375
+        ],
+        "confidence": 0.8043763637542725,
+        "class_id": 3,
+        "class_name": "delamination"
+      },
+      {
+        "box": [
+          38.24273681640625,
+          111.8004150390625,
+          117.85807800292969,
+          480.0
+        ],
+        "confidence": 0.6696538925170898,
+        "class_id": 0,
+        "class_name": "scratch"
+      },
+      {
+        "box": [
+          270.462646484375,
+          289.40240478515625,
+          347.4703369140625,
+          480.0
+        ],
+        "confidence": 0.5678532719612122,
+        "class_id": 0,
+        "class_name": "scratch"
+      }
+    ],
+    "measurement_policy": "No dimensional metrology or release decision in RGB-only mode."
+  },
+  "output_overlay": "reports/external_coatingvision_demo/coatingvision_model_output.png"
+}

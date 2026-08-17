@@ -1,0 +1,54 @@
+{
+  "input_image": "data/external/coatingvision/detection/images/image_811.jpg",
+  "input_source": "CoatingVision dataset, CC BY 4.0, Figshare DOI 10.6084/m9.figshare.29260121.v1",
+  "input_is_real_optical_data": true,
+  "secondary_sensor_data": "not supplied; model ran in RGB-only degraded mode",
+  "engine": "YOLO (Ultralytics/0)",
+  "latency_ms": 47.7,
+  "detections": [],
+  "seven_stage_pipeline": {
+    "sample_id": "image_811",
+    "roll_coordinate": {
+      "roll_id": "ROLL_2026_CATL_001",
+      "frame_id": 1,
+      "linear_pos_m": 0.099,
+      "cross_pos_mm": 325.0,
+      "lane_id": 3,
+      "encoder_pulse_count": 9900,
+      "capture_monotonic_s": 92098.796
+    },
+    "total_latency_ms": 37.42,
+    "stage_latencies_ms": {
+      "stage_1_web_sync_ms": 0.03,
+      "stage_2_acquisition_ms": 9.91,
+      "stage_3_fusion_ms": 13.58,
+      "stage_4_ai_inference_ms": 13.87,
+      "stage_5_metrology_ms": 0.0,
+      "stage_6_decision_plc_ms": 0.01,
+      "stage_7_root_cause_ms": 0.01
+    },
+    "overall_verdict": "REJECT",
+    "quality_tier": "GRADE_B_QUARANTINE",
+    "standards_compliant": true,
+    "rejection_reasons": [
+      "RGB-only evidence mode: calibrated thermal/profilometer data unavailable -> HOLD for QA; no release decision or dimensional metrology"
+    ],
+    "plc_gate_action": "HOLD",
+    "defects_count": 0,
+    "defect_metrology": [],
+    "root_cause_report": {
+      "primary_root_cause": "Process In Statistical Control",
+      "affected_equipment": "All Upstream Stations Optimal",
+      "confidence_score": 0.98,
+      "defect_signature": "Zero Critical Anomalies Detected",
+      "severity_level": "NOMINAL",
+      "action_items": [],
+      "timestamp": "2026-08-17T16:36:50.822552"
+    },
+    "system_health": "DEGRADED",
+    "timestamp": "2026-08-17T16:36:50.822552",
+    "raw_detections": [],
+    "measurement_policy": "No dimensional metrology or release decision in RGB-only mode."
+  },
+  "output_overlay": "reports/coatingvision_gallery/image_811/coatingvision_model_output.png"
+}

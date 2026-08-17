@@ -19,7 +19,10 @@ class QualityMemory:
         logger.info(f"Quality Memory DB initialized at: {self.db_path}")
 
     def _get_connection(self):
-        return sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=30.0, check_same_thread=False)
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
+        return conn
 
     def _init_db(self):
         with self._get_connection() as conn:

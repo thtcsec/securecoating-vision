@@ -105,6 +105,18 @@ class TestAPI(unittest.TestCase):
         resp = self.client.get("/api/industrial/state")
         self.assertEqual(resp.status_code, 200)
 
+    def test_spc_passport_and_slitting_yield(self):
+        resp_pass = self.client.get("/api/spc/passport")
+        self.assertEqual(resp_pass.status_code, 200)
+        body_pass = resp_pass.json()
+        self.assertIn("passport_standard", body_pass)
+        self.assertIn("six_sigma_quality_summary", body_pass)
+
+        resp_slit = self.client.get("/api/spc/slitting-yield")
+        self.assertEqual(resp_slit.status_code, 200)
+        body_slit = resp_slit.json()
+        self.assertIn("slitting_optimization", body_slit)
+
 
 if __name__ == "__main__":
     unittest.main()

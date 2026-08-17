@@ -168,7 +168,7 @@ st.markdown("""
 <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #222C3E; padding-bottom:12px; margin-bottom:15px;">
     <div>
         <h2 style="color:#FFFFFF; margin:0; font-weight:800; font-size:24px;">⚡ SecureCoating-Vision | SCADA Industrial Inspection Terminal</h2>
-        <span style="color:#8C9BAE; font-size:12px;">Multi-Modal Inline Battery Electrode Quality Metrology &middot; T/CIAPS 0006 & QC/T 743 Compliant</span>
+        <span style="color:#8C9BAE; font-size:12px;">Multi-Modal Inline Battery Electrode Quality Metrology &middot; Plant QA Spec & GB 38031-2025 Baseline</span>
     </div>
     <div>
         <span class="stage-badge stage-done">● LINE ONLINE</span>
@@ -296,9 +296,10 @@ tabs = st.tabs([
     "📺 Live Multi-Stage Station",
     "🏔️ 3D Defect Topography",
     "📜 1,200m Roll Digital Twin",
-    "🔬 Battery Metrology & T/CIAPS 0006",
+    "🔬 Battery Metrology & GB/T 38031",
     "⚙️ AI Closed-Loop Diagnostics",
     "🏭 Hardware & Protocol Telemetry",
+    "📊 Gigafactory SPC & Slitting Yield",
     "🗄️ Traceability & Quality Certificate"
 ])
 
@@ -329,7 +330,7 @@ with tabs[0]:
 
         # Verdict Header
         if res.overall_verdict == "PASS":
-            st.success(f"✅ **PASS** | Quality Grade: **{res.quality_tier}** | T/CIAPS 0006 & QC/T 743 Compliant | Roll Location: **X = {res.roll_coordinate['linear_pos_m']}m**, Lane: **{res.roll_coordinate['lane_id']}**")
+            st.success(f"✅ **PASS** | Quality Grade: **{res.quality_tier}** | Plant QA Spec & GB 38031-2025 Baseline | Roll Location: **X = {res.roll_coordinate['linear_pos_m']}m**, Lane: **{res.roll_coordinate['lane_id']}**")
         else:
             st.error(f"🚨 **REJECT** | Quality Grade: **{res.quality_tier}** | PLC Gate Action: **{res.plc_gate_action}** | Violations: {', '.join(res.rejection_reasons)}")
 
@@ -481,10 +482,10 @@ with tabs[2]:
             """, unsafe_allow_html=True)
 
 # -------------------------------------------------------------------------
-# TAB 4: BATTERY METROLOGY & STANDARDS AUDIT (T/CIAPS 0006 & QC/T 743)
+# TAB 4: BATTERY METROLOGY & STANDARDS AUDIT (GB/T 38031 & Plant QA Spec)
 # -------------------------------------------------------------------------
 with tabs[3]:
-    st.markdown("<h4 style='color:#FFF;'>Quantitative Battery Safety Metrology (T/CIAPS 0006-2020 & QC/T 743 & GB 38031)</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color:#FFF;'>Quantitative Battery Safety Metrology (Plant QA Specification & GB/T 38031)</h4>", unsafe_allow_html=True)
     if res is None:
         st.info("Trigger an inspection to evaluate electrochemical safety metrics.")
     else:
@@ -517,15 +518,15 @@ with tabs[3]:
         with col_g2:
             st.markdown("""
             <div class="scada-panel">
-                <h5 style="color:#FFF;">T/CIAPS 0006 & QC/T 743 Compliance Checklist</h5>
-                <p><b>Clause 5.2 (Surface Defects):</b> Max Scratch &le; 5.0mm, Void Area &le; 1.5mm²</p>
-                <p><b>Clause 5.3 (Delamination):</b> Zero peeling / de-adhesion permitted (Strict Zero Escape)</p>
-                <p><b>Clause 5.4 (Particle Protrusion):</b> Post-calendering height &lt; 12.0 µm (85% of 14µm separator barrier)</p>
-                <p><b>Clause 5.5 (Edge Margin):</b> Uncoated foil margin 20.0 ± 1.0 mm, Waviness &le; 0.5 mm</p>
+                <h5 style="color:#FFF;">Plant Engineering QA & Safety Baseline Checklist</h5>
+                <p><b>Surface Defects:</b> Max Scratch Length &le; 5.0mm, Void Area &le; 1.5mm²</p>
+                <p><b>Delamination:</b> Zero peeling / de-adhesion permitted (Strict Zero Escape)</p>
+                <p><b>Particle Protrusion:</b> Post-calendering height &lt; 11.0 µm (Safety margin vs 14µm separator)</p>
+                <p><b>Edge Margin:</b> Uncoated foil margin 20.0 ± 1.0 mm, Waviness &le; 0.5 mm</p>
             </div>
             """, unsafe_allow_html=True)
             if res.standards_compliant:
-                st.success("✅ **STATUS:** Fully Compliant with T/CIAPS 0006 / QC/T 743 Battery Electrode Standards")
+                st.success("✅ **STATUS:** Fully Compliant with Plant QA Spec & GB/T 38031 Safety Baseline")
             else:
                 st.error(f"❌ **NON-COMPLIANT:** {len(res.rejection_reasons)} clause violation(s) detected")
 
@@ -608,9 +609,66 @@ with tabs[5]:
         """, unsafe_allow_html=True)
 
 # -------------------------------------------------------------------------
-# TAB 7: QUALITY LOGS & DIGITAL ROLL CERTIFICATE
+# TAB 7: GIGAFACTORY SPC, SPATIAL FFT & SLITTING YIELD OPTIMIZER
 # -------------------------------------------------------------------------
 with tabs[6]:
+    st.markdown("<h4 style='color:#FFF;'>Gigafactory Six Sigma SPC, Spatial FFT Periodicity & Smart Slitting Optimizer</h4>", unsafe_allow_html=True)
+    passport_data = pipeline.get_gigafactory_spc_summary()
+    
+    col_s1, col_s2 = st.columns(2)
+    with col_s1:
+        st.markdown(f"""
+        <div class="scada-panel">
+            <h5 style="color:#FFF;">🏆 Six Sigma Process Capability (Per-Lane Cpk / Ppk)</h5>
+        """, unsafe_allow_html=True)
+        spc_dict = passport_data.get("six_sigma_quality_summary", {})
+        for lane_k, lane_v in spc_dict.items():
+            tier_col = "#00E676" if "TIER_1" in lane_v["tier"] else ("#FFD600" if "TIER_2" in lane_v["tier"] else "#FF1744")
+            st.markdown(f"""
+            <p><b>{lane_k.upper()}:</b> Cpk = <b style="color:{tier_col};">{lane_v['cpk']}</b> &middot; Density: <b>{lane_v['defect_density_per_100m']} def/100m</b> &rarr; <span style="color:{tier_col};"><code>{lane_v['tier']}</code></span></p>
+            """, unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        # Spatial FFT Mechanical Anomaly Report
+        anomalies = passport_data.get("mechanical_health_diagnostics", [])
+        st.markdown("<div class='scada-panel'><h5 style='color:#FFF;'>🔍 Spatial FFT Mechanical Diagnostics</h5>", unsafe_allow_html=True)
+        if anomalies:
+            for an in anomalies:
+                st.markdown(f"""
+                <p>⚠️ <b>Periodic Pattern:</b> Repeating every <b>{an['periodic_wavelength_mm']} mm</b> (Confidence: {an['confidence']*100:.1f}%)<br/>
+                &rarr; <b>Matched Component:</b> <code style="color:#00F2FE;">{an['source_component']}</code><br/>
+                &rarr; <b>Action:</b> {an['action']}</p>
+                """, unsafe_allow_html=True)
+        else:
+            st.success("✅ Zero repeating periodic spatial patterns detected (All Guide Rollers & Slurry Pumps Nominal).")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with col_s2:
+        slit = passport_data.get("slitting_optimization", {})
+        st.markdown(f"""
+        <div class="scada-panel">
+            <h5 style="color:#FFF;">✂️ Smart Slitting Yield & Economic Recovery Plan</h5>
+            <p><b>Total Usable Recovery:</b> <b class="status-optimal" style="font-size:18px;">{slit.get('recovery_yield_pct', 98.5)}%</b></p>
+            <p><b>EV Grade Output Area:</b> <b style="color:#00E676;">{slit.get('ev_grade_area_m2', 0)} m²</b> (High-Power Traction Cells)</p>
+            <p><b>ESS Grade Output Area:</b> <b style="color:#FFD600;">{slit.get('ess_grade_area_m2', 0)} m²</b> (Grid Energy Storage Cells)</p>
+            <p><b>Scrap Area:</b> <b style="color:#FF1744;">{slit.get('scrap_area_m2', 0)} m²</b></p>
+            <p><b>Recommended Splice Positions:</b> <code>{slit.get('splice_locations_md_m', [])} m</code></p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown(f"""
+        <div class="scada-panel">
+            <h5 style="color:#FFF;">🇪🇺 EU Battery Digital Product Passport (DPP) Header</h5>
+            <p><b>Regulation:</b> <code>{passport_data.get('passport_standard')}</code></p>
+            <p><b>Cleanroom Dew Point:</b> <b>{passport_data.get('traceability_genealogy',{}).get('cleanroom_dew_point_celsius')} °C</b></p>
+            <p><b>Slurry Viscosity:</b> <b>{passport_data.get('traceability_genealogy',{}).get('slurry_viscosity_mpa_s')} mPa·s</b></p>
+        </div>
+        """, unsafe_allow_html=True)
+
+# -------------------------------------------------------------------------
+# TAB 8: QUALITY LOGS & DIGITAL ROLL CERTIFICATE
+# -------------------------------------------------------------------------
+with tabs[7]:
     st.markdown("<h4 style='color:#FFF;'>Official Digital Quality Certificate (Cryptographic HMAC-SHA256 Signed)</h4>", unsafe_allow_html=True)
     
     cert = RollCertificateGenerator.build_certificate(

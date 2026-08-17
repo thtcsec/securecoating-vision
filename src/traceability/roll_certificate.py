@@ -2,13 +2,13 @@
 SecureCoating-Vision: Digital Twin Roll Quality Certificate & Cryptographic Audit Trail
 ========================================================================================
 Compiles full 1,200m jumbo roll inspection records into a cryptographic,
-tamper-evident Digital Quality Certificate compliant with automotive battery traceability standards (IATF 16949 / T/CIAPS 0006).
+tamper-evident Digital Quality Certificate compliant with automotive battery traceability standards (IATF 16949 / GB/T 38031).
 
 Key Features:
 - Complete 2D Roll Defect Coordinates (Linear meter X vs Cross-web mm Y)
-- Standards compliance summary (T/CIAPS 0006-2020 & QC/T 743 & GB 38031)
+- Standards compliance summary (Plant Electrode QA Specification & GB/T 38031 Safety Baseline)
 - Micro-short circuit hazard risk distribution across all slitting lanes
-- HMAC-SHA256 Cryptographic Asymmetric Factory Signing Key with Signature Verification Chain
+- Tamper-Evident SHA-256 Defect Record with Factory-Authenticated HMAC Signature
 - Exportable to Markdown, JSON, and printable inspection reports
 """
 
@@ -127,12 +127,12 @@ class DigitalRollCertificate:
         if not self.hmac_digital_signature:
             self.generate_cryptographic_signature()
         
-        md = f"""# 📜 Battery Electrode Quality Inspection Certificate (T/CIAPS 0006 & QC/T 743)
+        md = f"""# 📜 Battery Electrode Quality Inspection Certificate (Plant QA Specification & GB/T 38031)
 
 **Certificate ID:** `{self.certificate_id}`  
 **Issue Timestamp:** {self.issued_at}  
 **Payload SHA-256 Digest:** `{self.payload_hash_sha256}`  
-**Cryptographic HMAC Signature:** `{self.hmac_digital_signature}` (`{self.signature_algorithm}`)  
+**Factory HMAC Authenticated Signature:** `{self.hmac_digital_signature}` (`{self.signature_algorithm}`)  
 
 ---
 
@@ -151,7 +151,7 @@ class DigitalRollCertificate:
 
 ## 2. Quality Evaluation & Yield Summary
 * **Overall Quality Verdict:** **`{self.overall_quality_grade}`**
-* **T/CIAPS 0006 & QC/T 743 Compliance:** **{'✅ COMPLIANT' if self.standards_compliant else '❌ NON-COMPLIANT (Violations Logged)'}**
+* **Automotive QA & GB/T 38031 Compliance:** **{'✅ COMPLIANT' if self.standards_compliant else '❌ NON-COMPLIANT (Violations Logged)'}**
 * **Batch Pass Rate:** **{self.pass_rate_pct:.1f}%**
 * **Total Defects Logged:** {self.total_defects_count}
 * **Defect Density:** {self.defect_density_per_100m:.2f} defects / 100m

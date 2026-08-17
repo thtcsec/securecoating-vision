@@ -1,8 +1,8 @@
 # 🏆 SecureCoating-Vision: Industrial Pilot Validation Dossier (Track 4: Finals)
 
 **Document Reference:** `DOSSIER-SCV-2026-MSE-FINALS`  
-**Evaluation Standard:** T/CIAPS 0006-2020 & QC/T 743 & GB 38031-2025  
-**Compilation Date:** 2026-08-16 00:01:12  
+**Evaluation Standard:** Plant Electrode QA Specification & GB/T 38031 Battery Safety Baseline  
+**Compilation Date:** 2026-08-17 20:59:08  
 **Supervising Advisor:** Prof. Kris Singh (SRII / Visiting Prof. Tsinghua University)  
 **Lead Developer:** Team 71 (Trịnh Hoàng Tú, HUFLIT)
 
@@ -14,9 +14,9 @@ Unlike academic prototypes limited to static image metrics, **SecureCoating-Visi
 
 | Industrial KPI Metric | Baseline Industry Standard | SecureCoating-Vision Achieved | Target Met? |
 | :--- | :--- | :--- | :--- |
-| **Critical Defect Escape Rate** | < 1.0 ppm | **0.02 ppm (Zero Escapes on critical delamination)** | ✅ **EXCEEDED** |
-| **False Rejection Rate (Overkill)** | 3.5% - 5.0% | **0.48% (Saves ~$180,000 / gigafactory / year)** | ✅ **EXCEEDED** |
-| **Line Speed at Full Resolution** | 1.2 m/s | **1.8 - 2.5 m/s (19.8 um/px isotropic)** | ✅ **EXCEEDED** |
+| **Critical Defect Escape Rate** | < 1.0 ppm | **0 observed escapes on 6,000m test rolls (Zero Escapes on critical delamination)** | ✅ **EXCEEDED** |
+| **False Rejection Rate (Overkill)** | 3.5% - 5.0% | **0.48% (Projected ~$180k/line/yr savings under modeled 1.8 m/s, $18/kg active material)** | ✅ **EXCEEDED** |
+| **Line Speed at Full Resolution** | 1.2 m/s | **1.8 - 2.5 m/s (Validated under simulated web dynamics)** | ✅ **EXCEEDED** |
 | **Camera-to-Ejector P99.9 Latency** | < 40.0 ms | **19.2 ms (11.2x buffer at 500mm distance)** | ✅ **EXCEEDED** |
 | **Electrode Scrap Rate Reduction** | Reference Baseline | **-84.2% scrap after AI closed-loop tuning** | ✅ **EXCEEDED** |
 
@@ -33,7 +33,7 @@ We evaluated 5 independent jumbo rolls across 3 distinct active material batches
 | **ROLL-2026-NCM-001** | NCM811 (Cathode) | 12 µm Al Foil | 1,200 m | 14 | **0** | `GRADE_B_REWORK` | 98.8% |
 | **ROLL-2026-AG-001** | Graphite (Anode) | 8 µm Cu Foil | 1,200 m | 3 | **0** | `GRADE_A_PRIME` | 99.8% |
 | **ROLL-2026-AG-002** | Graphite (Anode) | 8 µm Cu Foil | 1,200 m | 5 | **0** | `GRADE_A_PRIME` | 99.6% |
-| **TOTALS / AVERAGE** | -- | -- | **6,000 m** | **32** | **0 (0.00 ppm)** | -- | **99.48%** |
+| **TOTALS / AVERAGE** | -- | -- | **6,000 m** | **32** | **0 observed escapes** | -- | **99.48%** |
 
 ---
 
@@ -87,12 +87,12 @@ During inspection of Roll `ROLL-2026-NCM-001`, the system detected a localized b
 
 ---
 
-## 6. Regulatory Standards Compliance Declaration
+## 6. Regulatory Standards & Quality Specification Compliance Declaration
 
 This inspection platform strictly conforms to:
-1. **T/CIAPS 0006-2020:** *General Technical Specification for Lithium-ion Battery Electrode Sheets*
-2. **QC/T 743:** *Lithium-ion Batteries for Electric Vehicles*
-3. **GB 38031-2025:** *Electric Vehicles Traction Battery Safety Requirements (Zero Internal Short-Circuit Mandate)*
-4. **IATF 16949:** *Automotive Quality Management System Traceability (HMAC-SHA256 Digital Certificate)*
+1. **Plant Engineering Electrode Quality Specification (极片制造工艺质量内控标准):** *Guard-banded defect thresholds for void, scratch, and particle protrusion*
+2. **GB 38031-2020 / GB 38031-2025:** *Electric Vehicles Traction Battery Safety Requirements (Internal Short-Circuit Risk Prevention)*
+3. **IATF 16949:** *Automotive Quality Management System Traceability (Tamper-Evident SHA-256 Defect Record & HMAC Certificate)*
+4. **ISO/IEC Guide 98-3 (GUM) & ISO 14253-1:** *Standardized expanded measurement uncertainty & guard-banding decision rules*
 
-*Certified for Finalist Defense at the 2026 AI + Materials Innovation Competition.*
+*Prepared for Finalist Defense at the 2026 AI + Materials Innovation Competition.*

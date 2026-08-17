@@ -6,9 +6,9 @@ End-to-End industrial inspection pipeline executing:
 2. Traveling-Wave Thermography & Multi-Modal Acquisition (Darkfield/Brightfield, Thermal Diffusivity Inversion, 3D Laser)
 3. Sub-Pixel Homography Registration & 5-Channel Tensor Concatenation
 4. Edge AI TensorRT / ONNX Instance Segmentation
-5. Physics-Informed Battery Electrode Metrology (T/CIAPS 0006, QC/T 743, Micro-Short Hazard, 3D Volumetrics)
-6. Zero-Defect-Escape Multi-Tier Decision & Sub-10ms Hardware Reject Gate (Modbus/OPC UA)
-7. AI Closed-Loop Diagnostics & Upstream Equipment Parameter Tuning Feedback
+5. Physics-Informed Battery Electrode Metrology (Plant QA Specification & GB/T 38031 Safety Baseline)
+6. Zero-Defect-Escape Multi-Tier Decision & Sub-15ms Hardware Reject Gate (Modbus/OPC UA)
+7. AI Closed-Loop Diagnostics, Spatial FFT Periodicity Pinpointing & Six Sigma Per-Lane SPC
 """
 
 import time
@@ -24,6 +24,10 @@ from industrial.web_synchronizer import WebSynchronizer, WebCoordinate, RollMeta
 from industrial.protocol_manager import IndustrialProtocolManager
 from industrial.optical_budget import OpticalThroughputBudgetEngine
 from industrial.latency_budget import LatencyBudgetEngine
+from industrial.spc_spatial_diagnostics import (
+    SpatialDiagnosticsEngine, GigafactorySPCEngine, DigitalBatteryPassportGenerator,
+    SpatialPeriodicAnomaly, LaneSPCResult, SlittingYieldPlan
+)
 from inference.sensor_fusion import SensorFusionManager
 from inference.failsafe import FailSafeManager
 from inference.predictor import CoatingPredictor
@@ -111,6 +115,8 @@ class MultiStageIndustrialPipeline:
         self.root_cause = RootCauseDiagnosticEngine()
         self.optical_budget = OpticalThroughputBudgetEngine()
         self.latency_budget = LatencyBudgetEngine()
+        self.spatial_diagnostics = SpatialDiagnosticsEngine()
+        self.spc_engine = GigafactorySPCEngine(num_lanes=self.web_sync.roll.num_lanes)
         self.pixel_to_mm = pixel_to_mm_ratio
 
     def _simulate_traveling_wave_thermography(
@@ -174,18 +180,12 @@ class MultiStageIndustrialPipeline:
         # =========================================================================
         t0 = time.perf_counter()
         if optical_rgb is None:
-            # Backward-compatible simulation path for unit tests and explicit
-            # sandbox demos only.  Production/API callers pass an optical frame
-            # and never reach this branch.
             logger.warning("No optical image supplied; running simulated-input sandbox path")
             mock_opt, mock_th, mock_h = self.fusion.generate_mock_frame(defect_type="random")
             optical_rgb = mock_opt
             thermal_raw = mock_th if thermal_raw is None else thermal_raw
             height_map = mock_h if height_map is None else height_map
 
-        # Do not silently replace unavailable physical modalities with simulated
-        # frames.  Empty arrays keep the array plumbing operational, while the
-        # availability flags below force a HOLD rather than a release decision.
         thermal_available = thermal_raw is not None
         height_available = height_map is not None
         frame_h, frame_w = optical_rgb.shape[:2]
@@ -225,9 +225,6 @@ class MultiStageIndustrialPipeline:
             thermal=thermal_raw,
             height=height_map
         )
-        # Predictor engines expose the common ``segmentation_mask`` contract.
-        # Falling back to an empty mask here silently discarded every real YOLO
-        # prediction before metrology and decisioning.
         seg_mask = ai_result.get(
             "segmentation_mask",
             np.zeros(optical_rgb.shape[:2], dtype=np.int32),
@@ -239,9 +236,6 @@ class MultiStageIndustrialPipeline:
         # STAGE 5: Physics-Informed Battery Electrode Metrology & Standards Audit
         # =========================================================================
         t0 = time.perf_counter()
-        # Height-dependent results must not be presented as measurements when
-        # the profiler is unavailable.  Raw RGB detections remain available for
-        # review, but the lot is held for calibrated inspection.
         metrology_objects = (
             self.metrology.analyze_segmentation(seg_mask, height_map)
             if height_available
@@ -258,7 +252,6 @@ class MultiStageIndustrialPipeline:
                 "area_mm2": m_obj.area_mm2,
                 "peak_height_um": m_obj.peak_protrusion_um,
             }
-            # Centroid pixel in tile
             px_x = min(1023, max(0, m_obj.bbox_xywh[0] + m_obj.bbox_xywh[2] // 2))
             px_y = min(1023, max(0, m_obj.bbox_xywh[1] + m_obj.bbox_xywh[3] // 2))
             defect_coord = self.web_sync.map_defect_to_physical_coordinate(
@@ -280,8 +273,6 @@ class MultiStageIndustrialPipeline:
         std_compliant = True
         overall_tier = "GRADE_A"
 
-        # Check Fail-Safe Sensor Degradation Policy:
-        # If secondary thermal or 3D sensor is disconnected, cannot certify Grade A (must quarantine)
         if self.failsafe.system_state.value != "OPTIMAL":
             overall_tier = "GRADE_B_QUARANTINE"
             all_rejection_reasons.append(
@@ -347,3 +338,35 @@ class MultiStageIndustrialPipeline:
             root_cause_report=root_cause_report.to_dict(),
             system_health=self.failsafe.system_state.value
         )
+
+    def get_gigafactory_spc_summary(self) -> Dict[str, Any]:
+        """Compute live Six Sigma Cpk, slitting yield optimization, and Digital Battery Passport."""
+        roll_summary = self.web_sync.get_roll_defect_summary()
+        defects_list = list(self.web_sync.recent_defect_cache)
+        
+        spc_res = self.spc_engine.compute_lane_spc(
+            defects_by_lane=roll_summary["defects_by_lane"],
+            inspected_length_m=roll_summary["inspected_length_m"]
+        )
+        
+        yield_plan = self.spc_engine.optimize_slitting_yield(
+            roll_length_m=roll_summary["inspected_length_m"],
+            web_width_mm=self.web_sync.roll.web_width_mm,
+            defects_list=defects_list
+        )
+
+        md_positions = [d.get("linear_pos_m", 0.0) for d in defects_list]
+        anomalies = self.spatial_diagnostics.analyze_spatial_periodicity(
+            defect_md_positions_m=md_positions,
+            total_scanned_length_m=roll_summary["inspected_length_m"]
+        )
+
+        passport = DigitalBatteryPassportGenerator.generate_passport(
+            roll_id=self.web_sync.roll.roll_id,
+            batch_id=self.web_sync.roll.batch_id,
+            spc_results=spc_res,
+            yield_plan=yield_plan,
+            anomalies=anomalies
+        )
+
+        return passport

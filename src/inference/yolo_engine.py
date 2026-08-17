@@ -1,10 +1,3 @@
-"""
-Ultralytics YOLOv8-seg engine — preferred GPU path on CUDA-enabled machines.
-Returns the same result schema as InferenceEngine (ONNX).
-"""
-
-from __future__ import annotations
-
 import logging
 import os
 import time
@@ -13,16 +6,14 @@ from typing import Dict, List, Optional
 import cv2
 import numpy as np
 
-logger = logging.getLogger("SecureCoatingVision.YOLOEngine")
+logger = logging.getLogger("securecoating.yolo_engine")
 
 
 class YOLOEngine:
-    CLASS_NAMES = {
-        0: "scratch",
-        1: "void",
-        2: "blister",
-        3: "delamination",
-    }
+    """
+    Ultralytics YOLO inference wrapper for battery coating defect inspection.
+    Provides segmentation masks and bounding box detections.
+    """
 
     def __init__(
         self,
@@ -38,9 +29,13 @@ class YOLOEngine:
         self.iou_thresh = iou_thresh
         self.device = device
         self.model = None
-        self._resolved_device = "cpu"
         self._model_loaded = False
-        self.class_names = self.CLASS_NAMES.copy()
+        self.class_names: Dict[int, str] = {
+            0: "scratch",
+            1: "void",
+            2: "blister",
+            3: "delamination",
+        }
         self._load_model()
 
     @property
@@ -51,35 +46,36 @@ class YOLOEngine:
     def active_provider(self) -> str:
         if not self._model_loaded:
             return "None"
-        return f"Ultralytics/{self._resolved_device}"
-
-    def _resolve_device(self) -> str:
-        if self.device == "cpu":
-            return "cpu"
         try:
             import torch
-
-            if self.device in ("auto", "cuda") and torch.cuda.is_available():
-                return "0"
+            if torch.cuda.is_available() and self._resolved_device not in ("cpu", "CPU"):
+                return f"CUDA:{torch.cuda.current_device()} ({torch.cuda.get_device_name(0)})"
+            return "CPU"
         except Exception:
-            pass
-        if self.device == "cuda":
-            logger.warning("CUDA requested for YOLO but unavailable; using CPU.")
-        return "cpu"
+            return "CPU"
 
     def _load_model(self):
-        if not os.path.isfile(self.model_path):
-            logger.warning(f"YOLO weights not found: {self.model_path}")
+        if not os.path.exists(self.model_path):
+            logger.warning(
+                f"YOLO model weights not found at: {self.model_path}. Engine inactive."
+            )
             return
+
         try:
             from ultralytics import YOLO
+            import torch
 
-            self._resolved_device = self._resolve_device()
+            if self.device == "auto":
+                self._resolved_device = "0" if torch.cuda.is_available() else "cpu"
+            else:
+                self._resolved_device = self.device
+
             self.model = YOLO(self.model_path)
-            self.class_names = {
-                int(class_id): str(class_name)
-                for class_id, class_name in self.model.names.items()
-            }
+            if hasattr(self.model, "names") and self.model.names:
+                self.class_names = {
+                    int(class_id): str(class_name)
+                    for class_id, class_name in self.model.names.items()
+                }
             # Warmup so first user request is fast
             dummy = np.zeros((self.imgsz, self.imgsz, 3), dtype=np.uint8)
             self.model.predict(
@@ -140,6 +136,7 @@ class YOLOEngine:
                 conf = float(confs[i])
                 box = xyxy[i].tolist()
 
+                binary = None
                 if mask_data is not None and i < len(mask_data):
                     m = mask_data[i]
                     m_resized = cv2.resize(m, (w, h), interpolation=cv2.INTER_LINEAR)
@@ -148,13 +145,17 @@ class YOLOEngine:
                 else:
                     x1, y1, x2, y2 = map(int, box)
                     cv2.rectangle(seg_mask, (x1, y1), (x2, y2), class_id_1, -1)
+                    binary = np.zeros((h, w), dtype=np.uint8)
+                    binary[max(0, y1):min(h, y2), max(0, x1):min(w, x2)] = 1
 
                 detections.append(
                     {
                         "box": box,
+                        "box_format": "xyxy",
                         "confidence": conf,
                         "class_id": class_id,
                         "class_name": self.class_names.get(class_id, f"class_{class_id}"),
+                        "mask": binary,
                     }
                 )
 

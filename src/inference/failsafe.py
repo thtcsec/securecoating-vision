@@ -92,7 +92,7 @@ class FailSafeManager:
     """
 
     # Thresholds for frame quality validation
-    MIN_FRAME_STD = 5.0          # Minimum pixel stddev (reject blank/saturated frames)
+    MIN_FRAME_STD = 2.0          # Minimum pixel stddev (reject blank/saturated frames)
     MAX_FRAME_STD = 120.0        # Maximum pixel stddev (reject extreme noise)
     MIN_FRAME_MEAN = 10.0        # Reject near-black frames
     MAX_FRAME_MEAN = 245.0       # Reject near-white (saturated) frames

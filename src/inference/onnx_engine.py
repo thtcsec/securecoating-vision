@@ -335,9 +335,11 @@ class InferenceEngine:
 
             detections.append({
                 "box": box.tolist(),
+                "box_format": "xyxy",
                 "confidence": float(final_scores[i]),
                 "class_id": int(final_classes[i]),
-                "class_name": self.CLASS_NAMES.get(int(final_classes[i]), f"class_{final_classes[i]}")
+                "class_name": self.CLASS_NAMES.get(int(final_classes[i]), f"class_{final_classes[i]}"),
+                "mask": binary_mask,
             })
 
         return {

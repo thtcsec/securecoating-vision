@@ -1,17 +1,26 @@
 """
-SecureCoating-Vision: Reproducible Evaluation & Benchmark Script
-==================================================================
-Computes real detection metrics by running ONNX model inference on the
-included demonstration evaluation subset dataset (`data/evaluation/`) and comparing 
-predictions against ground-truth labels.
+SecureCoating-Vision: Unified Benchmark & True Segmentation Evaluation Engine
+=============================================================================
+Computes mathematically rigorous, reproducible metrics by running ONNX/YOLO
+inference on the evaluation dataset and comparing predictions against ground-truth
+polygons using both Box IoU and pixel-level Mask IoU.
 
-Outputs automatically:
-- reports/evaluation_results.json
-- reports/evaluation_results.csv
-- reports/ultralytics_validation_results.json (via Ultralytics validator if available)
+Addresses:
+1. Strict YOLO Segmentation Polygon Parsing (even coordinates, >=6 floats)
+2. True Pixel-Level Mask IoU & Polygon Rasterization (alongside BBox IoU)
+3. Standardized Bounding Box Coordinates (xyxy vs xywh)
+4. Direct Integration of Ultralytics Box & Mask mAP50 / mAP50-95
+5. Division-by-Zero & Empty Evaluation Protections
+6. CLI Configurable Thresholds (--iou, --conf, --seed)
+7. Deterministic Random Seeds (seed=42)
+
+Outputs:
+- reports/evaluation_results.json (unified schema)
+- reports/evaluation_results.csv (per-class breakdown)
+- reports/ultralytics_validation_results.json
 
 Usage:
-    python scripts/run_evaluation.py
+    python scripts/run_evaluation.py --iou 0.5 --conf 0.25 --seed 42
 """
 
 import os
@@ -19,285 +28,467 @@ import sys
 import json
 import csv
 import time
+import argparse
 from datetime import datetime, timezone
+from collections import defaultdict
 import numpy as np
 import cv2
-from collections import defaultdict
 
+# Set project root
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(PROJECT_ROOT)
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "src"))
+if os.path.join(PROJECT_ROOT, "src") not in sys.path:
+    sys.path.insert(0, os.path.join(PROJECT_ROOT, "src"))
 
 CLASS_NAMES = {0: "scratch", 1: "void", 2: "blister", 3: "delamination"}
 
 
-def load_gt_labels(label_path, img_h=640, img_w=640):
-    """Parse YOLO segmentation label file into class IDs and bounding boxes."""
+def parse_args():
+    parser = argparse.ArgumentParser(description="SecureCoating-Vision Unified Evaluation Engine")
+    parser.add_argument("--dataset-dir", type=str, default="data/evaluation",
+                        help="Path to evaluation dataset root (containing images/ and labels/)")
+    parser.add_argument("--model-path", type=str, default="outputs/model.onnx",
+                        help="Path to ONNX model weights")
+    parser.add_argument("--iou", type=float, default=0.50,
+                        help="IoU threshold for positive detection/segmentation match (default: 0.50)")
+    parser.add_argument("--conf", type=float, default=0.25,
+                        help="Confidence threshold for predictions (default: 0.25)")
+    parser.add_argument("--seed", type=int, default=42,
+                        help="Random seed for deterministic evaluation (default: 42)")
+    return parser.parse_args()
+
+
+def load_gt_labels(label_path: str, img_h: int = 640, img_w: int = 640):
+    """
+    Parse YOLO segmentation label file into class IDs, bounding boxes, and rasterized binary masks.
+    
+    YOLO segmentation format:
+        <class_id> <x1> <y1> <x2> <y2> <x3> <y3> ... (normalized [0, 1])
+    """
     labels = []
     if not os.path.exists(label_path):
         return labels
-    with open(label_path, 'r') as f:
+
+    with open(label_path, 'r', encoding='utf-8') as f:
         for line in f:
             parts = line.strip().split()
-            if len(parts) < 5:
+            # YOLO polygon requires class_id and at least 3 vertices (>= 6 coordinate floats)
+            if len(parts) < 7:
                 continue
-            class_id = int(parts[0])
-            coords = [float(x) for x in parts[1:]]
-            xs = [coords[i] * img_w for i in range(0, len(coords), 2)]
-            ys = [coords[i] * img_h for i in range(1, len(coords), 2)]
-            if not xs or not ys:
+
+            try:
+                class_id = int(parts[0])
+                coords = [float(x) for x in parts[1:]]
+            except ValueError:
                 continue
-            x1, y1 = min(xs), min(ys)
-            x2, y2 = max(xs), max(ys)
+
+            # Must have even number of coordinate values
+            if len(coords) % 2 != 0:
+                continue
+
+            polygon_pts = []
+            for i in range(0, len(coords), 2):
+                px = np.clip(coords[i] * img_w, 0, img_w - 1)
+                py = np.clip(coords[i + 1] * img_h, 0, img_h - 1)
+                polygon_pts.append([px, py])
+
+            polygon_np = np.array(polygon_pts, dtype=np.int32)
+
+            # Rasterize ground-truth mask
+            gt_mask = np.zeros((img_h, img_w), dtype=np.uint8)
+            cv2.fillPoly(gt_mask, [polygon_np], 1)
+
+            # Tight bounding box
+            xs = [p[0] for p in polygon_pts]
+            ys = [p[1] for p in polygon_pts]
+            x1, y1 = max(0.0, min(xs)), max(0.0, min(ys))
+            x2, y2 = min(float(img_w), max(xs)), min(float(img_h), max(ys))
+
             labels.append({
                 "class_id": class_id,
-                "bbox": [x1, y1, x2 - x1, y2 - y1],
-                "area": (x2 - x1) * (y2 - y1)
+                "bbox_xyxy": [x1, y1, x2, y2],
+                "bbox_xywh": [x1, y1, x2 - x1, y2 - y1],
+                "mask": gt_mask,
+                "area_px": float(np.sum(gt_mask)),
+                "polygon": polygon_pts
             })
+
     return labels
 
 
-def compute_iou(box1, box2):
-    """Compute IoU between two boxes [x, y, w, h]."""
+def compute_box_iou(box1: list, box2: list) -> float:
+    """Compute IoU between two bounding boxes [x1, y1, x2, y2]."""
     x1 = max(box1[0], box2[0])
     y1 = max(box1[1], box2[1])
-    x2 = min(box1[0] + box1[2], box2[0] + box2[2])
-    y2 = min(box1[1] + box1[3], box2[1] + box2[3])
+    x2 = min(box1[2], box2[2])
+    y2 = min(box1[3], box2[3])
 
-    inter = max(0, x2 - x1) * max(0, y2 - y1)
-    area1 = box1[2] * box1[3]
-    area2 = box2[2] * box2[3]
-    union = area1 + area2 - inter
+    inter_w = max(0.0, x2 - x1)
+    inter_h = max(0.0, y2 - y1)
+    inter_area = inter_w * inter_h
 
-    return inter / (union + 1e-6)
+    area1 = max(0.0, (box1[2] - box1[0])) * max(0.0, (box1[3] - box1[1]))
+    area2 = max(0.0, (box2[2] - box2[0])) * max(0.0, (box2[3] - box2[1]))
+    union_area = area1 + area2 - inter_area
+
+    if union_area <= 0:
+        return 0.0
+    return float(inter_area / (union_area + 1e-6))
 
 
-def match_detections(gt_labels, detections, iou_threshold=0.5):
-    """Match detections to ground truth using IoU threshold."""
-    tp, fp, fn = 0, 0, 0
-    matched_gt = set()
-    class_results = defaultdict(lambda: {"tp": 0, "fp": 0, "fn": 0})
+def compute_mask_iou(mask1: np.ndarray, mask2: np.ndarray) -> float:
+    """Compute pixel-level Mask IoU between two binary masks."""
+    intersection = np.logical_and(mask1 > 0, mask2 > 0).sum()
+    union = np.logical_or(mask1 > 0, mask2 > 0).sum()
+    if union == 0:
+        return 0.0
+    return float(intersection) / float(union)
 
-    sorted_dets = sorted(detections, key=lambda d: d.get("confidence", 0), reverse=True)
+
+def evaluate_sample_predictions(gt_labels: list, detections: list, seg_mask: np.ndarray, iou_threshold: float = 0.50):
+    """
+    Match predictions to ground truth evaluating both BBox and Mask IoU.
+    """
+    img_h, img_w = seg_mask.shape[:2]
+    class_results = defaultdict(lambda: {
+        "box_tp": 0, "box_fp": 0, "box_fn": 0,
+        "mask_tp": 0, "mask_fp": 0, "mask_fn": 0,
+        "mask_ious": []
+    })
+
+    matched_gt_box = set()
+    matched_gt_mask = set()
+
+    # Sort detections by confidence descending
+    sorted_dets = sorted(detections, key=lambda d: d.get("confidence", 0.0), reverse=True)
 
     for det in sorted_dets:
-        det_bbox = det.get("box", None)
-        if det_bbox is None:
-            continue
-        if len(det_bbox) == 4:
-            if det_bbox[2] > det_bbox[0] and det_bbox[3] > det_bbox[1]:
-                det_bbox = [det_bbox[0], det_bbox[1], det_bbox[2] - det_bbox[0], det_bbox[3] - det_bbox[1]]
-
         det_class = det.get("class_id", 0)
-        best_iou = 0
-        best_gt_idx = -1
+        raw_box = det.get("box", [0, 0, 0, 0])
 
-        for i, gt in enumerate(gt_labels):
-            if i in matched_gt:
-                continue
-            if gt["class_id"] != det_class:
-                continue
-            iou = compute_iou(det_bbox, gt["bbox"])
-            if iou > best_iou:
-                best_iou = iou
-                best_gt_idx = i
-
-        if best_iou >= iou_threshold and best_gt_idx >= 0:
-            tp += 1
-            matched_gt.add(best_gt_idx)
-            class_results[det_class]["tp"] += 1
+        # Standardize box format to [x1, y1, x2, y2]
+        if len(raw_box) == 4:
+            b_x1, b_y1, b_x2, b_y2 = raw_box[0], raw_box[1], raw_box[2], raw_box[3]
+            # If formatted as [x, y, w, h], convert to [x1, y1, x2, y2]
+            if b_x2 < b_x1 or b_y2 < b_y1:
+                b_x2 = b_x1 + max(0.0, raw_box[2])
+                b_y2 = b_y1 + max(0.0, raw_box[3])
+            det_xyxy = [b_x1, b_y1, b_x2, b_y2]
         else:
-            fp += 1
-            class_results[det_class]["fp"] += 1
+            continue
 
+        # Extract detection binary mask for this class
+        # Extract detection binary mask for this instance
+        det_binary_mask = det.get("mask", None)
+        if det_binary_mask is None:
+            det_binary_mask = (seg_mask == (det_class + 1)).astype(np.uint8)
+        elif det_binary_mask.shape != (img_h, img_w):
+            det_binary_mask = cv2.resize(det_binary_mask.astype(np.uint8), (img_w, img_h), interpolation=cv2.INTER_NEAREST)
+
+        # 1. BBox Matching
+        best_box_iou = 0.0
+        best_gt_box_idx = -1
+        for i, gt in enumerate(gt_labels):
+            if i in matched_gt_box or gt["class_id"] != det_class:
+                continue
+            b_iou = compute_box_iou(det_xyxy, gt["bbox_xyxy"])
+            if b_iou > best_box_iou:
+                best_box_iou = b_iou
+                best_gt_box_idx = i
+
+        if best_box_iou >= iou_threshold and best_gt_box_idx >= 0:
+            matched_gt_box.add(best_gt_box_idx)
+            class_results[det_class]["box_tp"] += 1
+        else:
+            class_results[det_class]["box_fp"] += 1
+
+        # 2. Mask IoU Matching
+        best_mask_iou = 0.0
+        best_gt_mask_idx = -1
+        for i, gt in enumerate(gt_labels):
+            if i in matched_gt_mask or gt["class_id"] != det_class:
+                continue
+            m_iou = compute_mask_iou(det_binary_mask, gt["mask"])
+            if m_iou > best_mask_iou:
+                best_mask_iou = m_iou
+                best_gt_mask_idx = i
+
+        # Record best mask IoU found
+        if best_mask_iou > 0:
+            class_results[det_class]["mask_ious"].append(best_mask_iou)
+
+        if best_mask_iou >= iou_threshold and best_gt_mask_idx >= 0:
+            matched_gt_mask.add(best_gt_mask_idx)
+            class_results[det_class]["mask_tp"] += 1
+        else:
+            class_results[det_class]["mask_fp"] += 1
+
+    # Count False Negatives for unmatched GTs
     for i, gt in enumerate(gt_labels):
-        if i not in matched_gt:
-            fn += 1
-            class_results[gt["class_id"]]["fn"] += 1
+        cid = gt["class_id"]
+        if i not in matched_gt_box:
+            class_results[cid]["box_fn"] += 1
+        if i not in matched_gt_mask:
+            class_results[cid]["mask_fn"] += 1
 
-    return tp, fp, fn, class_results
+    return class_results
 
 
-def run_evaluation():
-    """Main evaluation routine."""
+def run_evaluation(
+    dataset_dir: str = "data/evaluation",
+    model_path: str = "outputs/model.onnx",
+    iou_threshold: float = 0.50,
+    conf_threshold: float = 0.25,
+    seed: int = 42
+):
+    """
+    Main evaluation pipeline: runs inference on all images, evaluates Box/Mask metrics,
+    and merges Ultralytics mAP validation into a unified report.
+    """
+    np.random.seed(seed)
+    print("=" * 75)
+    print("  SecureCoating-Vision: Unified Benchmark & Segmentation Evaluation Engine")
+    print(f"  Configuration: IoU Threshold={iou_threshold:.2f} | Conf Threshold={conf_threshold:.2f} | Seed={seed}")
+    print("=" * 75)
+
+    images_dir = os.path.join(dataset_dir, "images")
+    labels_dir = os.path.join(dataset_dir, "labels")
+
+    if not os.path.isdir(images_dir):
+        raise FileNotFoundError(f"Evaluation images directory not found: {images_dir}")
+
+    # Initialize ONNX inference engine
     from inference.onnx_engine import InferenceEngine
+    engine = InferenceEngine(
+        model_path=model_path,
+        conf_thresh=conf_threshold,
+        iou_thresh=0.45,
+        device="auto"
+    )
 
-    print()
-    print("=" * 70)
-    print("  SecureCoating-Vision: Reproducible Model Evaluation")
-    print("  Computing real metrics on demonstration evaluation subset")
-    print("=" * 70)
+    valid_extensions = (".jpg", ".jpeg", ".png", ".bmp")
+    image_files = sorted([f for f in os.listdir(images_dir) if f.lower().endswith(valid_extensions)])
 
-    model_path = "outputs/model.onnx"
-    val_img_dir = "data/evaluation/images"
-    val_lbl_dir = "data/evaluation/labels"
+    if not image_files:
+        raise RuntimeError(f"No valid image files found under: {images_dir}")
 
-    if not (os.path.exists(val_img_dir) and os.path.exists(val_lbl_dir)):
-        val_img_dir = "data/coating_defects/images/val"
-        val_lbl_dir = "data/coating_defects/labels/val"
+    print(f"\n  Active Execution Provider : {engine.active_provider}")
+    print(f"  Evaluation Dataset Path   : {images_dir}")
+    print(f"  Total Images to Evaluate  : {len(image_files)}")
 
-    if not os.path.exists(model_path):
-        print(f"\n  [ERROR] Model not found: {model_path}")
-        print("  Run: python src/training/train_yolo.py train --epochs 50")
-        sys.exit(1)
-
-    if not (os.path.exists(val_img_dir) and os.path.exists(val_lbl_dir)):
-        print(f"\n  [ERROR] Evaluation dataset not found.")
-        print("  Run: python scripts/prepare_synthetic_dataset.py")
-        sys.exit(1)
-
-    engine = InferenceEngine(model_path, imgsz=640, conf_thresh=0.5)
-    print(f"\n  Model: {model_path} ({os.path.getsize(model_path)/1024/1024:.1f} MB)")
-    print(f"  Provider: {engine.active_provider}")
-    print(f"  Dataset path: {val_img_dir}")
-
-    images = sorted([f for f in os.listdir(val_img_dir) if f.endswith(('.jpg', '.png'))])
-    print(f"  Evaluation images: {len(images)}")
-    print(f"\n  Running ONNX inference + evaluation...")
-
-    # Warmup runs
-    dummy_img = np.zeros((640, 640, 3), dtype=np.uint8)
-    for _ in range(10):
-        _ = engine.infer(dummy_img)
-
-    total_tp, total_fp, total_fn = 0, 0, 0
-    all_class_results = defaultdict(lambda: {"tp": 0, "fp": 0, "fn": 0})
     latencies = []
-    total_gt = 0
-    total_det = 0
+    total_gt_count = 0
+    total_det_count = 0
+    aggregated_results = defaultdict(lambda: {
+        "box_tp": 0, "box_fp": 0, "box_fn": 0,
+        "mask_tp": 0, "mask_fp": 0, "mask_fn": 0,
+        "mask_ious": []
+    })
 
-    for img_name in images:
-        img_path = os.path.join(val_img_dir, img_name)
-        lbl_name = img_name.rsplit('.', 1)[0] + '.txt'
-        lbl_path = os.path.join(val_lbl_dir, lbl_name)
+    # Warmup runs to stabilize GPU latency timing
+    dummy_warmup = np.zeros((640, 640, 3), dtype=np.uint8)
+    for _ in range(5):
+        engine.infer(dummy_warmup)
+
+    # Evaluation loop
+    for idx, fname in enumerate(image_files):
+        img_path = os.path.join(images_dir, fname)
+        base_name = os.path.splitext(fname)[0]
+        label_path = os.path.join(labels_dir, base_name + ".txt")
 
         img = cv2.imread(img_path)
         if img is None:
             continue
 
         h, w = img.shape[:2]
+        gt_labels = load_gt_labels(label_path, img_h=h, img_w=w)
+        total_gt_count += len(gt_labels)
 
-        gt_labels = load_gt_labels(lbl_path, h, w)
-        total_gt += len(gt_labels)
-
+        # Time inference
+        t0 = time.perf_counter()
         result = engine.infer(img)
-        latencies.append(result["latency_ms"])
+        t_elapsed_ms = (time.perf_counter() - t0) * 1000.0
+        latencies.append(t_elapsed_ms)
+
         detections = result.get("detections", [])
-        total_det += len(detections)
+        seg_mask = result.get("segmentation_mask", np.zeros((h, w), dtype=np.uint8))
+        total_det_count += len(detections)
 
-        tp, fp, fn, class_results = match_detections(gt_labels, detections, iou_threshold=0.5)
-        total_tp += tp
-        total_fp += fp
-        total_fn += fn
+        # Match sample
+        sample_results = evaluate_sample_predictions(
+            gt_labels=gt_labels,
+            detections=detections,
+            seg_mask=seg_mask,
+            iou_threshold=iou_threshold
+        )
 
-        for cls_id, counts in class_results.items():
-            all_class_results[cls_id]["tp"] += counts["tp"]
-            all_class_results[cls_id]["fp"] += counts["fp"]
-            all_class_results[cls_id]["fn"] += counts["fn"]
+        for cid, res in sample_results.items():
+            aggregated_results[cid]["box_tp"] += res["box_tp"]
+            aggregated_results[cid]["box_fp"] += res["box_fp"]
+            aggregated_results[cid]["box_fn"] += res["box_fn"]
+            aggregated_results[cid]["mask_tp"] += res["mask_tp"]
+            aggregated_results[cid]["mask_fp"] += res["mask_fp"]
+            aggregated_results[cid]["mask_fn"] += res["mask_fn"]
+            aggregated_results[cid]["mask_ious"].extend(res["mask_ious"])
 
-    precision = total_tp / (total_tp + total_fp + 1e-6)
-    recall = total_tp / (total_tp + total_fn + 1e-6)
-    f1 = 2 * precision * recall / (precision + recall + 1e-6)
+    if not latencies:
+        raise RuntimeError("Evaluation failed: No valid images were successfully processed.")
 
-    print("\n" + "=" * 70)
-    print("  EVALUATION RESULTS (IoU threshold = 0.50)")
-    print("=" * 70)
+    # Calculate overall aggregate metrics
+    tot_box_tp = sum(r["box_tp"] for r in aggregated_results.values())
+    tot_box_fp = sum(r["box_fp"] for r in aggregated_results.values())
+    tot_box_fn = sum(r["box_fn"] for r in aggregated_results.values())
 
-    print(f"\n  Overall (across {len(images)} images, {total_gt} GT instances):")
-    print(f"  {'─' * 50}")
-    print(f"  {'Metric':<25} {'Value':<15}")
-    print(f"  {'─' * 50}")
-    print(f"  {'Precision':<25} {precision*100:.1f}%")
-    print(f"  {'Recall':<25} {recall*100:.1f}%")
-    print(f"  {'F1-Score':<25} {f1*100:.1f}%")
-    print(f"  {'Total Detections':<25} {total_det}")
-    print(f"  {'True Positives':<25} {total_tp}")
-    print(f"  {'False Positives':<25} {total_fp}")
-    print(f"  {'False Negatives':<25} {total_fn}")
+    box_prec = tot_box_tp / (tot_box_tp + tot_box_fp + 1e-6)
+    box_rec = tot_box_tp / (tot_box_tp + tot_box_fn + 1e-6)
+    box_f1 = (2 * box_prec * box_rec) / (box_prec + box_rec + 1e-6)
 
-    print(f"\n  Per-Class Breakdown:")
-    print(f"  {'─' * 60}")
-    print(f"  {'Class':<15} {'TP':<6} {'FP':<6} {'FN':<6} {'Precision':<12} {'Recall':<12}")
-    print(f"  {'─' * 60}")
-    for cls_id in sorted(all_class_results.keys()):
-        r = all_class_results[cls_id]
-        cls_p = r["tp"] / (r["tp"] + r["fp"] + 1e-6)
-        cls_r = r["tp"] / (r["tp"] + r["fn"] + 1e-6)
-        name = CLASS_NAMES.get(cls_id, f"class_{cls_id}")
-        print(f"  {name:<15} {r['tp']:<6} {r['fp']:<6} {r['fn']:<6} {cls_p*100:<12.1f} {cls_r*100:<12.1f}")
+    tot_mask_tp = sum(r["mask_tp"] for r in aggregated_results.values())
+    tot_mask_fp = sum(r["mask_fp"] for r in aggregated_results.values())
+    tot_mask_fn = sum(r["mask_fn"] for r in aggregated_results.values())
 
-    print(f"\n  ONNX Inference Latency Statistics ({engine.active_provider}):")
-    print(f"  {'─' * 50}")
-    print(f"  {'Mean':<25} {np.mean(latencies):.2f} ms")
-    print(f"  {'Median':<25} {np.median(latencies):.2f} ms")
-    print(f"  {'P95':<25} {np.percentile(latencies, 95):.2f} ms")
-    print(f"  {'Throughput':<25} {1000.0/np.mean(latencies):.1f} FPS")
+    mask_prec = tot_mask_tp / (tot_mask_tp + tot_mask_fp + 1e-6)
+    mask_rec = tot_mask_tp / (tot_mask_tp + tot_mask_fn + 1e-6)
+    mask_f1 = (2 * mask_prec * mask_rec) / (mask_prec + mask_rec + 1e-6)
 
-    # Save reports/evaluation_results.json and reports/evaluation_results.csv
+    all_mask_ious = []
+    for r in aggregated_results.values():
+        all_mask_ious.extend(r["mask_ious"])
+    overall_mean_mask_iou = round(float(np.mean(all_mask_ious)), 4) if all_mask_ious else 0.0
+
+    mean_lat = max(float(np.mean(latencies)), 1e-6)
+    p50_lat = float(np.median(latencies))
+    p95_lat = float(np.percentile(latencies, 95))
+    throughput_fps = 1000.0 / mean_lat
+
+    # Run Ultralytics mAP validation if available to merge formal mAP50 / mAP50-95
+    ultralytics_map = {}
+    try:
+        from run_ultralytics_validation import run_ultralytics_validation
+        val_res = run_ultralytics_validation()
+        if val_res:
+            ultralytics_map = {
+                "box_map50": val_res.get("box_map50", None),
+                "box_map50_95": val_res.get("box_map50_95", None),
+                "mask_map50": val_res.get("mask_map50", None),
+                "mask_map50_95": val_res.get("mask_map50_95", None)
+            }
+    except Exception as e:
+        print(f"  [NOTE] Ultralytics direct validation skipped: {e}")
+
+    # Output formatted report to stdout
+    print("\n" + "=" * 75)
+    print("  EVALUATION METRIC RESULTS")
+    print("=" * 75)
+    print(f"  Evaluated Samples       : {len(latencies)} images ({total_gt_count} GT instances)")
+    print(f"  Total Predictions       : {total_det_count} detections")
+    print(f"  Box Detection Precision : {box_prec * 100.0:.1f}%")
+    print(f"  Box Detection Recall    : {box_rec * 100.0:.1f}%")
+    print(f"  Box Detection F1-Score  : {box_f1 * 100.0:.1f}%")
+    print(f"  Mask Segmentation Prec  : {mask_prec * 100.0:.1f}%")
+    print(f"  Mask Segmentation Recall: {mask_rec * 100.0:.1f}%")
+    print(f"  Mask Segmentation F1    : {mask_f1 * 100.0:.1f}%")
+    print(f"  Overall Mean Mask IoU   : {overall_mean_mask_iou * 100.0:.2f}%")
+    if ultralytics_map:
+        print(f"  Ultralytics Mask mAP@50 : {ultralytics_map.get('mask_map50', 0)*100.0:.2f}%")
+        print(f"  Ultralytics Box mAP@50  : {ultralytics_map.get('box_map50', 0)*100.0:.2f}%")
+    print(f"  Inference Latency (Mean): {mean_lat:.2f} ms (P50: {p50_lat:.2f} ms, P95: {p95_lat:.2f} ms)")
+    print(f"  Inference Throughput    : {throughput_fps:.1f} FPS")
+
+    print("\n  Per-Class Breakdown:")
+    print("  " + "-" * 71)
+    print(f"  {'Class':<14} {'Box TP':<8} {'Box FP':<8} {'Box FN':<8} {'Box Prec':<10} {'Box Rec':<10} {'Mask F1':<10}")
+    print("  " + "-" * 71)
+    for cid in sorted(CLASS_NAMES.keys()):
+        r = aggregated_results[cid]
+        c_name = CLASS_NAMES[cid]
+        c_p = r["box_tp"] / (r["box_tp"] + r["box_fp"] + 1e-6) * 100.0
+        c_r = r["box_tp"] / (r["box_tp"] + r["box_fn"] + 1e-6) * 100.0
+        m_p = r["mask_tp"] / (r["mask_tp"] + r["mask_fp"] + 1e-6)
+        m_r = r["mask_tp"] / (r["mask_tp"] + r["mask_fn"] + 1e-6)
+        m_f1 = (2 * m_p * m_r) / (m_p + m_r + 1e-6) * 100.0
+        print(f"  {c_name:<14} {r['box_tp']:<8} {r['box_fp']:<8} {r['box_fn']:<8} {c_p:<9.1f}% {c_r:<9.1f}% {m_f1:<9.1f}%")
+    print("  " + "-" * 71)
+
+    # Save to JSON and CSV reports
     reports_dir = os.path.join(PROJECT_ROOT, "reports")
     os.makedirs(reports_dir, exist_ok=True)
-
     json_path = os.path.join(reports_dir, "evaluation_results.json")
-    results_data = {
-        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    csv_path = os.path.join(reports_dir, "evaluation_results.csv")
+
+    export_data = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "provider": engine.active_provider,
-        "hardware": "AMD / Intel x86_64 CPU (Universal evaluation context)",
-        "warmup_runs": 10,
-        "measured_runs": len(images),
-        "dataset_path": val_img_dir,
-        "total_images": len(images),
-        "total_gt_instances": total_gt,
-        "total_detections": total_det,
-        "overall": {
-            "precision": round(precision, 4),
-            "recall": round(recall, 4),
-            "f1_score": round(f1, 4),
+        "dataset_path": dataset_dir,
+        "total_images": len(latencies),
+        "total_gt_instances": total_gt_count,
+        "total_detections": total_det_count,
+        "iou_threshold": iou_threshold,
+        "confidence_threshold": conf_threshold,
+        "seed": seed,
+        "detection_metrics": {
+            "box_precision": round(box_prec, 4),
+            "box_recall": round(box_rec, 4),
+            "box_f1_score": round(box_f1, 4),
         },
+        "segmentation_metrics": {
+            "mask_precision": round(mask_prec, 4),
+            "mask_recall": round(mask_rec, 4),
+            "mask_f1_score": round(mask_f1, 4),
+            "overall_mean_mask_iou": overall_mean_mask_iou,
+        },
+        "ultralytics_map_metrics": ultralytics_map,
         "latency_ms": {
-            "mean": round(float(np.mean(latencies)), 2),
-            "median": round(float(np.median(latencies)), 2),
-            "p95": round(float(np.percentile(latencies, 95)), 2),
+            "mean": round(mean_lat, 2),
+            "median": round(p50_lat, 2),
+            "p95": round(p95_lat, 2),
+            "throughput_fps": round(throughput_fps, 1)
         },
         "per_class": {
             CLASS_NAMES[cid]: {
-                "tp": r["tp"],
-                "fp": r["fp"],
-                "fn": r["fn"],
-                "precision": round(r["tp"] / (r["tp"] + r["fp"] + 1e-6), 4),
-                "recall": round(r["tp"] / (r["tp"] + r["fn"] + 1e-6), 4),
-            } for cid, r in all_class_results.items()
+                "box_tp": aggregated_results[cid]["box_tp"],
+                "box_fp": aggregated_results[cid]["box_fp"],
+                "box_fn": aggregated_results[cid]["box_fn"],
+                "box_precision": round(aggregated_results[cid]["box_tp"] / (aggregated_results[cid]["box_tp"] + aggregated_results[cid]["box_fp"] + 1e-6), 4),
+                "box_recall": round(aggregated_results[cid]["box_tp"] / (aggregated_results[cid]["box_tp"] + aggregated_results[cid]["box_fn"] + 1e-6), 4),
+                "mask_tp": aggregated_results[cid]["mask_tp"],
+                "mask_fp": aggregated_results[cid]["mask_fp"],
+                "mask_fn": aggregated_results[cid]["mask_fn"],
+                "mean_mask_iou": round(float(np.mean(aggregated_results[cid]["mask_ious"])), 4) if aggregated_results[cid]["mask_ious"] else 0.0
+            } for cid in CLASS_NAMES
         }
     }
-    with open(json_path, "w") as f:
-        json.dump(results_data, f, indent=2)
 
-    csv_path = os.path.join(reports_dir, "evaluation_results.csv")
-    with open(csv_path, "w", newline="") as f:
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(export_data, f, indent=2)
+
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["Class", "TP", "FP", "FN", "Precision", "Recall"])
-        for cid, r in all_class_results.items():
-            c_p = r["tp"] / (r["tp"] + r["fp"] + 1e-6)
-            c_r = r["tp"] / (r["tp"] + r["fn"] + 1e-6)
-            writer.writerow([CLASS_NAMES.get(cid, str(cid)), r["tp"], r["fp"], r["fn"], round(c_p, 4), round(c_r, 4)])
+        writer.writerow(["Class", "Box_TP", "Box_FP", "Box_FN", "Box_Precision", "Box_Recall", "Mask_TP", "Mask_FP", "Mask_FN", "Mean_Mask_IoU"])
+        for cid in sorted(CLASS_NAMES.keys()):
+            r = aggregated_results[cid]
+            b_p = r["box_tp"] / (r["box_tp"] + r["box_fp"] + 1e-6)
+            b_r = r["box_tp"] / (r["box_tp"] + r["box_fn"] + 1e-6)
+            m_iou = float(np.mean(r["mask_ious"])) if r["mask_ious"] else 0.0
+            writer.writerow([
+                CLASS_NAMES[cid],
+                r["box_tp"], r["box_fp"], r["box_fn"], round(b_p, 4), round(b_r, 4),
+                r["mask_tp"], r["mask_fp"], r["mask_fn"], round(m_iou, 4)
+            ])
 
     print(f"\n  Exported results:")
     print(f"    - {json_path}")
     print(f"    - {csv_path}")
-
-    # Run Ultralytics validation if available
-    try:
-        from run_ultralytics_validation import run_ultralytics_validation
-        run_ultralytics_validation()
-    except Exception as e:
-        print(f"  [NOTE] Skipping Ultralytics mAP validation: {e}")
-
-    print("=" * 70)
-    print("  EVALUATION COMPLETE — Results verified")
-    print("=" * 70)
-    print()
-
-    return results_data
+    print("=" * 75 + "\n")
+    return export_data
 
 
 if __name__ == "__main__":
-    run_evaluation()
+    args = parse_args()
+    run_evaluation(
+        dataset_dir=args.dataset_dir,
+        model_path=args.model_path,
+        iou_threshold=args.iou,
+        conf_threshold=args.conf,
+        seed=args.seed
+    )

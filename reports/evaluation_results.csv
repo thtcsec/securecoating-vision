@@ -1,5 +1,5 @@
-Class,TP,FP,FN,Precision,Recall
-delamination,0,7,6,0.0,0.0
-void,10,6,0,0.625,1.0
-blister,8,4,0,0.6667,1.0
-scratch,2,0,4,1.0,0.3333
+Class,Box_TP,Box_FP,Box_FN,Box_Precision,Box_Recall,Mask_TP,Mask_FP,Mask_FN,Mean_Mask_IoU
+scratch,2,1,4,0.6667,0.3333,0,3,6,0.3568
+void,10,6,0,0.625,1.0,0,16,10,0.0057
+blister,8,4,0,0.6667,1.0,0,12,8,0.0119
+delamination,0,9,6,0.0,0.0,0,9,6,0.0

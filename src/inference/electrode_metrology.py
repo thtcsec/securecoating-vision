@@ -7,9 +7,9 @@ uncertainty propagation, electrochemical risk scoring, and guard-banded complian
 Architecture:
 - Level 1: Calibrated Physical Geometry (minAreaRect, Web-Relative Orientation, Expanded Uncertainty U)
 - Level 2: 3D Topography & Surface Plane Baseline Leveling (V_protrusion, V_depression, V_net, Ra)
-- Level 3: Empirical Battery Risk Scoring (Cell Stack Parameterized Model)
-- Level 4: Customer / Plant Specification with Guard-Banding (Tolerance - U)
-- Level 5: Regulatory & Industry QA Standards Traceability (T/CIAPS 0006-2020 / QC/T 743)
+- Level 3: Micro-Short Hazard Risk Scoring relative to separator safety margin (Cell Stack Model)
+- Level 4: Plant Engineering Specification with Guard-Banding (Tolerance - U, ISO 14253-1)
+- Level 5: Industrial Quality Standards Traceability (Plant QA Specification & GB/T 38031 Safety Baseline)
 """
 
 import math
@@ -148,7 +148,7 @@ class ElectrodeMetrologyEngine:
         self.cell_spec = cell_spec or CellStackSpecification()
         self.uncertainty = uncertainty_budget or MeasurementUncertaintyBudget()
         
-        # Plant Engineering Guard-Banded Limits (T/CIAPS 0006 Baseline)
+        # Plant Engineering Guard-Banded Limits (Electrode Manufacturing QA Baseline)
         self.plant_limits = {
             "scratch": {"max_length_mm": 5.0, "guard_band_mm": 0.15},
             "void": {"max_area_mm2": 1.5, "guard_band_mm2": 0.08},
@@ -274,12 +274,12 @@ class ElectrodeMetrologyEngine:
         else:
             cell_hazard = "Surface Coating Cosmetic Anomaly"
 
-        # 5. Guard-Banded Decision (T/CIAPS 0006-2020 QA Traceability)
+        # 5. Guard-Banded Decision (Plant QA Specification & GB/T 38031 Traceability)
         guard_pass = True
         
         if class_name == "delamination":
             guard_pass = False
-            rejection_clauses.append("T/CIAPS 0006 Clause 5.3: Delamination strictly prohibited (Zero Tolerance)")
+            rejection_clauses.append("Plant QA Spec (GB/T 38031 Safety Baseline): Delamination strictly prohibited (Zero Tolerance)")
             
         elif class_name == "scratch":
             limit = self.plant_limits["scratch"]["max_length_mm"]
@@ -287,7 +287,7 @@ class ElectrodeMetrologyEngine:
             if (length_mm + u_length_mm) > (limit - gb):
                 guard_pass = False
                 rejection_clauses.append(
-                    f"T/CIAPS 0006 Clause 5.2: Scratch length ({length_mm:.2f} ± {u_length_mm:.2f}mm) exceeds guard-banded limit ({limit - gb:.2f}mm)"
+                    f"Plant QA Spec: Scratch length ({length_mm:.2f} ± {u_length_mm:.2f}mm) exceeds guard-banded limit ({limit - gb:.2f}mm)"
                 )
                 
         elif class_name == "void":
@@ -296,13 +296,13 @@ class ElectrodeMetrologyEngine:
             if (area_mm2 + u_area_mm2) > (limit - gb):
                 guard_pass = False
                 rejection_clauses.append(
-                    f"T/CIAPS 0006 Clause 5.2: Void area ({area_mm2:.2f} ± {u_area_mm2:.3f}mm²) exceeds guard-banded limit ({limit - gb:.2f}mm²)"
+                    f"Plant QA Spec: Void area ({area_mm2:.2f} ± {u_area_mm2:.3f}mm²) exceeds guard-banded limit ({limit - gb:.2f}mm²)"
                 )
 
         if post_cal_h >= self.plant_limits["blister"]["max_post_cal_height_um"]:
             guard_pass = False
             rejection_clauses.append(
-                f"QC/T 743 QA Spec: Post-calendering protrusion ({post_cal_h:.1f}um) exceeds separator safety limit (11.0um)"
+                f"Plant QA Spec (GB/T 38031 Micro-Short Prevention): Post-calendering protrusion ({post_cal_h:.1f}um) exceeds separator safety limit (11.0um)"
             )
 
         # Quality Tier
