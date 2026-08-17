@@ -173,11 +173,31 @@ class MultiStageIndustrialPipeline:
         # STAGE 2: Multi-Modal Physical Acquisition
         # =========================================================================
         t0 = time.perf_counter()
-        if optical_rgb is None or thermal_raw is None or height_map is None:
+        if optical_rgb is None:
+            # Backward-compatible simulation path for unit tests and explicit
+            # sandbox demos only.  Production/API callers pass an optical frame
+            # and never reach this branch.
+            logger.warning("No optical image supplied; running simulated-input sandbox path")
             mock_opt, mock_th, mock_h = self.fusion.generate_mock_frame(defect_type="random")
-            optical_rgb = optical_rgb if optical_rgb is not None else mock_opt
-            thermal_raw = thermal_raw if thermal_raw is not None else mock_th
-            height_map = height_map if height_map is not None else mock_h
+            optical_rgb = mock_opt
+            thermal_raw = mock_th if thermal_raw is None else thermal_raw
+            height_map = mock_h if height_map is None else height_map
+
+        # Do not silently replace unavailable physical modalities with simulated
+        # frames.  Empty arrays keep the array plumbing operational, while the
+        # availability flags below force a HOLD rather than a release decision.
+        thermal_available = thermal_raw is not None
+        height_available = height_map is not None
+        frame_h, frame_w = optical_rgb.shape[:2]
+        if thermal_raw is None:
+            thermal_raw = np.zeros((frame_h, frame_w), dtype=np.uint8)
+        if height_map is None:
+            height_map = np.zeros((frame_h, frame_w), dtype=np.uint8)
+
+        self.failsafe.health.rgb_sensor_ok = True
+        self.failsafe.health.thermal_sensor_ok = thermal_available
+        self.failsafe.health.profiler_sensor_ok = height_available
+        self.failsafe._update_system_state()
 
         brightfield_img = optical_rgb.copy()
         darkfield_img = self._simulate_darkfield_scatter(optical_rgb)
@@ -205,7 +225,13 @@ class MultiStageIndustrialPipeline:
             thermal=thermal_raw,
             height=height_map
         )
-        seg_mask = ai_result.get("seg_mask", np.zeros((1024, 1024), dtype=np.int32))
+        # Predictor engines expose the common ``segmentation_mask`` contract.
+        # Falling back to an empty mask here silently discarded every real YOLO
+        # prediction before metrology and decisioning.
+        seg_mask = ai_result.get(
+            "segmentation_mask",
+            np.zeros(optical_rgb.shape[:2], dtype=np.int32),
+        )
         raw_detections = ai_result.get("detections", [])
         timings["stage_4_ai_inference_ms"] = (time.perf_counter() - t0) * 1000.0
 
@@ -213,7 +239,14 @@ class MultiStageIndustrialPipeline:
         # STAGE 5: Physics-Informed Battery Electrode Metrology & Standards Audit
         # =========================================================================
         t0 = time.perf_counter()
-        metrology_objects = self.metrology.analyze_segmentation(seg_mask, height_map)
+        # Height-dependent results must not be presented as measurements when
+        # the profiler is unavailable.  Raw RGB detections remain available for
+        # review, but the lot is held for calibrated inspection.
+        metrology_objects = (
+            self.metrology.analyze_segmentation(seg_mask, height_map)
+            if height_available
+            else []
+        )
         metrology_dicts = [m.to_dict() for m in metrology_objects]
         
         # Temporal Frame Context Anchoring: map defect coordinates back to capture instant
@@ -251,10 +284,13 @@ class MultiStageIndustrialPipeline:
         # If secondary thermal or 3D sensor is disconnected, cannot certify Grade A (must quarantine)
         if self.failsafe.system_state.value != "OPTIMAL":
             overall_tier = "GRADE_B_QUARANTINE"
-            all_rejection_reasons.append("Sensor Fail-Safe Policy: Secondary sensor offline -> Roll zone tagged for QA Quarantine")
+            all_rejection_reasons.append(
+                "RGB-only evidence mode: calibrated thermal/profilometer data "
+                "unavailable -> HOLD for QA; no release decision or dimensional metrology"
+            )
 
         for m_obj in metrology_objects:
-            if not m_obj.standards_compliant:
+            if not m_obj.guard_band_pass:
                 std_compliant = False
                 all_rejection_reasons.extend(m_obj.rejection_clauses)
             if m_obj.quality_tier == "GRADE_C_REJECT":
@@ -265,7 +301,7 @@ class MultiStageIndustrialPipeline:
         overall_verdict = "PASS" if overall_tier not in ("GRADE_C_REJECT", "GRADE_B_QUARANTINE") else "REJECT"
 
         # Signal PLC Hardware Gate
-        plc_action = "PASS"
+        plc_action = "HOLD" if overall_tier == "GRADE_B_QUARANTINE" else "PASS"
         if enable_plc_signal:
             grade_dict = {
                 "passed": (overall_verdict == "PASS"),

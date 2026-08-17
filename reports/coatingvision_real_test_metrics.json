@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-08-17T09:21:18.651304+00:00",
+  "dataset": "CoatingVision detection subset, Figshare DOI 10.6084/m9.figshare.29260121.v1, CC BY 4.0",
+  "split": "fixed test split (seed 71)",
+  "weights": "outputs\\coatingvision_real\\yolo26n_10ep\\weights\\best.pt",
+  "metrics": {
+    "metrics/precision(B)": 0.644979258307099,
+    "metrics/recall(B)": 0.6420211592776,
+    "metrics/mAP50(B)": 0.6336511690825126,
+    "metrics/mAP50-95(B)": 0.3539329192053585,
+    "fitness": 0.3539329192053585
+  }
+}

@@ -40,6 +40,7 @@ class YOLOEngine:
         self.model = None
         self._resolved_device = "cpu"
         self._model_loaded = False
+        self.class_names = self.CLASS_NAMES.copy()
         self._load_model()
 
     @property
@@ -75,6 +76,10 @@ class YOLOEngine:
 
             self._resolved_device = self._resolve_device()
             self.model = YOLO(self.model_path)
+            self.class_names = {
+                int(class_id): str(class_name)
+                for class_id, class_name in self.model.names.items()
+            }
             # Warmup so first user request is fast
             dummy = np.zeros((self.imgsz, self.imgsz, 3), dtype=np.uint8)
             self.model.predict(
@@ -149,7 +154,7 @@ class YOLOEngine:
                         "box": box,
                         "confidence": conf,
                         "class_id": class_id,
-                        "class_name": self.CLASS_NAMES.get(class_id, f"class_{class_id}"),
+                        "class_name": self.class_names.get(class_id, f"class_{class_id}"),
                     }
                 )
 

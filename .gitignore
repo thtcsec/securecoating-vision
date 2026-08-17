@@ -13,9 +13,15 @@ __pycache__/
 # Local database and artifacts
 data/quality_history.db
 data/coating_defects/
+data/coatingvision_real_detect/
+data/external/
 outputs/
 runs/
 logs/
+.codex-presentation-build/
+SecureCoating-Vision_Final_Defense_6min_Real_Evidence/
+*.pptx.inspect.ndjson
+deck_montage.png
 
 # IDE files
 .idea/

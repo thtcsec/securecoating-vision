@@ -18,6 +18,8 @@
 **Track:** Track 4 — AI + Materials Testing and Characterization (AI + 材料检测与表征)  
 **Status:** **FINALS (全国总决赛入围)** — Defense Pitch: Late August 2026 (6-min presentation + 2-min Q&A)
 
+> Evidence policy: the bundled model results are a prototype baseline. The repository now includes a reproducible real-data route using CoatingVision optical electrode images. RGB-only runs are explicitly held for QA; no calibrated 3D metrology, multimodal-fusion claim, or production release is inferred without those physical sensor inputs.
+
 ---
 
 ## ⚡ Executive Summary & Industrial System Architecture
@@ -78,6 +80,19 @@ To ensure realistic domain generalization across roll-to-roll materials manufact
 ---
 
 ## 🚀 Quickstart & Reproduction
+
+### Real CoatingVision evidence run
+
+Download CoatingVision from its [Figshare record](https://doi.org/10.6084/m9.figshare.29260121.v1) (CC BY 4.0), extract it to `data/external/coatingvision/`, then run:
+
+```bash
+python scripts/prepare_coatingvision_detection_dataset.py
+python scripts/train_coatingvision_real.py --epochs 30
+python scripts/run_external_coatingvision_demo.py --weights outputs/coatingvision_real/yolo26n_30ep/weights/best.pt
+python scripts/evaluate_coatingvision_real.py --weights outputs/coatingvision_real/yolo26n_30ep/weights/best.pt
+```
+
+This writes a source-traceable input, prediction overlay, and JSON record under `reports/external_coatingvision_demo/`. The 7-stage pipeline reports `DEGRADED / HOLD` for this RGB-only route by design.
 
 ### 1. Launch SCADA Industrial Dashboard
 ```bash

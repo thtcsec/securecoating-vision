@@ -1,0 +1,10 @@
+# Real electrode-coating detection dataset prepared by
+# scripts/prepare_coatingvision_detection_dataset.py.
+path: data/coatingvision_real_detect
+train: images/train
+val: images/val
+test: images/test
+nc: 2
+names:
+  0: surface_crack
+  1: delamination_crack
