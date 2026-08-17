@@ -17,7 +17,7 @@
 **Finals Timeline & Key Milestones:**
 - **Preliminary Results Public Notice:** August 13–16, 2026 (Status: **Qualified for National Finals**)
 - **Venture & Innovation Bootcamp:** Mid-August 2026 (Closed Training & Pitch Coaching)
-- **Final Defense & Venture Pitch:** Late August 2026 (6-min Presentation + 2-min Q&A)
+- **Final Defense & Venture Pitch:** **September 19, 2026 (2026年9月19日)** (6-min Presentation + 2-min Q&A)
 - **Closing & Awards Ceremony:** September 2026
 
 > **Evidence & Validation Policy:** The software and edge-inference pipeline are production-oriented, but we strictly distinguish engineering validation from production qualification. Our current results validate the system on the evaluation benchmark and simulated roll-to-roll dynamics ($v = 1.8 - 2.5\text{ m/s}$); plant-specific thresholds and prospective line validation represent the subsequent industrial deployment stage. Under degraded single-sensor modes (missing 3D laser profiler or thermal camera), the system safely triggers `GRADE_B_QUARANTINE / HOLD`; calibrated 3D volumetric metrology is strictly computed from physical multi-modal inputs.
