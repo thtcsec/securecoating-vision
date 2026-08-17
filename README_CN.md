@@ -1,11 +1,9 @@
 # SecureCoating-Vision (安全涂层视觉)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Docker](https://img.shields.io/badge/Docker-Supported-blue.svg)](docker-compose.yml)
-[![FastAPI](https://img.shields.io/badge/API-FastAPI-green.svg)](src/api/main.py)
-[![Dashboard](https://img.shields.io/badge/Dashboard-Streamlit-orange.svg)](dashboard/app.py)
-[![Standards](https://img.shields.io/badge/Standard-GB%2038031--2025%20%7C%20IATF%2016949-brightgreen.svg)](src/inference/electrode_metrology.py)
-[![Six Sigma](https://img.shields.io/badge/SPC-Six%20Sigma%20Cpk-blue.svg)](src/industrial/spc_spatial_diagnostics.py)
+[![Finals: Track 4](https://img.shields.io/badge/清华大学材料学院2026-赛道四全国总决赛入围-C8102E.svg)](README_CN.md)
+[![Standards](https://img.shields.io/badge/行业标准-GB%2038031--2025%20%7C%20IATF%2016949-008000.svg)](src/inference/electrode_metrology.py)
+[![Six Sigma](https://img.shields.io/badge/工业质检-六西格玛%20Cpk-0052CC.svg)](src/industrial/spc_spatial_diagnostics.py)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 <p align="center">
   <img src="logo.png" alt="Tsinghua MSE Logo" width="450">
@@ -16,7 +14,11 @@
 **学术顾问 (Academic Supervisor):** Kris Singh — SRII 首席执行官；清华大学客座教授；纽卡斯尔大学实践教授；前 IBM、AMD、Intel、国家半导体高级管理人员  
 **竞赛背景 (Competition Context):** 清华大学材料学院主办 **2026 全球 AI+材料创新应用大赛** (2026 Global AI + Materials Innovation Application Competition)  
 **参赛赛道 (Track):** 赛道四 — AI + 材料检测与表征 (AI + Materials Testing and Characterization)  
-**当前状态 (Status):** **全国总决赛入围 (FINALS)** — 终极答辩：2026年8月下旬 (6分钟汇报 + 2分钟问答)
+**总决赛赛程与重要节点 (Finals Timeline):**
+- **初赛结果公示:** 2026年8月13日 — 8月16日 (状态: **入围全国总决赛**)
+- **创投科创训练营:** 2026年8月中旬 (闭门集训与商业路演辅导)
+- **决赛答辩与创投微路演:** 2026年8月下旬 (6分钟作品陈述 + 2分钟现场问答)
+- **闭幕式与颁奖典礼:** 2026年9月
 
 > **证据政策与工程验证说明:** 软件与边缘推理流水线面向工业生产设计，但在工程验证（Engineering Validation）与产线正式准入（Production Qualification）之间做出了严格区分。当前成果在公开评测基准与连续带材运动动力学仿真（$v = 1.8 - 2.5\text{ m/s}$）下完成了验证；特定工厂阈值标定与前瞻性产线联调属于后续工程部署阶段。在单传感器降级模式下（缺少 3D 激光轮廓仪或热成像输入），系统安全触发 `GRADE_B_QUARANTINE / HOLD` 隔离机制；物理 3D 体积计量严格基于物理多模态传感器输入计算。
 

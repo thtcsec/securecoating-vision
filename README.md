@@ -1,12 +1,9 @@
 # SecureCoating-Vision
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Docker](https://img.shields.io/badge/Docker-Supported-blue.svg)](docker-compose.yml)
-[![FastAPI](https://img.shields.io/badge/API-FastAPI-green.svg)](src/api/main.py)
-[![Dashboard](https://img.shields.io/badge/Dashboard-Streamlit-orange.svg)](dashboard/app.py)
-[![Plotly 3D](https://img.shields.io/badge/3D%20Topography-Plotly-blueviolet.svg)](dashboard/app.py)
-[![Standards](https://img.shields.io/badge/Standard-GB%2038031--2025%20%7C%20IATF%2016949-brightgreen.svg)](src/inference/electrode_metrology.py)
-[![Six Sigma](https://img.shields.io/badge/SPC-Six%20Sigma%20Cpk-blue.svg)](src/industrial/spc_spatial_diagnostics.py)
+[![Finals: Track 4](https://img.shields.io/badge/Tsinghua%20MSE%202026-Track%204%20Finalist-C8102E.svg)](README.md)
+[![Standards](https://img.shields.io/badge/Standard-GB%2038031--2025%20%7C%20IATF%2016949-008000.svg)](src/inference/electrode_metrology.py)
+[![Six Sigma](https://img.shields.io/badge/Industrial%20QA-Six%20Sigma%20Cpk-0052CC.svg)](src/industrial/spc_spatial_diagnostics.py)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 <p align="center">
   <img src="logo.png" alt="Tsinghua MSE Logo" width="450">
@@ -17,7 +14,11 @@
 **Academic Supervisor:** Kris Singh — CEO, SRII; Visiting Professor, Tsinghua University; Adj. Professor of Practice, University of Newcastle; former executive at IBM, AMD, Intel, and National Semiconductor  
 **Competition Context:** Prepared for the **2026 Global AI + Materials Innovation Application Competition (全球AI+材料创新应用大赛)**, hosted by Tsinghua University School of Materials Science and Engineering (清华大学材料学院).  
 **Track:** Track 4 — AI + Materials Testing and Characterization (AI + 材料检测与表征)  
-**Status:** **FINALS (全国总决赛入围)** — Defense Pitch: Late August 2026 (6-min presentation + 2-min Q&A)
+**Finals Timeline & Key Milestones:**
+- **Preliminary Results Public Notice:** August 13–16, 2026 (Status: **Qualified for National Finals**)
+- **Venture & Innovation Bootcamp:** Mid-August 2026 (Closed Training & Pitch Coaching)
+- **Final Defense & Venture Pitch:** Late August 2026 (6-min Presentation + 2-min Q&A)
+- **Closing & Awards Ceremony:** September 2026
 
 > **Evidence & Validation Policy:** The software and edge-inference pipeline are production-oriented, but we strictly distinguish engineering validation from production qualification. Our current results validate the system on the evaluation benchmark and simulated roll-to-roll dynamics ($v = 1.8 - 2.5\text{ m/s}$); plant-specific thresholds and prospective line validation represent the subsequent industrial deployment stage. Under degraded single-sensor modes (missing 3D laser profiler or thermal camera), the system safely triggers `GRADE_B_QUARANTINE / HOLD`; calibrated 3D volumetric metrology is strictly computed from physical multi-modal inputs.
 
