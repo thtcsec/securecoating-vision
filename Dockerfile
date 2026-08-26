@@ -1,27 +1,41 @@
-FROM python:3.9-slim
+FROM python:3.11.9-slim-bookworm AS builder
 
 WORKDIR /app
 
-# Install system dependencies for OpenCV and builds
+# Build wheels separately so compilers are not shipped in the runtime image.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements-lock.txt .
+RUN pip wheel --no-cache-dir --wheel-dir=/wheels --timeout=300 -r requirements-lock.txt
+
+FROM python:3.11.9-slim-bookworm AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 securecoating \
+    && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin securecoating
 
-# Upgrade pip and increase timeout for large packages
-RUN pip install --upgrade pip
-
-# Install Python requirements (CPU-only for Docker, keeps image small)
-COPY requirements-docker.txt .
-RUN pip install --no-cache-dir --timeout=300 -r requirements-docker.txt
+COPY --from=builder /wheels /wheels
+RUN pip install --no-index --find-links=/wheels /wheels/* && rm -rf /wheels
 
 # Copy source tree
-COPY . .
+COPY --chown=securecoating:securecoating . .
 
 # Create necessary directories
-RUN mkdir -p outputs logs data
+RUN mkdir -p outputs logs data && chown -R securecoating:securecoating /app
+
+USER 10001:10001
 
 # Expose ports: FastAPI (8000), Streamlit (8501)
 EXPOSE 8000

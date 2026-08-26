@@ -15,4 +15,4 @@ if str(PROJECT_ROOT) not in sys.path:
 from scripts.generate_synthetic_coating_defects import generate_dataset
 
 if __name__ == "__main__":
-    generate_dataset(num_train=500, num_val=100, overwrite=True)
+    generate_dataset(train_size=500, val_size=100, overwrite=True)

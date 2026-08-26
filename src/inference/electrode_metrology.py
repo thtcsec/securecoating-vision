@@ -36,7 +36,7 @@ class CellStackSpecification:
 
 @dataclass
 class MeasurementUncertaintyBudget:
-    """Expanded measurement uncertainty budget (GUM / ISO 17025 compliant, k=2, 95% CI)."""
+    """Modeled expanded uncertainty budget (k=2); not an accredited calibration result."""
     u_calibration_um: float = 0.45       # Pixel pitch calibration uncertainty
     u_edge_mtf_um: float = 1.20          # Edge boundary ambiguity from lens MTF
     u_lens_distortion_um: float = 0.30   # Residual optical distortion

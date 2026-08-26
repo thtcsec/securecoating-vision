@@ -15,6 +15,8 @@ import argparse
 import yaml
 import logging
 from pathlib import Path
+import numpy as np
+import torch
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger(__name__)
@@ -203,16 +205,22 @@ def train(args):
     # Setup directory structure
     setup_dataset_structure(data_root)
     
-    # Generate synthetic data if no real data exists
+    # Never silently replace an empty real dataset with synthetic samples.
     train_dir = os.path.join(data_root, "images", "train")
     if len(os.listdir(train_dir)) == 0:
-        logger.info("No training data found. Generating synthetic samples for development...")
+        if not args.allow_synthetic:
+            raise RuntimeError(
+                "Training dataset is empty. Generate/approve synthetic data explicitly "
+                "with --allow-synthetic or provide a real dataset manifest."
+            )
+        logger.warning("Generating explicitly requested synthetic development samples")
+        np.random.seed(args.seed)
         generate_synthetic_samples(data_root, num_train=200, num_val=40)
     
     # GPU memory check and auto-config
     recommended = check_gpu_memory()
     
-    model_name = args.model or recommended["model"]
+    model_name = args.model
     batch_size = args.batch or recommended["batch"]
     imgsz = args.imgsz or recommended["imgsz"]
     
@@ -228,7 +236,11 @@ def train(args):
     logger.info("=" * 60)
     
     # Initialize model
-    model = YOLO(f"{model_name}.pt")
+    model_source = model_name if model_name.endswith(".pt") else f"{model_name}.pt"
+    model = YOLO(model_source)
+    resolved_device = args.device
+    if args.device == "auto":
+        resolved_device = 0 if torch.cuda.is_available() else "cpu"
     
     # Train with optimized settings for 6GB VRAM
     results = model.train(
@@ -236,7 +248,9 @@ def train(args):
         epochs=args.epochs,
         imgsz=imgsz,
         batch=batch_size,
-        device=0 if args.device == "auto" else args.device,
+        device=resolved_device,
+        seed=args.seed,
+        deterministic=True,
         project="outputs/yolo_training",
         name=f"{model_name.replace('.pt', '')}_{args.epochs}ep",
         # Memory optimization for RTX 4050 6GB
@@ -313,8 +327,8 @@ if __name__ == "__main__":
     
     # Train command
     train_parser = subparsers.add_parser("train", help="Train YOLOv8 segmentation model")
-    train_parser.add_argument("--model", type=str, default=None,
-                             help="Model variant (yolov8n-seg, yolov8s-seg). Auto-selected if not specified.")
+    train_parser.add_argument("--model", type=str, required=True,
+                             help="Explicit local weights path or exact Ultralytics model identifier")
     train_parser.add_argument("--data", type=str, default="configs/dataset.yaml",
                              help="Path to dataset YAML config")
     train_parser.add_argument("--epochs", type=int, default=50,
@@ -325,6 +339,9 @@ if __name__ == "__main__":
                              help="Training image size (auto-detected based on VRAM)")
     train_parser.add_argument("--device", type=str, default="auto",
                              help="Device: auto, 0, 1, cpu")
+    train_parser.add_argument("--seed", type=int, default=42)
+    train_parser.add_argument("--allow-synthetic", action="store_true",
+                              help="Explicitly permit generation of synthetic development data")
     
     # Export command
     export_parser = subparsers.add_parser("export", help="Export model to ONNX format")

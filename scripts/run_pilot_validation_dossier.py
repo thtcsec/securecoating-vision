@@ -1,128 +1,85 @@
-"""
-SecureCoating-Vision: Pilot Validation Dossier Generator
-========================================================
-Compiles experimental and validation evidence across:
-- 5 Industrial Jumbo Rolls (6,000 meters total)
-- Defect escape PPM & False-negative per m2 by size tier
-- Optical line-scan budget & Motion blur verification
-- P99.9 Camera-to-ejector deterministic latency
-- Empirical closed-loop process intervention results
-"""
+"""Generate a pilot dossier only from explicit, integrity-checked evidence."""
 
-import os
-from datetime import datetime
-
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-REPORT_DIR = os.path.join(PROJECT_ROOT, "reports")
-os.makedirs(REPORT_DIR, exist_ok=True)
-REPORT_PATH = os.path.join(REPORT_DIR, "pilot_validation_dossier.md")
+import argparse
+import hashlib
+import json
+from datetime import datetime, timezone
+from pathlib import Path
 
 
-def generate_dossier():
-    dt_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    content = f"""# 🏆 SecureCoating-Vision: Industrial Pilot Validation Dossier (Track 4: Finals)
+REQUIRED_FIELDS = {"study_id", "methodology", "source_artifacts", "rolls", "metrics"}
 
-**Document Reference:** `DOSSIER-SCV-2026-MSE-FINALS`  
-**Evaluation Standard:** Plant Electrode QA Specification & GB/T 38031 Battery Safety Baseline  
-**Compilation Date:** {dt_str}  
-**Supervising Advisor:** Prof. Kris Singh (SRII / Visiting Prof. Tsinghua University)  
-**Lead Developer:** Team 71 (Trịnh Hoàng Tú, HUFLIT)
 
----
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
-## 1. Executive Summary & Factory-Level Key Performance Indicators (KPIs)
 
-Unlike academic prototypes limited to static image metrics, **SecureCoating-Vision** has been rigorously validated across continuous roll-to-roll production lines:
+def load_evidence(path: Path) -> dict:
+    evidence = json.loads(path.read_text(encoding="utf-8"))
+    missing = REQUIRED_FIELDS.difference(evidence)
+    if missing:
+        raise ValueError(f"Evidence manifest is missing fields: {sorted(missing)}")
+    if not evidence["source_artifacts"]:
+        raise ValueError("At least one source artifact is required")
+    for artifact in evidence["source_artifacts"]:
+        artifact_path = (path.parent / artifact["path"]).resolve()
+        if not artifact_path.is_file():
+            raise FileNotFoundError(artifact_path)
+        actual_hash = sha256_file(artifact_path)
+        expected_hash = artifact.get("sha256")
+        if not expected_hash:
+            raise ValueError(f"Missing SHA-256 for evidence artifact {artifact_path}")
+        if actual_hash.lower() != expected_hash.lower():
+            raise ValueError(f"Evidence hash mismatch for {artifact_path}")
+    return evidence
 
-| Industrial KPI Metric | Baseline Industry Standard | SecureCoating-Vision Achieved | Target Met? |
-| :--- | :--- | :--- | :--- |
-| **Critical Defect Escape Rate** | < 1.0 ppm | **0 observed escapes on 6,000m test rolls (Zero Escapes on critical delamination)** | ✅ **EXCEEDED** |
-| **False Rejection Rate (Overkill)** | 3.5% - 5.0% | **0.48% (Projected ~$180k/line/yr savings under modeled 1.8 m/s, $18/kg active material)** | ✅ **EXCEEDED** |
-| **Line Speed at Full Resolution** | 1.2 m/s | **1.8 - 2.5 m/s (Validated under simulated web dynamics)** | ✅ **EXCEEDED** |
-| **Camera-to-Ejector P99.9 Latency** | < 40.0 ms | **19.2 ms (11.2x buffer at 500mm distance)** | ✅ **EXCEEDED** |
-| **Electrode Scrap Rate Reduction** | Reference Baseline | **-84.2% scrap after AI closed-loop tuning** | ✅ **EXCEEDED** |
 
----
+def generate_dossier(evidence_path: Path, output_path: Path) -> None:
+    evidence = load_evidence(evidence_path)
+    lines = [
+        "# SecureCoating-Vision Pilot Validation Dossier",
+        "",
+        f"- Study ID: `{evidence['study_id']}`",
+        f"- Generated: {datetime.now(timezone.utc).isoformat()}",
+        f"- Evidence manifest: `{evidence_path}`",
+        "",
+        "## Methodology",
+        "",
+        str(evidence["methodology"]),
+        "",
+        "## Source artifacts",
+        "",
+    ]
+    for artifact in evidence["source_artifacts"]:
+        lines.append(f"- `{artifact['path']}` — SHA-256 `{artifact['sha256']}`")
 
-## 2. Multi-Roll Cross-Lot Validation (6,000 Meters Total Scanned)
+    lines.extend(["", "## Roll evidence", ""])
+    if not evidence["rolls"]:
+        lines.append("No roll evidence supplied.")
+    for roll in evidence["rolls"]:
+        lines.append(f"### {roll.get('roll_id', 'UNIDENTIFIED ROLL')}")
+        lines.append("")
+        lines.append("```json")
+        lines.append(json.dumps(roll, indent=2, ensure_ascii=False, sort_keys=True))
+        lines.append("```")
 
-We evaluated 5 independent jumbo rolls across 3 distinct active material batches (LFP Cathode, NCM811 Cathode, Artificial Graphite Anode):
-
-| Roll Identifier | Chemistry | Substrate | Scanned Length | Total Defects | Critical Escapes | Quality Grade | Yield (Pass %) |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **ROLL-2026-LFP-001** | LFP (Cathode) | 13 µm Al Foil | 1,200 m | 4 | **0** | `GRADE_A_PRIME` | 99.7% |
-| **ROLL-2026-LFP-002** | LFP (Cathode) | 13 µm Al Foil | 1,200 m | 6 | **0** | `GRADE_A_PRIME` | 99.5% |
-| **ROLL-2026-NCM-001** | NCM811 (Cathode) | 12 µm Al Foil | 1,200 m | 14 | **0** | `GRADE_B_REWORK` | 98.8% |
-| **ROLL-2026-AG-001** | Graphite (Anode) | 8 µm Cu Foil | 1,200 m | 3 | **0** | `GRADE_A_PRIME` | 99.8% |
-| **ROLL-2026-AG-002** | Graphite (Anode) | 8 µm Cu Foil | 1,200 m | 5 | **0** | `GRADE_A_PRIME` | 99.6% |
-| **TOTALS / AVERAGE** | -- | -- | **6,000 m** | **32** | **0 observed escapes** | -- | **99.48%** |
-
----
-
-## 3. Probability of Detection (POD) & Resolution Envelope
-
-### Optical & Throughput Engineering Envelope
-* **Line Speed:** v = 1.8 m/s (Max tested: 2.5 m/s)
-* **Line-Scan Camera:** 2x 8192 Pixel CMOS (16,384 pixels total across 650 mm web)
-* **Pixel Resolution:** px = py = 19.8 µm/pixel
-* **Camera Line Rate:** f_line = 90.9 kHz (Period: 11.0 µs)
-* **Illumination & Exposure:** Strobed LED Line Light (350,000 Lux), t_exp = 5.5 µs
-* **Maximum Motion Blur:** blur = 0.28 pixels <= 0.5 pixels
-
-### Probability of Detection (POD) by Defect Size Bracket
-| Defect Size Range (Equivalent Diameter) | Number of Test Samples | Detected Count | False Negative / 1000 m² | POD (95% CI) |
-| :--- | :--- | :--- | :--- | :--- |
-| **< 50 µm (Micro-Pinhole)** | 120 | 118 | 0.005 | **98.3%** |
-| **50 - 100 µm (Surface Scratch / Void)** | 250 | 250 | 0.000 | **100.0%** |
-| **> 100 µm (Delamination / Blister)** | 180 | 180 | **0.000 (Zero Escape)** | **100.0%** |
-
----
-
-## 4. Real-Time Latency Budget & Hardware-in-the-Loop (HIL) Verification
-
-```
-[Photons on Sensor] ---> Exposure (5.5 us)
-                    ---> PCIe DMA Transfer (1.2 ms)
-                    ---> Multi-Modal Spatial Warp (1.8 ms)
-                    ---> TensorRT FP16 Inference (8.7 ms)
-                    ---> Electrode Metrology & Standards Audit (1.5 ms)
-                    ---> Modbus TCP / EtherCAT Transmit (0.8 ms)
-                    ---> PLC RPI Scan Cycle (2.0 ms)
-                    ---> Pneumatic Solenoid Valve Actuation (4.0 ms)
-========================================================================
-TOTAL NOMINAL (P50):    19.2 ms
-TOTAL P99.9 WORST-CASE: 24.8 ms
-DISTANCE TO EJECTOR:    500 mm (Web moves 44.6 mm in 24.8 ms -> 11.2x Safety Margin)
-```
-
----
-
-## 5. Industrial Closed-Loop Intervention Case Study (Dryer Zone 1)
-
-During inspection of Roll `ROLL-2026-NCM-001`, the system detected a localized burst of edge blisters in Lane 4.
-
-* **Diagnostic Engine Output:** Attributed to *Floatation Drying Oven Zone 1 Skin-Over Effect* (Slurry surface dried too quickly, trapping NMP solvent vapors underneath).
-* **Automated Action Dispatched:** 
-  - Reduced Zone 1 Heating: ΔT1 = -4.0 °C
-  - Opened Exhaust Damper: +8%
-* **Observed Process Outcome:** Over the next 600 meters of production, edge blister occurrence dropped from **11.4 defects/100m** to **0.2 defects/100m (-98.2% reduction)**.
-
----
-
-## 6. Regulatory Standards & Quality Specification Compliance Declaration
-
-This inspection platform strictly conforms to:
-1. **Plant Engineering Electrode Quality Specification (极片制造工艺质量内控标准):** *Guard-banded defect thresholds for void, scratch, and particle protrusion*
-2. **GB 38031-2020 / GB 38031-2025:** *Electric Vehicles Traction Battery Safety Requirements (Internal Short-Circuit Risk Prevention)*
-3. **IATF 16949:** *Automotive Quality Management System Traceability (Tamper-Evident SHA-256 Defect Record & HMAC Certificate)*
-4. **ISO/IEC Guide 98-3 (GUM) & ISO 14253-1:** *Standardized expanded measurement uncertainty & guard-banding decision rules*
-
-*Prepared for Finalist Defense at the 2026 AI + Materials Innovation Competition.*
-"""
-    with open(REPORT_PATH, "w", encoding="utf-8") as f:
-        f.write(content)
-    print(f"Pilot Validation Dossier written to: {REPORT_PATH}")
+    lines.extend(["", "## Reported metrics", ""])
+    lines.append("Metrics below are copied verbatim from the hashed evidence manifest; this generator does not calculate or invent values.")
+    lines.append("")
+    lines.append("```json")
+    lines.append(json.dumps(evidence["metrics"], indent=2, ensure_ascii=False, sort_keys=True))
+    lines.append("```")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":
-    generate_dossier()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--evidence", type=Path, required=True)
+    parser.add_argument("--output", type=Path, default=Path("reports/pilot_validation_dossier.md"))
+    args = parser.parse_args()
+    generate_dossier(args.evidence.resolve(), args.output.resolve())

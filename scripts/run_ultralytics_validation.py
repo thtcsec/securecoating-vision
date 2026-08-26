@@ -25,11 +25,8 @@ sys.path.insert(0, os.path.join(PROJECT_ROOT, "src"))
 logging.basicConfig(level=logging.INFO)
 
 
-def run_ultralytics_validation():
+def run_ultralytics_validation(model_pt: str, config_yaml: str):
     from ultralytics import YOLO
-
-    model_pt = "outputs/best.pt"
-    config_yaml = "configs/evaluation.yaml"
 
     if not os.path.exists(model_pt):
         print(f"[ERROR] PyTorch weights not found at {model_pt}")

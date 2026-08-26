@@ -6,6 +6,7 @@ fastapi>=0.104.0
 uvicorn>=0.24.0
 pydantic>=2.5.0
 python-multipart>=0.0.6
+Pillow==12.2.0
 
 # Configuration
 PyYAML>=6.0.1
@@ -37,3 +38,5 @@ ultralytics>=8.1.0
 pytest>=7.4.0
 httpx>=0.25.0
 requests>=2.31.0
+asyncua==1.1.8
+pymodbus==3.7.4

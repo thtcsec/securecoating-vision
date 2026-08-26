@@ -1,7 +1,7 @@
 """
 SecureCoating-Vision: SCADA Industrial Quality Inspection Terminal
 ===================================================================
-Production-grade multi-sensor fusion inspection dashboard for lithium-ion battery electrode lines.
+Read-only research dashboard for local simulation and inspection visualization.
 
 Features:
 1. 7-Stage Industrial Pipeline Visualizer with Sub-Millisecond Timing Breakdown
@@ -121,7 +121,9 @@ def get_failsafe_mgr():
 
 @st.cache_resource
 def get_industrial_mgr():
-    return IndustrialProtocolManager(app_config.get("industrial_io", {}))
+    # Dashboard is a read-only visualization sandbox. PLC ownership belongs to
+    # the API process; never create a second live PLC command channel here.
+    return IndustrialProtocolManager({"enabled": False, "mock_mode": True})
 
 @st.cache_resource
 def get_web_sync():
@@ -171,9 +173,8 @@ st.markdown("""
         <span style="color:#8C9BAE; font-size:12px;">Multi-Modal Inline Battery Electrode Quality Metrology &middot; Plant QA Spec & GB 38031-2025 Baseline</span>
     </div>
     <div>
-        <span class="stage-badge stage-done">● LINE ONLINE</span>
-        <span class="stage-badge" style="background:#263238; color:#90A4AE;">PLC MODBUS TCP</span>
-        <span class="stage-badge" style="background:#263238; color:#90A4AE;">OPC UA NODE</span>
+        <span class="stage-badge stage-warn">● LOCAL SIMULATION</span>
+        <span class="stage-badge" style="background:#263238; color:#90A4AE;">PLC CONTROL DISABLED</span>
         <span class="stage-badge" style="background:#1A237E; color:#8C9EFF;">YOLOv8-seg FP16</span>
     </div>
 </div>
@@ -196,14 +197,14 @@ with m2:
         <div class="metric-val">{roll_summary['inspected_length_m']:.1f} / {roll_summary['total_roll_length_m']:.0f}m</div>
     </div>""", unsafe_allow_html=True)
 with m3:
-    pass_rate = stats["pass_rate"]
+    pass_rate = stats["pass_rate"] if stats["pass_rate"] is not None else 0.0
     color_cls = "status-optimal" if pass_rate >= 95 else ("status-warning" if pass_rate >= 85 else "status-danger")
     st.markdown(f"""<div class="scada-metric-card" style="border-left-color:#FFD600;">
         <div class="metric-label">Yield Pass Rate</div>
         <div class="metric-val {color_cls}">{pass_rate}%</div>
     </div>""", unsafe_allow_html=True)
 with m4:
-    lat = stats["avg_latency_ms"]
+    lat = stats["avg_latency_ms"] if stats["avg_latency_ms"] is not None else 0.0
     st.markdown(f"""<div class="scada-metric-card" style="border-left-color:#E040FB;">
         <div class="metric-label">Pipeline Latency</div>
         <div class="metric-val" style="color:#E040FB;">{lat} <span style="font-size:14px; color:#8C9BAE;">ms</span></div>
@@ -265,28 +266,11 @@ if st.sidebar.button("🚀 TRIGGER 7-STAGE INSPECTION", type="primary", use_cont
         optical_rgb=opt_m,
         thermal_raw=th_m,
         height_map=h_m,
-        cross_web_pos_mm=cross_pos
+        cross_web_pos_mm=cross_pos,
+        enable_plc_signal=False,
     )
     st.session_state.last_pipeline_result = result
     
-    # Record to DB
-    max_l = max([d["length_mm"] for d in result.defect_metrology], default=0.0)
-    max_a = max([d["area_mm2"] for d in result.defect_metrology], default=0.0)
-    pk_h = max([d["peak_height_um"] for d in result.defect_metrology], default=0.0)
-    
-    quality_mem.add_entry(
-        batch_id=web_sync.roll.batch_id,
-        part_id=part_id,
-        has_defect=(result.overall_verdict == "REJECT"),
-        defect_class=result.defect_metrology[0]["class_name"] if result.defect_metrology else "none",
-        max_length=max_l,
-        max_area=max_a,
-        peak_height=pk_h,
-        latency=result.total_pipeline_latency_ms,
-        fallback=(result.system_health != "OPTIMAL"),
-        model_version=predictor.model_version,
-        run_id=part_id
-    )
     st.rerun()
 
 # =========================================================================
@@ -520,7 +504,7 @@ with tabs[3]:
             <div class="scada-panel">
                 <h5 style="color:#FFF;">Plant Engineering QA & Safety Baseline Checklist</h5>
                 <p><b>Surface Defects:</b> Max Scratch Length &le; 5.0mm, Void Area &le; 1.5mm²</p>
-                <p><b>Delamination:</b> Zero peeling / de-adhesion permitted (Strict Zero Escape)</p>
+                <p><b>Delamination:</b> Prototype policy rejects configured delamination evidence; no escape-rate claim.</p>
                 <p><b>Particle Protrusion:</b> Post-calendering height &lt; 11.0 µm (Safety margin vs 14µm separator)</p>
                 <p><b>Edge Margin:</b> Uncoated foil margin 20.0 ± 1.0 mm, Waviness &le; 0.5 mm</p>
             </div>
@@ -543,7 +527,7 @@ with tabs[4]:
         <div class="scada-panel" style="border-left:5px solid {'#FF1744' if rc['severity_level']=='CRITICAL' else '#00E676'};">
             <h4 style="color:#FFFFFF; margin-top:0;">Attributed Root Cause: <span style="color:#00F2FE;">{rc['primary_root_cause']}</span></h4>
             <p><b>Affected Upstream Equipment:</b> {rc['affected_equipment']}</p>
-            <p><b>Diagnostic Confidence:</b> {rc['confidence_score'] * 100:.1f}% &middot; <b>Defect Signature:</b> {rc['defect_signature']}</p>
+            <p><b>Evidence Level:</b> {rc.get('evidence_level', 'HEURISTIC')} &middot; <b>Defect Signature:</b> {rc['defect_signature']}</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -554,7 +538,7 @@ with tabs[4]:
                     st.write(f"**Action Urgency:** `{item['urgency']}`")
                     st.write(f"**Engineering Rationale:** {item['rationale']}")
                     if st.button(f"📲 Send Parameter Offset ({item['delta']}) to PLC", key=f"btn_{item['parameter']}"):
-                        st.success(f"Parameter offset {item['delta']} successfully committed to PLC Holding Register via Modbus TCP.")
+                        st.error("PLC parameter writes are disabled in the dashboard. Use an authenticated, audited control workflow.")
         else:
             st.success("All upstream equipment operating within nominal closed-loop setpoints.")
 
@@ -572,19 +556,19 @@ with tabs[5]:
         st.markdown(f"""
         <div class="scada-panel">
             <h5 style="color:#FFF;">📷 Optical & Line-Scan Throughput Budget (v = {web_sync.line_speed_m_s} m/s)</h5>
-            <p><b>Resolution Across Web:</b> {opt_budget['spatial_resolution_x_um_per_px']} µm/px ({opt_budget['total_pixels_across_web']} px total)</p>
+            <p><b>Spatial Resolution:</b> {opt_budget['spatial_resolution_x_um_per_px']} µm/px &middot; Coverage: {opt_budget['total_optical_coverage_mm']} mm</p>
             <p><b>Required Line Rate:</b> <b>{opt_budget['required_line_rate_khz']} kHz</b> (Period: {opt_budget['line_period_us']} µs)</p>
             <p><b>Recommended Exposure:</b> <b>{opt_budget['recommended_exposure_time_us']} µs</b> (Motion Blur: <b>{opt_budget['motion_blur_pixels']} px</b> &le; 0.5px)</p>
-            <p><b>Min Detectable Size (MTF50):</b> <b>{opt_budget['min_detectable_defect_size_um']} µm</b> &middot; Illumination: {opt_budget['illumination_lux']:,.0f} Lux</p>
+            <p><b>Modeled D95 Detectability:</b> <b>{opt_budget['d95_detectability_threshold_um']} µm</b> &middot; Raw bandwidth: {opt_budget['raw_bandwidth_mb_s']} MB/s</p>
         </div>
         """, unsafe_allow_html=True)
         
         st.markdown(f"""
         <div class="scada-panel">
             <h5 style="color:#FFF;">Modbus TCP Register Telemetry</h5>
-            <p><b>Target PLC Address:</b> {plc_state['plc_ip']}:{plc_state['plc_port']} (Holding Reg 40001)</p>
-            <p><b>Rejection Coil State:</b> <code>{'0x0001 (ACTIVE)' if plc_state['registers']['reject_coil'] else '0x0000 (INACTIVE)'}</code></p>
-            <p><b>Total Diverter Pulses Sent:</b> {plc_state['total_signals_sent']}</p>
+            <p><b>Target PLC Address:</b> {plc_state['connection']['plc_ip']}:{plc_state['connection']['modbus_port']}</p>
+            <p><b>Rejection Register:</b> <code>{plc_state['modbus_registers'].get('HR_1001', 0)}</code></p>
+            <p><b>Connection State:</b> {plc_state['connection']['status']} (dashboard control disabled)</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -592,10 +576,10 @@ with tabs[5]:
         st.markdown(f"""
         <div class="scada-panel">
             <h5 style="color:#FFF;">⚡ Camera-to-Ejector Deterministic Latency Budget</h5>
-            <p><b>P50 Nominal Latency:</b> {lat_budget['p50_latency_ms']} ms &middot; <b>P95 Latency:</b> {lat_budget['p95_latency_ms']} ms</p>
-            <p><b>P99.9 Worst-Case Jitter:</b> <b style="color:#00F2FE;">{lat_budget['p99_9_worst_case_latency_ms']} ms</b> (Exposure + DMA + TensorRT + PLC + Valve)</p>
+            <p><b>Modeled P50 Latency:</b> {lat_budget['p50_total_ms']} ms &middot; <b>Modeled P95:</b> {lat_budget['p95_total_ms']} ms</p>
+            <p><b>Modeled P99.9:</b> <b style="color:#00F2FE;">{lat_budget['p99_9_total_ms']} ms</b> (not hardware-bench verified)</p>
             <p><b>Min Required Distance:</b> {lat_budget['min_required_ejector_distance_mm']} mm &rarr; <b>Installed Distance:</b> {lat_budget['installed_ejector_distance_mm']} mm</p>
-            <p><b>Safety Margin Ratio:</b> <b class="status-optimal">{lat_budget['safety_margin_ratio']}x Buffer</b> (Guarantees zero miss-timed ejections)</p>
+            <p><b>Theoretical Margin Ratio:</b> <b>{lat_budget['safety_margin_ratio']}x</b>; hardware verification required.</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -612,14 +596,14 @@ with tabs[5]:
 # TAB 7: GIGAFACTORY SPC, SPATIAL FFT & SLITTING YIELD OPTIMIZER
 # -------------------------------------------------------------------------
 with tabs[6]:
-    st.markdown("<h4 style='color:#FFF;'>Gigafactory Six Sigma SPC, Spatial FFT Periodicity & Smart Slitting Optimizer</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color:#FFF;'>Experimental Defect Density, Spatial Periodicity & Slitting Model</h4>", unsafe_allow_html=True)
     passport_data = pipeline.get_gigafactory_spc_summary()
     
     col_s1, col_s2 = st.columns(2)
     with col_s1:
         st.markdown(f"""
         <div class="scada-panel">
-            <h5 style="color:#FFF;">🏆 Six Sigma Process Capability (Per-Lane Cpk / Ppk)</h5>
+            <h5 style="color:#FFF;">Per-Lane Density (Cpk/Ppk require subgroup data)</h5>
         """, unsafe_allow_html=True)
         spc_dict = passport_data.get("six_sigma_quality_summary", {})
         for lane_k, lane_v in spc_dict.items():
@@ -648,7 +632,7 @@ with tabs[6]:
         st.markdown(f"""
         <div class="scada-panel">
             <h5 style="color:#FFF;">✂️ Smart Slitting Yield & Economic Recovery Plan</h5>
-            <p><b>Total Usable Recovery:</b> <b class="status-optimal" style="font-size:18px;">{slit.get('recovery_yield_pct', 98.5)}%</b></p>
+            <p><b>Modeled Usable Recovery:</b> <b style="font-size:18px;">{slit.get('recovery_yield_pct', 0.0)}%</b></p>
             <p><b>EV Grade Output Area:</b> <b style="color:#00E676;">{slit.get('ev_grade_area_m2', 0)} m²</b> (High-Power Traction Cells)</p>
             <p><b>ESS Grade Output Area:</b> <b style="color:#FFD600;">{slit.get('ess_grade_area_m2', 0)} m²</b> (Grid Energy Storage Cells)</p>
             <p><b>Scrap Area:</b> <b style="color:#FF1744;">{slit.get('scrap_area_m2', 0)} m²</b></p>
@@ -669,7 +653,7 @@ with tabs[6]:
 # TAB 8: QUALITY LOGS & DIGITAL ROLL CERTIFICATE
 # -------------------------------------------------------------------------
 with tabs[7]:
-    st.markdown("<h4 style='color:#FFF;'>Official Digital Quality Certificate (Cryptographic HMAC-SHA256 Signed)</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color:#FFF;'>Provisional Local Quality Manifest (HMAC-SHA256)</h4>", unsafe_allow_html=True)
     
     cert = RollCertificateGenerator.build_certificate(
         roll_id=web_sync.roll.roll_id,
@@ -679,7 +663,10 @@ with tabs[7]:
         defect_records=list(web_sync.roll_defect_map),
         spc_status=spc.get("status", "IN CONTROL"),
         root_cause_summary=res.root_cause_report['primary_root_cause'] if res else "Nominal",
-        electrode_type=electrode_type
+        electrode_type=electrode_type,
+        total_inspections=stats["total"] if stats["total"] else None,
+        failed_inspections=stats["failed"] if stats["total"] else None,
+        metric_provenance="Local dashboard simulation; not a production certificate",
     )
     
     st.markdown(f"""
@@ -687,7 +674,7 @@ with tabs[7]:
         <p><b>Certificate ID:</b> <code>{cert.certificate_id}</code></p>
         <p><b>Payload Digest (SHA-256):</b> <code>{cert.payload_hash_sha256}</code></p>
         <p><b>Cryptographic HMAC Signature:</b> <code style="color:#00F2FE;">{cert.hmac_digital_signature}</code> (Algorithm: <code>{cert.signature_algorithm}</code>)</p>
-        <p><b>HSM Verification Status:</b> <span class="status-optimal">{'✅ CRYPTOGRAPHICALLY AUTHENTIC' if cert.verify_signature() else '❌ SIGNATURE MISMATCH'}</span></p>
+        <p><b>Signature Verification:</b> <span>{'VALID FOR THIS PROCESS' if cert.verify_signature() else 'SIGNATURE MISMATCH'}</span></p>
         <p><b>Overall Quality Grade:</b> <span class="status-optimal">{cert.overall_quality_grade}</span> &middot; <b>Pass Rate:</b> {cert.pass_rate_pct:.1f}%</p>
     </div>
     """, unsafe_allow_html=True)
