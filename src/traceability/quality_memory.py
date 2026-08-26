@@ -2,6 +2,8 @@ import os
 import sqlite3
 import datetime
 import logging
+import threading
+from contextlib import contextmanager
 
 logger = logging.getLogger("SecureCoatingVision.QualityMemory")
 
@@ -12,6 +14,9 @@ class QualityMemory:
     """
     def __init__(self, db_path="data/quality_history.db"):
         self.db_path = db_path
+        self.healthy = True
+        self.last_error = ""
+        self._health_lock = threading.Lock()
         
         # Ensure data folder exists
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
@@ -21,11 +26,20 @@ class QualityMemory:
     def _get_connection(self):
         conn = sqlite3.connect(self.db_path, timeout=30.0, check_same_thread=False)
         conn.execute("PRAGMA journal_mode=WAL;")
-        conn.execute("PRAGMA synchronous=NORMAL;")
+        conn.execute("PRAGMA synchronous=FULL;")
+        conn.execute("PRAGMA foreign_keys=ON;")
         return conn
 
+    @contextmanager
+    def _connection(self):
+        conn = self._get_connection()
+        try:
+            yield conn
+        finally:
+            conn.close()
+
     def _init_db(self):
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS inspections (
@@ -54,7 +68,31 @@ class QualityMemory:
                 cursor.execute(
                     "ALTER TABLE inspections ADD COLUMN run_id TEXT"
                 )
+            for column_name, column_type in (
+                ("roll_id", "TEXT"),
+                ("gate_action", "TEXT"),
+                ("system_state", "TEXT"),
+                ("inspection_valid", "INTEGER"),
+                ("error_reason", "TEXT"),
+            ):
+                if column_name not in cols:
+                    cursor.execute(
+                        f"ALTER TABLE inspections ADD COLUMN {column_name} {column_type}"
+                    )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_inspections_batch_timestamp "
+                "ON inspections(batch_id, timestamp)"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_inspections_run_id "
+                "ON inspections(run_id)"
+            )
             conn.commit()
+
+    def _set_health(self, healthy: bool, error: str = "") -> None:
+        with self._health_lock:
+            self.healthy = healthy
+            self.last_error = error
 
     def add_entry(
         self,
@@ -69,22 +107,28 @@ class QualityMemory:
         fallback=False,
         model_version=None,
         run_id=None,
-    ):
+        roll_id=None,
+        gate_action=None,
+        system_state=None,
+        inspection_valid=True,
+        error_reason=None,
+    ) -> bool:
         """Logs inspection entry to database."""
-        timestamp = datetime.datetime.now().isoformat()
+        timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
         fallback_val = 1 if fallback else 0
         has_defect_val = 1 if has_defect else 0
 
         try:
-            with self._get_connection() as conn:
+            with self._connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
                     INSERT INTO inspections (
                         batch_id, part_id, has_defect, defect_class,
                         max_length_mm, max_area_mm2, peak_height_um,
-                        latency_ms, fallback_active, model_version, run_id, timestamp
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        latency_ms, fallback_active, model_version, run_id, timestamp,
+                        roll_id, gate_action, system_state, inspection_valid, error_reason
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         batch_id,
@@ -99,11 +143,38 @@ class QualityMemory:
                         model_version,
                         run_id,
                         timestamp,
+                        roll_id,
+                        gate_action,
+                        system_state,
+                        1 if inspection_valid else 0,
+                        error_reason,
                     ),
                 )
                 conn.commit()
+            self._set_health(True)
+            return True
         except sqlite3.Error as e:
             logger.error(f"Error logging to quality database: {e}")
+            self._set_health(False, str(e))
+            return False
+
+    def update_decision(self, run_id: str, gate_action: str, system_state: str) -> bool:
+        """Finalize the decision fields for a previously persisted inspection."""
+        try:
+            with self._connection() as conn:
+                cursor = conn.execute(
+                    "UPDATE inspections SET gate_action = ?, system_state = ? WHERE run_id = ?",
+                    (gate_action, system_state, run_id),
+                )
+                if cursor.rowcount != 1:
+                    raise sqlite3.IntegrityError(f"Expected one inspection for run_id={run_id}")
+                conn.commit()
+            self._set_health(True)
+            return True
+        except sqlite3.Error as e:
+            logger.error(f"Error finalizing quality decision: {e}")
+            self._set_health(False, str(e))
+            return False
 
     def get_batch_stats(self, batch_id):
         """Returns aggregated quality metrics for a given batch."""
@@ -122,10 +193,10 @@ class QualityMemory:
             GROUP BY defect_class
         """
         
-        stats = {"total": 0, "failed": 0, "passed": 0, "pass_rate": 100.0, "avg_latency_ms": 0.0, "defect_distribution": {}}
+        stats = {"status": "OK", "total": 0, "failed": 0, "passed": 0, "pass_rate": None, "avg_latency_ms": None, "defect_distribution": {}}
         
         try:
-            with self._get_connection() as conn:
+            with self._connection() as conn:
                 cursor = conn.cursor()
                 
                 # Overall counts
@@ -142,9 +213,12 @@ class QualityMemory:
                 cursor.execute(query_defects, (batch_id,))
                 for row in cursor.fetchall():
                     stats["defect_distribution"][row[0]] = row[1]
+                self._set_health(True)
                     
         except sqlite3.Error as e:
             logger.error(f"Error fetching batch stats: {e}")
+            self._set_health(False, str(e))
+            stats.update({"status": "ERROR", "error": str(e)})
             
         return stats
 
@@ -163,18 +237,20 @@ class QualityMemory:
         """
         
         alarms = {
-            "status": "IN CONTROL",
-            "message": "Production line parameters are within healthy thresholds.",
+            "status": "NO DATA",
+            "message": "No inspection data is available for this batch.",
             "trigger_nozzle_purge": False
         }
         
         try:
-            with self._get_connection() as conn:
+            with self._connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(query, (batch_id, rolling_window))
                 results = [r[0] for r in cursor.fetchall()]
                 
                 if len(results) > 0:
+                    alarms["status"] = "IN CONTROL"
+                    alarms["message"] = "Observed defect rate is within the configured threshold."
                     defect_rate = sum(results) / len(results)
                     if defect_rate > 0.10:
                         alarms["status"] = "OUT OF CONTROL"
@@ -183,9 +259,16 @@ class QualityMemory:
                     elif defect_rate > 0.05:
                         alarms["status"] = "WARNING"
                         alarms["message"] = f"WARNING: Defect rate is elevated ({defect_rate*100:.1f}%) in current window."
+                self._set_health(True)
                         
         except sqlite3.Error as e:
             logger.error(f"SPC evaluation failed: {e}")
+            self._set_health(False, str(e))
+            alarms.update({
+                "status": "UNKNOWN",
+                "message": "SPC state is unavailable because traceability storage failed.",
+                "error": str(e),
+            })
             
         return alarms
 
@@ -208,15 +291,28 @@ class QualityMemory:
 
         values = []
         try:
-            with self._get_connection() as conn:
+            with self._connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(query, params)
                 values = [float(r[0]) for r in cursor.fetchall() if r[0] is not None]
         except sqlite3.Error as e:
             logger.error(f"Latency stats failed: {e}")
+            self._set_health(False, str(e))
+            return {
+                "status": "ERROR",
+                "error": str(e),
+                "count": 0,
+                "p50_ms": None,
+                "p95_ms": None,
+                "mean_ms": None,
+                "max_ms": None,
+                "target_ms": 35.0,
+                "within_target_pct": None,
+            }
 
         if not values:
             return {
+                "status": "NO DATA",
                 "count": 0,
                 "p50_ms": 0.0,
                 "p95_ms": 0.0,
@@ -235,6 +331,7 @@ class QualityMemory:
 
         within = sum(1 for v in values if v <= 35.0) / n * 100.0
         return {
+            "status": "OK",
             "count": n,
             "p50_ms": pct(50),
             "p95_ms": pct(95),

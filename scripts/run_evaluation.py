@@ -29,6 +29,7 @@ import json
 import csv
 import time
 import argparse
+import hashlib
 from datetime import datetime, timezone
 from collections import defaultdict
 import numpy as np
@@ -55,7 +56,46 @@ def parse_args():
                         help="Confidence threshold for predictions (default: 0.25)")
     parser.add_argument("--seed", type=int, default=42,
                         help="Random seed for deterministic evaluation (default: 42)")
+    parser.add_argument("--ultralytics-model-path", default=None,
+                        help="Optional explicit .pt artifact for official Ultralytics metrics")
+    parser.add_argument("--ultralytics-data-config", default=None,
+                        help="Dataset YAML matching --dataset-dir; required with --ultralytics-model-path")
+    parser.add_argument("--reference-dataset-dir", default="data/coating_defects",
+                        help="Training dataset root used for mandatory hash-overlap audit")
     return parser.parse_args()
+
+
+def _file_sha256(path: str) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def assert_no_dataset_overlap(evaluation_images_dir: str, reference_dataset_dir: str) -> None:
+    """Reject evaluation data that overlaps train or validation artifacts by content hash."""
+    reference_hashes = {}
+    for split in ("train", "val"):
+        split_dir = os.path.join(reference_dataset_dir, "images", split)
+        if not os.path.isdir(split_dir):
+            continue
+        for name in os.listdir(split_dir):
+            path = os.path.join(split_dir, name)
+            if os.path.isfile(path):
+                reference_hashes[_file_sha256(path)] = path
+    overlaps = []
+    for name in os.listdir(evaluation_images_dir):
+        path = os.path.join(evaluation_images_dir, name)
+        if os.path.isfile(path):
+            matching = reference_hashes.get(_file_sha256(path))
+            if matching:
+                overlaps.append((path, matching))
+    if overlaps:
+        examples = "; ".join(f"{a} == {b}" for a, b in overlaps[:5])
+        raise RuntimeError(
+            f"Evaluation leakage detected: {len(overlaps)} image(s) overlap train/val by SHA-256. {examples}"
+        )
 
 
 def load_gt_labels(label_path: str, img_h: int = 640, img_w: int = 640):
@@ -67,24 +107,28 @@ def load_gt_labels(label_path: str, img_h: int = 640, img_w: int = 640):
     """
     labels = []
     if not os.path.exists(label_path):
-        return labels
+        raise FileNotFoundError(
+            f"Ground-truth label is missing: {label_path}. Use an empty file for a verified negative sample."
+        )
 
     with open(label_path, 'r', encoding='utf-8') as f:
         for line in f:
             parts = line.strip().split()
             # YOLO polygon requires class_id and at least 3 vertices (>= 6 coordinate floats)
-            if len(parts) < 7:
+            if not parts:
                 continue
+            if len(parts) < 7:
+                raise ValueError(f"Malformed polygon label in {label_path}: {line.strip()}")
 
             try:
                 class_id = int(parts[0])
                 coords = [float(x) for x in parts[1:]]
-            except ValueError:
-                continue
+            except ValueError as exc:
+                raise ValueError(f"Non-numeric label in {label_path}: {line.strip()}") from exc
 
             # Must have even number of coordinate values
             if len(coords) % 2 != 0:
-                continue
+                raise ValueError(f"Odd polygon coordinate count in {label_path}: {line.strip()}")
 
             polygon_pts = []
             for i in range(0, len(coords), 2):
@@ -166,16 +210,16 @@ def evaluate_sample_predictions(gt_labels: list, detections: list, seg_mask: np.
         det_class = det.get("class_id", 0)
         raw_box = det.get("box", [0, 0, 0, 0])
 
-        # Standardize box format to [x1, y1, x2, y2]
-        if len(raw_box) == 4:
-            b_x1, b_y1, b_x2, b_y2 = raw_box[0], raw_box[1], raw_box[2], raw_box[3]
-            # If formatted as [x, y, w, h], convert to [x1, y1, x2, y2]
-            if b_x2 < b_x1 or b_y2 < b_y1:
-                b_x2 = b_x1 + max(0.0, raw_box[2])
-                b_y2 = b_y1 + max(0.0, raw_box[3])
-            det_xyxy = [b_x1, b_y1, b_x2, b_y2]
+        if len(raw_box) != 4:
+            raise ValueError(f"Detection has invalid box: {raw_box}")
+        box_format = det.get("box_format")
+        if box_format == "xyxy":
+            det_xyxy = list(map(float, raw_box))
+        elif box_format == "xywh":
+            x, y, width, height = map(float, raw_box)
+            det_xyxy = [x, y, x + width, y + height]
         else:
-            continue
+            raise ValueError(f"Detection is missing a supported box_format: {box_format}")
 
         # Extract detection binary mask for this class
         # Extract detection binary mask for this instance
@@ -239,7 +283,10 @@ def run_evaluation(
     model_path: str = "outputs/model.onnx",
     iou_threshold: float = 0.50,
     conf_threshold: float = 0.25,
-    seed: int = 42
+    seed: int = 42,
+    ultralytics_model_path: str = None,
+    ultralytics_data_config: str = None,
+    reference_dataset_dir: str = "data/coating_defects",
 ):
     """
     Main evaluation pipeline: runs inference on all images, evaluates Box/Mask metrics,
@@ -256,6 +303,7 @@ def run_evaluation(
 
     if not os.path.isdir(images_dir):
         raise FileNotFoundError(f"Evaluation images directory not found: {images_dir}")
+    assert_no_dataset_overlap(images_dir, reference_dataset_dir)
 
     # Initialize ONNX inference engine
     from inference.onnx_engine import InferenceEngine
@@ -265,6 +313,8 @@ def run_evaluation(
         iou_thresh=0.45,
         device="auto"
     )
+    if not engine.is_loaded:
+        raise RuntimeError(f"Evaluation model did not load: {model_path}")
 
     valid_extensions = (".jpg", ".jpeg", ".png", ".bmp")
     image_files = sorted([f for f in os.listdir(images_dir) if f.lower().endswith(valid_extensions)])
@@ -298,7 +348,7 @@ def run_evaluation(
 
         img = cv2.imread(img_path)
         if img is None:
-            continue
+            raise ValueError(f"Could not decode evaluation image: {img_path}")
 
         h, w = img.shape[:2]
         gt_labels = load_gt_labels(label_path, img_h=h, img_w=w)
@@ -364,8 +414,17 @@ def run_evaluation(
     # Run Ultralytics mAP validation if available to merge formal mAP50 / mAP50-95
     ultralytics_map = {}
     try:
+        if bool(ultralytics_model_path) != bool(ultralytics_data_config):
+            raise ValueError(
+                "--ultralytics-model-path and --ultralytics-data-config must be provided together"
+            )
+        if not ultralytics_model_path:
+            raise RuntimeError("explicit Ultralytics model/config not provided")
         from run_ultralytics_validation import run_ultralytics_validation
-        val_res = run_ultralytics_validation()
+        val_res = run_ultralytics_validation(
+            model_pt=ultralytics_model_path,
+            config_yaml=ultralytics_data_config,
+        )
         if val_res:
             ultralytics_map = {
                 "box_map50": val_res.get("box_map50", None),
@@ -490,5 +549,8 @@ if __name__ == "__main__":
         model_path=args.model_path,
         iou_threshold=args.iou,
         conf_threshold=args.conf,
-        seed=args.seed
+        seed=args.seed,
+        ultralytics_model_path=args.ultralytics_model_path,
+        ultralytics_data_config=args.ultralytics_data_config,
+        reference_dataset_dir=args.reference_dataset_dir,
     )

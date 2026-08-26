@@ -1,17 +1,15 @@
 """
-SecureCoating-Vision: Tier-1 Gigafactory SPC, Spatial FFT Diagnostics & Slitting Optimizer
-==========================================================================================
-Industrial-grade analytics used by leading EV battery manufacturers (CATL, VinFast, LG Energy, BYD):
+SecureCoating-Vision: Experimental Spatial Diagnostics & Slitting Model
+========================================================================
+Prototype analytics for research and simulation:
 1. Spatial Frequency FFT / Autocorrelation:
    - Converts Machine Direction (MD) defect distribution into spatial wavelengths.
    - Accurately matches lambda = pi * D_roller to identify damaged rollers or pump pulsations.
-2. Per-Lane Statistical Process Control (SPC Six Sigma):
-   - Computes real-time Cpk, Ppk, and mean thickness/mass loading deviation per slitting lane.
-   - Grades each lane into EV Grade (Cpk >= 1.67), ESS Grade (1.33 <= Cpk < 1.67), or Reject.
+2. Per-Lane Summary:
+   - Reports observed defect density. Cpk/Ppk remain unavailable without subgroup measurements.
 3. Smart Slitting Yield Optimizer:
    - Dynamically calculates salvageable roll yield, cut/splice locations, and economic recovery.
-4. Digital Battery Passport (EU DPP / CATL Genealogy):
-   - Generates production passport linking raw slurry lot, cleanroom conditions, and defect Merkle root.
+4. Prototype passport-shaped telemetry manifest without a regulatory compliance claim.
 """
 
 import numpy as np
@@ -53,9 +51,9 @@ class LaneSPCResult:
     lane_id: int
     sample_count: int
     mean_defect_density_per_100m: float
-    cpk: float
-    ppk: float
-    six_sigma_tier: str       # "EV_GRADE_TIER_1" (Cpk >= 1.67), "ESS_GRADE_TIER_2" (1.33 <= Cpk < 1.67), "REJECT"
+    cpk: Optional[float]
+    ppk: Optional[float]
+    six_sigma_tier: str
     suggested_process_tuning: str
 
 
@@ -192,7 +190,8 @@ class GigafactorySPCEngine:
         inspected_length_m: float
     ) -> Dict[int, LaneSPCResult]:
         """
-        Evaluate Cpk and Ppk capability index for each slitting lane.
+        Report observed defect density. Aggregate counts do not contain the
+        within-subgroup and overall variation required to calculate Cpk/Ppk.
         """
         results = {}
         total_m = max(100.0, inspected_length_m)
@@ -201,32 +200,20 @@ class GigafactorySPCEngine:
             count = defects_by_lane.get(lane_id, 0)
             density_per_100m = (count / total_m) * 100.0
 
-            # Empirical Poisson-normal std deviation for defect count
-            if count == 0:
-                sigma = 0.20
-            else:
-                sigma = max(0.2, math.sqrt(max(1.0, density_per_100m)) / math.sqrt(max(1.0, total_m / 100.0)))
-            
-            # Cpk = (USL - Mean) / (3 * Sigma)
-            cpk = (self.usl - density_per_100m) / (3.0 * sigma)
-            ppk = cpk * 0.95  # Approximate Ppk with process centering variation
-
-            if cpk >= 1.67:
-                tier = "EV_GRADE_TIER_1"
-                action = "Optimal process capability. Eligible for high-power EV traction cells (CATL/VinFast spec)."
-            elif cpk >= 1.33:
-                tier = "ESS_GRADE_TIER_2"
-                action = "Marginal capability. Allocate to Grid Energy Storage (ESS) cells. Minor slot-die tuning advised."
-            else:
-                tier = "REJECT_QUARANTINE"
-                action = "High defect density. Trigger closed-loop slot-die lip thermal bolt adjustment."
+            cpk = None
+            ppk = None
+            tier = "INSUFFICIENT_SUBGROUP_DATA"
+            action = (
+                "Collect timestamped subgroup measurements and validated specification "
+                "limits before calculating process capability."
+            )
 
             results[lane_id] = LaneSPCResult(
                 lane_id=lane_id,
                 sample_count=count,
                 mean_defect_density_per_100m=round(density_per_100m, 2),
-                cpk=round(cpk, 2),
-                ppk=round(ppk, 2),
+                cpk=cpk,
+                ppk=ppk,
                 six_sigma_tier=tier,
                 suggested_process_tuning=action
             )
@@ -243,7 +230,18 @@ class GigafactorySPCEngine:
         Smart Slitting Yield Optimizer:
         Calculates usable EV/ESS area, determines optimal splice points, and maximizes total product recovery.
         """
-        eff_length_m = max(100.0, roll_length_m)
+        if roll_length_m <= 0.0:
+            return SlittingYieldPlan(
+                total_roll_length_m=0.0,
+                gross_area_m2=0.0,
+                net_usable_ev_area_m2=0.0,
+                net_usable_ess_area_m2=0.0,
+                scrap_area_m2=0.0,
+                overall_recovery_yield_pct=0.0,
+                lane_grades={i: "UNVERIFIED" for i in range(1, self.num_lanes + 1)},
+                recommended_splices_md_m=[],
+            )
+        eff_length_m = roll_length_m
         gross_area = (eff_length_m * web_width_mm) / 1000.0
         lane_width_mm = web_width_mm / self.num_lanes
         lane_area = gross_area / self.num_lanes
@@ -295,7 +293,8 @@ class GigafactorySPCEngine:
 
 class DigitalBatteryPassportGenerator:
     """
-    Generates EU DPP / CATL-compliant Digital Product Passport metadata for the inspected jumbo roll.
+    Generates a prototype passport-shaped telemetry manifest. It does not
+    assert regulatory or customer compliance.
     """
 
     @staticmethod
@@ -305,17 +304,18 @@ class DigitalBatteryPassportGenerator:
         spc_results: Dict[int, LaneSPCResult],
         yield_plan: SlittingYieldPlan,
         anomalies: List[SpatialPeriodicAnomaly],
-        cleanroom_dew_point_c: float = -42.5,
-        slurry_viscosity_mpa_s: float = 3850.0
+        cleanroom_dew_point_c: Optional[float] = None,
+        slurry_viscosity_mpa_s: Optional[float] = None
     ) -> Dict[str, Any]:
         return {
-            "passport_standard": "EU Battery Regulation (EU) 2023/1542 / DPP 2026",
+            "passport_standard": "PROTOTYPE_SCHEMA_NOT_REGULATORY_COMPLIANCE",
+            "provisional": True,
             "roll_id": roll_id,
             "slurry_batch_id": batch_id,
             "traceability_genealogy": {
                 "cleanroom_dew_point_celsius": cleanroom_dew_point_c,
                 "slurry_viscosity_mpa_s": slurry_viscosity_mpa_s,
-                "inspection_compliance_standard": "Plant Electrode QA Specification & GB/T 38031 Safety Baseline",
+                "inspection_compliance_standard": "UNVERIFIED",
             },
             "six_sigma_quality_summary": {
                 f"lane_{k}": {
@@ -326,6 +326,7 @@ class DigitalBatteryPassportGenerator:
                 for k, v in spc_results.items()
             },
             "slitting_optimization": {
+                "modeled_from_defect_allocation": True,
                 "recovery_yield_pct": yield_plan.overall_recovery_yield_pct,
                 "ev_grade_area_m2": yield_plan.net_usable_ev_area_m2,
                 "ess_grade_area_m2": yield_plan.net_usable_ess_area_m2,

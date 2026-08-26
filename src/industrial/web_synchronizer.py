@@ -17,6 +17,7 @@ from typing import Dict, List, Optional, Tuple, Set, Any
 from dataclasses import dataclass, field
 from enum import Enum
 import threading
+import copy
 
 logger = logging.getLogger("SecureCoatingVision.WebSync")
 
@@ -161,7 +162,7 @@ class WebSynchronizer:
         
         self.line_speed_m_s = max(0.0, min(initial_line_speed_m_s, self.MAX_LINE_SPEED_M_S))
         self.state = RollState.LOADED
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         
         self._frame_counter = 0
         self._last_tick_monotonic = time.monotonic()
@@ -169,6 +170,10 @@ class WebSynchronizer:
         # Dual-Layer Defect Tracking:
         # Layer A: Bounded FIFO deque for fast real-time UI rendering
         self.recent_defect_cache = deque(maxlen=max_defect_history)
+        # Complete in-process ledger used for certificate snapshots. Production
+        # deployments should additionally persist these records through the
+        # traceability store; the UI cache must never be used as the certificate source.
+        self._defect_ledger: List[Dict[str, Any]] = []
         
         # Layer B: Unbounded lifetime statistical counters
         self.lifetime_total_defects = 0
@@ -242,7 +247,8 @@ class WebSynchronizer:
         frame_width_px: int = 1024,
         frame_height_px: int = 1024,
         fov_width_mm: float = 650.0,
-        fov_length_m: float = 0.05
+        fov_length_m: float = 0.05,
+        fov_center_td_mm: Optional[float] = None,
     ) -> WebCoordinate:
         """
         Map 2D tile pixel coordinates to exact physical Machine & Transverse Direction coordinates.
@@ -253,9 +259,16 @@ class WebSynchronizer:
         if not (0 <= pixel_y_md < frame_height_px):
             raise ValueError(f"Pixel Y {pixel_y_md} out of bounds [0, {frame_height_px}).")
 
-        # TD Position (Transverse Direction across web)
-        td_mm = (pixel_x_td / frame_width_px) * fov_width_mm
-        td_mm = max(0.0, min(self.roll.web_width_mm, td_mm))
+        # TD Position relative to the calibrated camera footprint.
+        center_td = self.roll.web_width_mm / 2.0 if fov_center_td_mm is None else fov_center_td_mm
+        fov_left = center_td - fov_width_mm / 2.0
+        fov_right = center_td + fov_width_mm / 2.0
+        if fov_left < 0.0 or fov_right > self.roll.web_width_mm:
+            raise ValueError(
+                f"Calibrated FOV [{fov_left}, {fov_right}]mm exceeds web width "
+                f"[0, {self.roll.web_width_mm}]mm"
+            )
+        td_mm = fov_left + (pixel_x_td / frame_width_px) * fov_width_mm
         lane_id = self.cross_position_to_lane(td_mm)
 
         # MD Position (Machine Direction: Frame Capture MD + Tile Offset)
@@ -276,23 +289,29 @@ class WebSynchronizer:
         """
         Atomic ledger transaction updating both lifetime statistical counters and recent cache.
         """
-        record = {
-            "defect_id": defect_info.get("defect_id", f"DEF_{self.lifetime_total_defects+1}"),
-            "frame_id": coord.frame_id,
-            "roll_id": coord.roll_id,
-            "linear_pos_m": round(coord.linear_pos_m, 4),
-            "cross_pos_mm": round(coord.cross_pos_mm, 2),
-            "lane_id": coord.lane_id,
-            "class_name": defect_info.get("class_name", "unknown"),
-            "severity": defect_info.get("severity", "WARNING"),
-            "area_mm2": defect_info.get("area_mm2", 0.0),
-            "peak_height_um": defect_info.get("peak_height_um", 0.0),
-            "timestamp": time.time()
-        }
-
         with self._lock:
+            if coord.roll_id != self.roll.roll_id:
+                raise ValueError(
+                    f"Coordinate roll {coord.roll_id} does not match active roll {self.roll.roll_id}"
+                )
+            next_id = self.lifetime_total_defects + 1
+            record = {
+                "defect_id": defect_info.get("defect_id", f"DEF_{next_id}"),
+                "frame_id": coord.frame_id,
+                "roll_id": coord.roll_id,
+                "batch_id": self.roll.batch_id,
+                "linear_pos_m": round(coord.linear_pos_m, 4),
+                "cross_pos_mm": round(coord.cross_pos_mm, 2),
+                "lane_id": coord.lane_id,
+                "class_name": defect_info.get("class_name", "unknown"),
+                "severity": defect_info.get("severity", "WARNING"),
+                "area_mm2": defect_info.get("area_mm2", 0.0),
+                "peak_height_um": defect_info.get("peak_height_um", 0.0),
+                "timestamp": time.time(),
+            }
             # Layer A: Recent UI cache
-            self.recent_defect_cache.append(record)
+            self.recent_defect_cache.append(copy.deepcopy(record))
+            self._defect_ledger.append(copy.deepcopy(record))
             
             # Layer B: True lifetime counters
             self.lifetime_total_defects += 1
@@ -324,8 +343,28 @@ class WebSynchronizer:
         return self.encoder.physical_distance_m
 
     @property
-    def roll_defect_map(self) -> deque:
-        return self.recent_defect_cache
+    def roll_defect_map(self) -> List[Dict[str, Any]]:
+        """Return a defensive snapshot of the complete active-roll ledger."""
+        with self._lock:
+            return copy.deepcopy(self._defect_ledger)
+
+    @property
+    def recent_roll_defects(self) -> List[Dict[str, Any]]:
+        """Return the bounded UI cache without exposing mutable internal state."""
+        with self._lock:
+            return copy.deepcopy(list(self.recent_defect_cache))
+
+    def get_roll_snapshot(self, roll_id: str, batch_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Atomically snapshot the active roll, rejecting mismatched identities."""
+        with self._lock:
+            if roll_id != self.roll.roll_id:
+                return None
+            if batch_id is not None and batch_id != self.roll.batch_id:
+                return None
+            return {
+                "summary": self.get_roll_defect_summary(),
+                "defect_records": copy.deepcopy(self._defect_ledger),
+            }
 
     def get_current_coordinate(self, cross_pos_mm: float = 325.0) -> WebCoordinate:
         """Helper for single-point coordinate snapshot."""

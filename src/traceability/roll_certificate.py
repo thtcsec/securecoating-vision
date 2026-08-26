@@ -1,8 +1,8 @@
 """
 SecureCoating-Vision: Digital Twin Roll Quality Certificate & Cryptographic Audit Trail
 ========================================================================================
-Compiles full 1,200m jumbo roll inspection records into a cryptographic,
-tamper-evident Digital Quality Certificate compliant with automotive battery traceability standards (IATF 16949 / GB/T 38031).
+Compiles roll inspection records into a cryptographically tamper-evident
+quality manifest. Regulatory/customer compliance requires external qualification.
 
 Key Features:
 - Complete 2D Roll Defect Coordinates (Linear meter X vs Cross-web mm Y)
@@ -16,14 +16,18 @@ import json
 import hmac
 import hashlib
 import logging
+import os
+import secrets
+import copy
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 from datetime import datetime
 
 logger = logging.getLogger("SecureCoatingVision.RollCert")
 
-# Factory Signing Secret (In production, stored in Hardware Security Module / HSM)
-DEFAULT_FACTORY_SECRET_KEY = b"CATL_GIGAFACTORY_SECURE_KEY_2026_MSE_TSINGHUA"
+# Factory signing secret; production must provide it through a secret manager or environment.
+_configured_secret = os.environ.get("SECURECOATING_FACTORY_SECRET", "").encode("utf-8")
+DEFAULT_FACTORY_SECRET_KEY = _configured_secret or secrets.token_bytes(32)
 
 
 @dataclass
@@ -55,49 +59,17 @@ class DigitalRollCertificate:
     # Process Diagnostic Summary
     spc_status: str
     primary_root_cause_summary: str
+    quality_metrics_provisional: bool
+    metric_provenance: str
     
     # Cryptographic Tamper-Evident Verification
-    issued_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    issued_at: str = field(default_factory=lambda: datetime.now().astimezone().isoformat())
     payload_hash_sha256: str = ""
     hmac_digital_signature: str = ""
-    signature_algorithm: str = "HMAC-SHA256-HSM-P256"
+    signature_algorithm: str = "HMAC-SHA256"
 
-    def generate_cryptographic_signature(self, secret_key: bytes = DEFAULT_FACTORY_SECRET_KEY) -> str:
-        """Compute cryptographic hash and asymmetric HMAC signature for tamper prevention."""
-        payload = {
-            "cert_id": self.certificate_id,
-            "roll_id": self.roll_id,
-            "batch_id": self.batch_id,
-            "pass_rate": self.pass_rate_pct,
-            "grade": self.overall_quality_grade,
-            "defects_count": self.total_defects_count,
-            "issued_at": self.issued_at,
-        }
-        raw_bytes = json.dumps(payload, sort_keys=True).encode("utf-8")
-        self.payload_hash_sha256 = hashlib.sha256(raw_bytes).hexdigest()
-        
-        # Cryptographic HMAC Digital Signature
-        self.hmac_digital_signature = hmac.new(secret_key, raw_bytes, hashlib.sha256).hexdigest()
-        return self.hmac_digital_signature
-
-    def verify_signature(self, secret_key: bytes = DEFAULT_FACTORY_SECRET_KEY) -> bool:
-        """Verify the cryptographic authenticity of the certificate."""
-        payload = {
-            "cert_id": self.certificate_id,
-            "roll_id": self.roll_id,
-            "batch_id": self.batch_id,
-            "pass_rate": self.pass_rate_pct,
-            "grade": self.overall_quality_grade,
-            "defects_count": self.total_defects_count,
-            "issued_at": self.issued_at,
-        }
-        raw_bytes = json.dumps(payload, sort_keys=True).encode("utf-8")
-        expected_sig = hmac.new(secret_key, raw_bytes, hashlib.sha256).hexdigest()
-        return hmac.compare_digest(self.hmac_digital_signature, expected_sig)
-
-    def to_dict(self) -> Dict[str, Any]:
-        if not self.hmac_digital_signature:
-            self.generate_cryptographic_signature()
+    def _signature_payload(self) -> Dict[str, Any]:
+        """Return the complete immutable certificate payload, excluding crypto fields."""
         return {
             "certificate_id": self.certificate_id,
             "roll_id": self.roll_id,
@@ -106,22 +78,55 @@ class DigitalRollCertificate:
             "substrate_material": self.substrate_material,
             "total_length_m": self.total_length_m,
             "web_width_mm": self.web_width_mm,
-            "scanned_length_m": round(self.total_scanned_length_m, 2),
-            "pass_rate_pct": round(self.pass_rate_pct, 1),
-            "total_defects": self.total_defects_count,
-            "defect_density_per_100m": round(self.defect_density_per_100m, 2),
+            "total_scanned_length_m": self.total_scanned_length_m,
+            "pass_rate_pct": self.pass_rate_pct,
+            "total_defects_count": self.total_defects_count,
+            "defect_density_per_100m": self.defect_density_per_100m,
             "overall_quality_grade": self.overall_quality_grade,
             "standards_compliant": self.standards_compliant,
             "defects_by_class": self.defects_by_class,
             "defects_by_lane": self.defects_by_lane,
+            "defect_map_entries": self.defect_map_entries,
             "spc_status": self.spc_status,
             "primary_root_cause_summary": self.primary_root_cause_summary,
+            "quality_metrics_provisional": self.quality_metrics_provisional,
+            "metric_provenance": self.metric_provenance,
             "issued_at": self.issued_at,
+            "signature_algorithm": self.signature_algorithm,
+        }
+
+    def generate_cryptographic_signature(self, secret_key: bytes = DEFAULT_FACTORY_SECRET_KEY) -> str:
+        """Compute a canonical hash and HMAC over every certificate field."""
+        raw_bytes = json.dumps(
+            self._signature_payload(), sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+        self.payload_hash_sha256 = hashlib.sha256(raw_bytes).hexdigest()
+        
+        # Cryptographic HMAC Digital Signature
+        self.hmac_digital_signature = hmac.new(secret_key, raw_bytes, hashlib.sha256).hexdigest()
+        return self.hmac_digital_signature
+
+    def verify_signature(self, secret_key: bytes = DEFAULT_FACTORY_SECRET_KEY) -> bool:
+        """Verify the cryptographic authenticity of the certificate."""
+        raw_bytes = json.dumps(
+            self._signature_payload(), sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+        expected_hash = hashlib.sha256(raw_bytes).hexdigest()
+        expected_sig = hmac.new(secret_key, raw_bytes, hashlib.sha256).hexdigest()
+        return (
+            hmac.compare_digest(self.payload_hash_sha256, expected_hash)
+            and hmac.compare_digest(self.hmac_digital_signature, expected_sig)
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        if not self.hmac_digital_signature:
+            self.generate_cryptographic_signature()
+        payload = copy.deepcopy(self._signature_payload())
+        payload.update({
             "payload_hash_sha256": self.payload_hash_sha256,
             "hmac_digital_signature": self.hmac_digital_signature,
-            "signature_algorithm": self.signature_algorithm,
-            "defect_map_entries": self.defect_map_entries,
-        }
+        })
+        return payload
 
     def to_markdown(self) -> str:
         if not self.hmac_digital_signature:
@@ -151,7 +156,7 @@ class DigitalRollCertificate:
 
 ## 2. Quality Evaluation & Yield Summary
 * **Overall Quality Verdict:** **`{self.overall_quality_grade}`**
-* **Automotive QA & GB/T 38031 Compliance:** **{'✅ COMPLIANT' if self.standards_compliant else '❌ NON-COMPLIANT (Violations Logged)'}**
+* **Configured Prototype Policy Result:** **{'PASS' if self.standards_compliant else 'NOT VERIFIED / POLICY VIOLATION'}**
 * **Batch Pass Rate:** **{self.pass_rate_pct:.1f}%**
 * **Total Defects Logged:** {self.total_defects_count}
 * **Defect Density:** {self.defect_density_per_100m:.2f} defects / 100m
@@ -172,7 +177,7 @@ class DigitalRollCertificate:
 ## 3. Upstream Diagnostic Summary
 * **Attributed Root Cause:** {self.primary_root_cause_summary}
 
-*Certified by SecureCoating-Vision Automated Metrology System. Signed with Factory HSM Asymmetric Key.*
+*Certified by SecureCoating-Vision Automated Metrology System. Authenticated with a factory HMAC-SHA256 secret.*
 """
         return md
 
@@ -192,13 +197,24 @@ class RollCertificateGenerator:
         electrode_type: str = "Cathode_LFP",
         substrate_material: str = "Aluminum_Foil_13um",
         web_width_mm: float = 650.0
+        ,
+        total_inspections: Optional[int] = None,
+        failed_inspections: Optional[int] = None,
+        metric_provenance: str = "UNSPECIFIED",
     ) -> DigitalRollCertificate:
         """Compile inspection findings into a cryptographically verified certificate."""
         total_defects = len(defect_records)
         
-        est_inspected_parts = max(1, int(inspected_length_m / 0.1))  # 100mm frame
-        failed_parts = min(est_inspected_parts, total_defects)
-        pass_rate = max(0.0, ((est_inspected_parts - failed_parts) / est_inspected_parts) * 100.0)
+        metrics_provisional = total_inspections is None or failed_inspections is None
+        if metrics_provisional:
+            pass_rate = 0.0
+        else:
+            if total_inspections < 0 or failed_inspections < 0 or failed_inspections > total_inspections:
+                raise ValueError("Invalid inspection counts for certificate")
+            pass_rate = (
+                0.0 if total_inspections == 0 else
+                ((total_inspections - failed_inspections) / total_inspections) * 100.0
+            )
 
         by_class: Dict[str, int] = {}
         by_lane = {1: 0, 2: 0, 3: 0, 4: 0}
@@ -216,7 +232,10 @@ class RollCertificateGenerator:
 
         defect_density = (total_defects / max(1.0, inspected_length_m)) * 100.0
 
-        if pass_rate >= 98.0 and std_ok and total_defects <= 5:
+        if metrics_provisional:
+            grade = "UNVERIFIED"
+            std_ok = False
+        elif pass_rate >= 98.0 and std_ok and total_defects <= 5:
             grade = "GRADE_A_PRIME"
         elif pass_rate >= 90.0:
             grade = "GRADE_B_REWORK"
@@ -241,9 +260,11 @@ class RollCertificateGenerator:
             standards_compliant=std_ok,
             defects_by_class=by_class,
             defects_by_lane=by_lane,
-            defect_map_entries=defect_records,
+            defect_map_entries=copy.deepcopy(list(defect_records)),
             spc_status=spc_status,
-            primary_root_cause_summary=root_cause_summary
+            primary_root_cause_summary=root_cause_summary,
+            quality_metrics_provisional=metrics_provisional,
+            metric_provenance=metric_provenance,
         )
         cert.generate_cryptographic_signature()
         return cert

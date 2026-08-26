@@ -47,15 +47,14 @@ class TestSPCSpatialDiagnostics(unittest.TestCase):
         self.assertIn("Guide Roller", matched.matched_equipment)
 
     def test_lane_spc_cpk_grading(self):
-        # Lane 1: 1 defect / 1000m -> Cpk high (EV Grade)
-        # Lane 4: 25 defects / 1000m -> Cpk low (Reject)
+        # Aggregate counts are insufficient to compute statistically valid Cpk/Ppk.
         defects_by_lane = {1: 1, 2: 3, 3: 5, 4: 25}
         spc_res = self.spc_engine.compute_lane_spc(defects_by_lane, inspected_length_m=1000.0)
 
         self.assertEqual(len(spc_res), 4)
-        self.assertEqual(spc_res[1].six_sigma_tier, "EV_GRADE_TIER_1")
-        self.assertGreater(spc_res[1].cpk, 1.67)
-        self.assertEqual(spc_res[4].six_sigma_tier, "REJECT_QUARANTINE")
+        self.assertEqual(spc_res[1].six_sigma_tier, "INSUFFICIENT_SUBGROUP_DATA")
+        self.assertIsNone(spc_res[1].cpk)
+        self.assertIsNone(spc_res[4].ppk)
 
     def test_slitting_yield_optimization(self):
         defects = [

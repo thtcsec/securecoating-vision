@@ -36,7 +36,7 @@ class RootCauseReport:
     """Comprehensive diagnostic report attributing defect root causes."""
     primary_root_cause: str
     affected_equipment: str
-    confidence_score: float   # 0.0 to 1.0
+    confidence_score: Optional[float]
     defect_signature: str
     severity_level: str       # 'CRITICAL', 'WARNING', 'NOMINAL'
     action_items: List[EquipmentAdjustment] = field(default_factory=list)
@@ -46,7 +46,10 @@ class RootCauseReport:
         return {
             "primary_root_cause": self.primary_root_cause,
             "affected_equipment": self.affected_equipment,
-            "confidence_score": round(self.confidence_score, 2),
+            "confidence_score": (
+                round(self.confidence_score, 2) if self.confidence_score is not None else None
+            ),
+            "evidence_level": "HEURISTIC_RULE_MATCH",
             "defect_signature": self.defect_signature,
             "severity_level": self.severity_level,
             "action_items": [
@@ -78,11 +81,11 @@ class RootCauseDiagnosticEngine:
         """
         if not defects_metrology:
             return RootCauseReport(
-                primary_root_cause="Process In Statistical Control",
-                affected_equipment="All Upstream Stations Optimal",
-                confidence_score=0.98,
-                defect_signature="Zero Critical Anomalies Detected",
-                severity_level="NOMINAL",
+                primary_root_cause="No defect evidence supplied",
+                affected_equipment="Not assessed",
+                confidence_score=None,
+                defect_signature="Empty evidence set; process control cannot be inferred",
+                severity_level="UNKNOWN",
                 action_items=[]
             )
 
@@ -100,23 +103,23 @@ class RootCauseDiagnosticEngine:
             return RootCauseReport(
                 primary_root_cause="Solvent Skinning & Severe Interfacial De-adhesion",
                 affected_equipment="Multi-Zone Floatation Drying Oven (Zone 1 & 2)",
-                confidence_score=0.94,
+                confidence_score=None,
                 defect_signature=f"Delamination area {max_area:.2f} mm² with substrate decoupling",
                 severity_level="CRITICAL",
                 action_items=[
                     EquipmentAdjustment(
                         equipment_unit="Drying Oven Zone 1",
                         parameter_name="Zone 1 Temperature",
-                        current_value="85.0 °C",
-                        suggested_delta="-4.0 °C (Ramp moderation)",
+                        current_value="NOT MEASURED",
+                        suggested_delta="ENGINEERING REVIEW REQUIRED",
                         urgency="IMMEDIATE",
                         rationale="Prevent rapid surface evaporation that traps solvent under impermeable skin"
                     ),
                     EquipmentAdjustment(
                         equipment_unit="Exhaust Damper",
                         parameter_name="Solvent Extraction Airflow",
-                        current_value="62 %",
-                        suggested_delta="+8.0 %",
+                        current_value="NOT MEASURED",
+                        suggested_delta="ENGINEERING REVIEW REQUIRED",
                         urgency="IMMEDIATE",
                         rationale="Accelerate boundary layer NMP vapor evacuation"
                     ),
@@ -128,23 +131,23 @@ class RootCauseDiagnosticEngine:
             return RootCauseReport(
                 primary_root_cause="Slurry Particle Agglomeration at Coating Die Lip",
                 affected_equipment="Slot-Die Coater / Doctor Blade Assembly",
-                confidence_score=0.91,
+                confidence_score=None,
                 defect_signature=f"{scratch_count} longitudinal streak(s) aligned with web travel",
                 severity_level="CRITICAL" if scratch_count > 2 else "WARNING",
                 action_items=[
                     EquipmentAdjustment(
                         equipment_unit="Slot-Die Lip",
                         parameter_name="Automatic Ultrasonic Wash Cycle",
-                        current_value="Inactive",
-                        suggested_delta="TRIGGER_NOW (20s pulse)",
+                        current_value="NOT MEASURED",
+                        suggested_delta="ENGINEERING REVIEW REQUIRED",
                         urgency="IMMEDIATE",
                         rationale="Dislodge agglomerated active material particulates from coater gap"
                     ),
                     EquipmentAdjustment(
                         equipment_unit="Doctor Blade Servo",
                         parameter_name="Lateral Blade Indexing",
-                        current_value="Pos 12.0 mm",
-                        suggested_delta="+2.5 mm",
+                        current_value="NOT MEASURED",
+                        suggested_delta="ENGINEERING REVIEW REQUIRED",
                         urgency="NEXT_BATCH",
                         rationale="Present fresh un-nicked blade surface to coating foil"
                     ),
@@ -156,23 +159,23 @@ class RootCauseDiagnosticEngine:
             return RootCauseReport(
                 primary_root_cause="Solvent Entrapment Micro-Explosion & Thermal Blistering",
                 affected_equipment="Pre-Heating IR Zone & Air Knives",
-                confidence_score=0.88,
+                confidence_score=None,
                 defect_signature=f"Raised blister bump (peak height {max_height:.1f} um > 14um separator barrier)",
                 severity_level="CRITICAL",
                 action_items=[
                     EquipmentAdjustment(
                         equipment_unit="IR Heating Array",
                         parameter_name="IR Lamp Radiant Intensity",
-                        current_value="78 %",
-                        suggested_delta="-6.0 %",
+                        current_value="NOT MEASURED",
+                        suggested_delta="ENGINEERING REVIEW REQUIRED",
                         urgency="IMMEDIATE",
                         rationale="Mitigate localized boiling of residual NMP/water solvent"
                     ),
                     EquipmentAdjustment(
                         equipment_unit="Web Tension Controller",
                         parameter_name="Foil Web Tension",
-                        current_value="145 N",
-                        suggested_delta="+10.0 N",
+                        current_value="NOT MEASURED",
+                        suggested_delta="ENGINEERING REVIEW REQUIRED",
                         urgency="PREVENTATIVE",
                         rationale="Eliminate foil flutter causing uneven coating thickness"
                     ),
@@ -184,23 +187,23 @@ class RootCauseDiagnosticEngine:
             return RootCauseReport(
                 primary_root_cause="Incomplete Slurry Vacuum Degassing & Micro-Bubble Ingestion",
                 affected_equipment="Planetary Dual-Shaft Slurry Mixer & De-aerator",
-                confidence_score=0.87,
+                confidence_score=None,
                 defect_signature=f"{void_count} sub-surface void(s) detected via lock-in thermography",
                 severity_level="WARNING",
                 action_items=[
                     EquipmentAdjustment(
                         equipment_unit="Slurry De-aerator",
                         parameter_name="Vacuum Tank Pressure",
-                        current_value="-85.0 kPa",
-                        suggested_delta="-8.0 kPa (Deeper vacuum)",
+                        current_value="NOT MEASURED",
+                        suggested_delta="ENGINEERING REVIEW REQUIRED",
                         urgency="IMMEDIATE",
                         rationale="Eliminate micro-air bubble entrapment before slurry delivery to slot-die"
                     ),
                     EquipmentAdjustment(
                         equipment_unit="Slurry Delivery Pump",
                         parameter_name="Metering Pump Flow Rate Q",
-                        current_value="4.2 L/min",
-                        suggested_delta="-0.15 L/min",
+                        current_value="NOT MEASURED",
+                        suggested_delta="ENGINEERING REVIEW REQUIRED",
                         urgency="NEXT_BATCH",
                         rationale="Stabilize laminar delivery velocity to prevent cavitation"
                     ),
@@ -211,7 +214,7 @@ class RootCauseDiagnosticEngine:
         return RootCauseReport(
             primary_root_cause="Minor Surface Non-Uniformity",
             affected_equipment="Coating Line In Tolerances",
-            confidence_score=0.75,
+            confidence_score=None,
             defect_signature="Isolated low-severity anomaly",
             severity_level="NOMINAL",
             action_items=[]

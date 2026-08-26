@@ -43,7 +43,10 @@ class TestRollCertificate(unittest.TestCase):
             inspected_length_m=200.0,
             total_length_m=1000.0,
             defect_records=[],
-            spc_status="IN CONTROL"
+            spc_status="IN CONTROL",
+            total_inspections=2000,
+            failed_inspections=0,
+            metric_provenance="unit-test fixture",
         )
         md = cert.to_markdown()
         self.assertIn("Battery Electrode Quality Inspection Certificate", md)
@@ -51,6 +54,18 @@ class TestRollCertificate(unittest.TestCase):
 
         data = cert.to_dict()
         self.assertEqual(data["overall_quality_grade"], "GRADE_A_PRIME")
+        self.assertFalse(data["quality_metrics_provisional"])
+
+    def test_missing_inspection_counts_never_claims_a_quality_grade(self):
+        cert = RollCertificateGenerator.build_certificate(
+            roll_id="TEST_ROLL_UNKNOWN",
+            batch_id="BATCH_UNKNOWN",
+            inspected_length_m=200.0,
+            total_length_m=1000.0,
+            defect_records=[],
+        )
+        self.assertEqual(cert.overall_quality_grade, "UNVERIFIED")
+        self.assertFalse(cert.standards_compliant)
 
 
 if __name__ == "__main__":

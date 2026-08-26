@@ -21,7 +21,8 @@ class TestRootCauseEngine(unittest.TestCase):
 
     def test_nominal_process_diagnostics(self):
         report = self.engine.diagnose_batch(defects_metrology=[])
-        self.assertEqual(report.severity_level, "NOMINAL")
+        self.assertEqual(report.severity_level, "UNKNOWN")
+        self.assertIsNone(report.confidence_score)
         self.assertEqual(len(report.action_items), 0)
 
     def test_scratch_equipment_attribution(self):
