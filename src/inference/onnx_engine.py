@@ -281,8 +281,16 @@ class InferenceEngine:
         y2 = boxes[:, 1] + boxes[:, 3] / 2
         xyxy_boxes = np.stack([x1, y1, x2, y2], axis=1)
 
-        # NMS
-        keep_indices = self._nms(xyxy_boxes, confidences, self.iou_thresh)
+        # Class-aware NMS: overlapping defects of different classes must not
+        # suppress each other.
+        keep_indices = []
+        for class_id in np.unique(class_ids):
+            class_indices = np.where(class_ids == class_id)[0]
+            class_keep = self._nms(
+                xyxy_boxes[class_indices], confidences[class_indices], self.iou_thresh
+            )
+            keep_indices.extend(class_indices[class_keep].tolist())
+        keep_indices = sorted(keep_indices, key=lambda idx: confidences[idx], reverse=True)
         if len(keep_indices) == 0:
             return self._empty_result(orig_h, orig_w)
 
@@ -310,6 +318,18 @@ class InferenceEngine:
             # Resize mask to input size then crop to original
             mask_resized = cv2.resize(instance_masks[i], (self.imgsz, self.imgsz))
 
+            # YOLO instance masks are valid only inside their detection box.
+            # Crop in the letterboxed input coordinate system before removing padding.
+            input_box = final_boxes[i]
+            bx1 = max(0, min(self.imgsz, int(np.floor(input_box[0]))))
+            by1 = max(0, min(self.imgsz, int(np.floor(input_box[1]))))
+            bx2 = max(0, min(self.imgsz, int(np.ceil(input_box[2]))))
+            by2 = max(0, min(self.imgsz, int(np.ceil(input_box[3]))))
+            box_crop = np.zeros_like(mask_resized, dtype=np.float32)
+            if bx2 > bx1 and by2 > by1:
+                box_crop[by1:by2, bx1:bx2] = 1.0
+            mask_resized *= box_crop
+
             # Remove padding
             nh, nw = meta["new_shape"]
             mask_cropped = mask_resized[pad_top:pad_top + nh, pad_left:pad_left + nw]
@@ -323,7 +343,7 @@ class InferenceEngine:
             # Apply class to segmentation mask (later detections override earlier ones)
             # Class IDs in seg_mask are 1-indexed (0 = background)
             class_id_1indexed = int(final_classes[i]) + 1
-            seg_mask[binary_mask == 1] = class_id_1indexed
+            seg_mask[(binary_mask == 1) & (seg_mask == 0)] = class_id_1indexed
 
             # Scale box to original coordinates
             box = final_boxes[i].copy()
@@ -416,10 +436,7 @@ class InferenceEngine:
         start_time = time.time()
 
         if not self._model_loaded:
-            result = self._mock_inference(image)
-            result["latency_ms"] = (time.time() - start_time) * 1000.0
-            result["provider"] = "MockMode"
-            return result
+            raise RuntimeError("ONNX inference requested without a loaded model artifact")
 
         # Preprocess
         blob, meta = self.preprocess(image)

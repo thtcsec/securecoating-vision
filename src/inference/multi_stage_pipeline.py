@@ -105,6 +105,9 @@ class MultiStageIndustrialPipeline:
         industrial_manager: Optional[IndustrialProtocolManager] = None,
         web_synchronizer: Optional[WebSynchronizer] = None,
         pixel_to_mm_ratio: float = 0.1,
+        calibration_verified: bool = False,
+        fov_width_mm: Optional[float] = None,
+        fov_length_m: Optional[float] = None,
     ):
         self.predictor = predictor
         self.fusion = fusion_manager or SensorFusionManager(target_size=(1024, 1024), enable_mock=True)
@@ -118,6 +121,9 @@ class MultiStageIndustrialPipeline:
         self.spatial_diagnostics = SpatialDiagnosticsEngine()
         self.spc_engine = GigafactorySPCEngine(num_lanes=self.web_sync.roll.num_lanes)
         self.pixel_to_mm = pixel_to_mm_ratio
+        self.calibration_verified = calibration_verified
+        self.fov_width_mm = fov_width_mm
+        self.fov_length_m = fov_length_m
 
     def _simulate_traveling_wave_thermography(
         self,
@@ -220,10 +226,17 @@ class MultiStageIndustrialPipeline:
         # STAGE 4: High-Throughput Edge AI Instance Segmentation
         # =========================================================================
         t0 = time.perf_counter()
-        ai_result = self.predictor.predict(
+        ai_result = self.failsafe.safe_predict(
+            self.predictor,
             optical=optical_rgb,
             thermal=thermal_raw,
-            height=height_map
+            height=height_map,
+        )
+        inspection_valid = (
+            ai_result.get("system_state") == "OPTIMAL"
+            and not ai_result.get("untrained_fallback", False)
+            and self.failsafe.decision_permitted()
+            and self.calibration_verified
         )
         seg_mask = ai_result.get(
             "segmentation_mask",
@@ -238,7 +251,7 @@ class MultiStageIndustrialPipeline:
         t0 = time.perf_counter()
         metrology_objects = (
             self.metrology.analyze_segmentation(seg_mask, height_map)
-            if height_available
+            if height_available and inspection_valid
             else []
         )
         metrology_dicts = [m.to_dict() for m in metrology_objects]
@@ -252,14 +265,17 @@ class MultiStageIndustrialPipeline:
                 "area_mm2": m_obj.area_mm2,
                 "peak_height_um": m_obj.peak_protrusion_um,
             }
-            px_x = min(1023, max(0, m_obj.bbox_xywh[0] + m_obj.bbox_xywh[2] // 2))
-            px_y = min(1023, max(0, m_obj.bbox_xywh[1] + m_obj.bbox_xywh[3] // 2))
+            px_x = min(frame_w - 1, max(0, m_obj.bbox_xywh[0] + m_obj.bbox_xywh[2] // 2))
+            px_y = min(frame_h - 1, max(0, m_obj.bbox_xywh[1] + m_obj.bbox_xywh[3] // 2))
             defect_coord = self.web_sync.map_defect_to_physical_coordinate(
                 frame_ctx=frame_ctx,
                 pixel_x_td=float(px_x),
                 pixel_y_md=float(px_y),
-                frame_width_px=1024,
-                frame_height_px=1024
+                frame_width_px=frame_w,
+                frame_height_px=frame_h,
+                fov_width_mm=(self.fov_width_mm or frame_w * self.pixel_to_mm),
+                fov_length_m=(self.fov_length_m or frame_h * self.pixel_to_mm / 1000.0),
+                fov_center_td_mm=cross_web_pos_mm,
             )
             self.web_sync.record_defect_on_roll(defect_dict, defect_coord)
             
@@ -273,11 +289,11 @@ class MultiStageIndustrialPipeline:
         std_compliant = True
         overall_tier = "GRADE_A"
 
-        if self.failsafe.system_state.value != "OPTIMAL":
+        if not inspection_valid:
             overall_tier = "GRADE_B_QUARANTINE"
             all_rejection_reasons.append(
-                "RGB-only evidence mode: calibrated thermal/profilometer data "
-                "unavailable -> HOLD for QA; no release decision or dimensional metrology"
+                "Inspection evidence is not safety-ready -> HOLD for QA; "
+                "no release decision or dimensional metrology"
             )
 
         for m_obj in metrology_objects:
@@ -289,7 +305,10 @@ class MultiStageIndustrialPipeline:
             elif m_obj.quality_tier == "GRADE_B" and overall_tier != "GRADE_C_REJECT":
                 overall_tier = "GRADE_B"
 
-        overall_verdict = "PASS" if overall_tier not in ("GRADE_C_REJECT", "GRADE_B_QUARANTINE") else "REJECT"
+        overall_verdict = (
+            "HOLD" if overall_tier == "GRADE_B_QUARANTINE" else
+            "REJECT" if overall_tier == "GRADE_C_REJECT" else "PASS"
+        )
 
         # Signal PLC Hardware Gate
         plc_action = "HOLD" if overall_tier == "GRADE_B_QUARANTINE" else "PASS"
@@ -303,7 +322,9 @@ class MultiStageIndustrialPipeline:
                 part_id=sample_id,
                 batch_id=self.web_sync.roll.batch_id,
                 defects=metrology_dicts,
-                grade_result=grade_dict
+                grade_result=grade_dict,
+                safety_permitted=inspection_valid,
+                safety_reasons=all_rejection_reasons,
             )
             plc_action = plc_res.get("gate_action", overall_verdict)
 

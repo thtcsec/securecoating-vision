@@ -6,19 +6,32 @@ services:
     image: securecoating-vision-api:latest
     container_name: coating_inspection_api
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
-      - MODEL_CONFIG=configs/model.yaml
-      - APP_CONFIG=configs/app.yaml
-      - PYTHONPATH=/app
+      MODEL_CONFIG: configs/model.yaml
+      APP_CONFIG: configs/app.yaml
+      CALIBRATION_CONFIG: configs/calibration.yaml
+      PYTHONPATH: /app
+      SECURECOATING_ENV: ${SECURECOATING_ENV:-production}
+      SECURECOATING_API_KEY: ${SECURECOATING_API_KEY:-}
+      SECURECOATING_FACTORY_SECRET: ${SECURECOATING_FACTORY_SECRET:-}
+      SECURECOATING_ENABLE_SENSOR_SIMULATION: "false"
+      SECURECOATING_INDUSTRIAL_MOCK_MODE: "false"
+      SECURECOATING_ALLOWED_ORIGINS: ${SECURECOATING_ALLOWED_ORIGINS:-http://127.0.0.1:8501}
     volumes:
       - ./outputs:/app/outputs
       - ./data:/app/data
       - ./logs:/app/logs
-    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --workers 2
+    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --workers 1
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,noexec,nosuid
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 256
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/live"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -33,11 +46,14 @@ services:
     image: securecoating-vision-dashboard:latest
     container_name: coating_inspection_dashboard
     ports:
-      - "8501:8501"
+      - "127.0.0.1:8501:8501"
     environment:
-      - MODEL_CONFIG=configs/model.yaml
-      - APP_CONFIG=configs/app.yaml
-      - PYTHONPATH=/app
+      MODEL_CONFIG: configs/model.yaml
+      APP_CONFIG: configs/app.yaml
+      CALIBRATION_CONFIG: configs/calibration.yaml
+      PYTHONPATH: /app
+      SECURECOATING_ENV: ${SECURECOATING_ENV:-production}
+      SECURECOATING_FACTORY_SECRET: ${SECURECOATING_FACTORY_SECRET:-}
     volumes:
       - ./outputs:/app/outputs
       - ./data:/app/data
@@ -47,6 +63,12 @@ services:
         condition: service_healthy
     command: streamlit run dashboard/app.py --server.address=0.0.0.0 --server.port=8501 --server.headless=true
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,noexec,nosuid
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 256
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
       interval: 30s

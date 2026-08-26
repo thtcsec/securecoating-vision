@@ -1,7 +1,7 @@
 """
 SecureCoating-Vision: FastAPI REST API
 =======================================
-Production-grade REST API for multi-sensor fusion coating inspection.
+Research REST API for fail-closed multi-sensor coating inspection experiments.
 
 Integrates:
 - ONNX Runtime inference engine (YOLOv8-seg)
@@ -26,6 +26,7 @@ import os
 import sys
 import time
 import uuid
+from io import BytesIO
 import yaml
 import logging
 import uvicorn
@@ -36,6 +37,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 import numpy as np
 import cv2
+from PIL import Image, UnidentifiedImageError
 
 # Configure logging
 logging.basicConfig(
@@ -75,22 +77,56 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# CORS middleware for dashboard access
+# CORS middleware for dashboard access. Wildcard origins are unsafe with credentials.
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get(
+        "SECURECOATING_ALLOWED_ORIGINS",
+        "http://localhost:8501,http://127.0.0.1:8501"
+    ).split(",")
+    if origin.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Optional API key (set SECURECOATING_API_KEY to enable)
+# Authentication is fail-closed. A deliberate local-only test/demo override is
+# required to run without an API key.
 API_KEY = os.environ.get("SECURECOATING_API_KEY", "").strip()
+ENVIRONMENT = os.environ.get("SECURECOATING_ENV", "production").lower()
+ALLOW_UNAUTHENTICATED_DEMO = (
+    ENVIRONMENT in {"development", "test"}
+    and os.environ.get("SECURECOATING_ALLOW_UNAUTHENTICATED_DEMO", "false").lower()
+    in {"1", "true", "yes"}
+)
+REQUIRE_API_KEY = not ALLOW_UNAUTHENTICATED_DEMO or bool(API_KEY)
+if ENVIRONMENT == "production" and not os.environ.get("SECURECOATING_FACTORY_SECRET", "").strip():
+    raise RuntimeError("SECURECOATING_FACTORY_SECRET must be configured in production")
 
 
 @app.middleware("http")
 async def optional_api_key_guard(request: Request, call_next):
-    if API_KEY and request.url.path.startswith("/api/"):
+    if request.method in {"POST", "PUT", "PATCH"}:
+        content_length = request.headers.get("content-length")
+        if content_length:
+            try:
+                if int(content_length) > MAX_REQUEST_SIZE:
+                    return JSONResponse(
+                        status_code=413,
+                        content={"detail": "Request body exceeds the configured safety limit"},
+                    )
+            except ValueError:
+                return JSONResponse(status_code=400, content={"detail": "Invalid Content-Length"})
+    if REQUIRE_API_KEY and request.url.path.startswith("/api/"):
+        if not API_KEY:
+            return JSONResponse(
+                status_code=503,
+                content={"detail": "API authentication is not configured"},
+            )
         provided = request.headers.get("x-api-key", "")
         if provided != API_KEY:
             return JSONResponse(
@@ -102,22 +138,67 @@ async def optional_api_key_guard(request: Request, call_next):
 # --- Configuration Loading ---
 CONFIG_PATH = os.environ.get("MODEL_CONFIG", "configs/model.yaml")
 APP_CONFIG_PATH = os.environ.get("APP_CONFIG", "configs/app.yaml")
+CALIBRATION_CONFIG_PATH = os.environ.get("CALIBRATION_CONFIG", "configs/calibration.yaml")
 
 with open(CONFIG_PATH, "r") as f:
     model_config = yaml.safe_load(f)
 with open(APP_CONFIG_PATH, "r") as f:
     app_config = yaml.safe_load(f)
+with open(CALIBRATION_CONFIG_PATH, "r") as f:
+    calibration_config = yaml.safe_load(f)
+
+PIXEL_SIZE_MM = float(calibration_config["pixel_size_x_mm"])
+CALIBRATION_VERIFIED = bool(calibration_config.get("verified", False))
 
 TEST_SET_DIR = os.path.join(PROJECT_ROOT, "data", "test_set", "images")
 
 
 def _decode_upload(file_bytes: bytes) -> np.ndarray:
-    """Decode uploaded image bytes to BGR uint8."""
+    """Validate image headers/dimensions before allocating the decoded array."""
+    try:
+        with Image.open(BytesIO(file_bytes)) as header:
+            if header.format not in ALLOWED_IMAGE_FORMATS:
+                raise HTTPException(status_code=415, detail="Unsupported image format")
+            width, height = header.size
+            if width <= 0 or height <= 0 or width * height > MAX_IMAGE_PIXELS:
+                raise HTTPException(
+                    status_code=413,
+                    detail="Decoded image dimensions exceed the safety limit",
+                )
+            header.verify()
+    except HTTPException:
+        raise
+    except (UnidentifiedImageError, Image.DecompressionBombError, OSError) as exc:
+        raise HTTPException(status_code=400, detail="Invalid or unsafe image payload") from exc
+
     arr = np.frombuffer(file_bytes, dtype=np.uint8)
     image = cv2.imdecode(arr, cv2.IMREAD_COLOR)
     if image is None:
         raise HTTPException(status_code=400, detail="Could not decode uploaded image")
+    if image.shape[0] * image.shape[1] > MAX_IMAGE_PIXELS:
+        raise HTTPException(status_code=413, detail="Decoded image dimensions exceed the safety limit")
     return image
+
+
+async def _read_upload_limited(upload: UploadFile) -> bytes:
+    """Read an upload incrementally so the payload limit is enforced before allocation."""
+    if upload.content_type and upload.content_type.lower() not in ALLOWED_IMAGE_MIME_TYPES:
+        raise HTTPException(status_code=415, detail="Unsupported image media type")
+    payload = bytearray()
+    total = 0
+    chunk_size = 1024 * 1024
+    while True:
+        chunk = await upload.read(chunk_size)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > MAX_UPLOAD_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Uploaded image exceeds maximum payload limit of {MAX_UPLOAD_SIZE // (1024 * 1024)}MB."
+            )
+        payload.extend(chunk)
+    return bytes(payload)
 
 
 def _load_sample_image(sample_name: str) -> np.ndarray:
@@ -153,11 +234,18 @@ def _synthetic_optical(h: int, w: int, simulate_defect: Optional[str]) -> np.nda
     return optical
 
 
-MAX_UPLOAD_SIZE = 30 * 1024 * 1024  # 30 MB limit
+MAX_UPLOAD_SIZE = int(os.environ.get("SECURECOATING_MAX_UPLOAD_BYTES", 10 * 1024 * 1024))
+MAX_REQUEST_SIZE = MAX_UPLOAD_SIZE + 1024 * 1024  # bounded multipart envelope overhead
+MAX_IMAGE_PIXELS = int(os.environ.get("SECURECOATING_MAX_IMAGE_PIXELS", 8_000_000))
+ALLOWED_IMAGE_FORMATS = {"JPEG", "PNG", "BMP", "TIFF"}
+ALLOWED_IMAGE_MIME_TYPES = {
+    "image/jpeg", "image/png", "image/bmp", "image/tiff", "application/octet-stream"
+}
+Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 
 
 def _attach_confidences(defects: list, detections: list) -> list:
-    """Attach model confidence scores onto graded defect records using spatial bounding matching."""
+    """Attach confidence only when class and bbox overlap identify the same instance."""
     if not detections:
         for d in defects:
             d.setdefault("confidence", None)
@@ -165,12 +253,16 @@ def _attach_confidences(defects: list, detections: list) -> list:
 
     matched_dets = set()
     for d in defects:
-        d_cx = float(d.get("center_x", 0.0))
-        d_cy = float(d.get("center_y", 0.0))
+        defect_box = d.get("bbox", [])
+        if len(defect_box) != 4:
+            d["confidence"] = None
+            continue
+        dx1, dy1, dw, dh = map(float, defect_box)
+        dx2, dy2 = dx1 + max(0.0, dw), dy1 + max(0.0, dh)
         d_class = d.get("class_name", "")
 
         best_conf = None
-        best_dist = float("inf")
+        best_iou = 0.0
         best_idx = -1
 
         for i, det in enumerate(detections):
@@ -181,11 +273,14 @@ def _attach_confidences(defects: list, detections: list) -> list:
 
             box = det.get("box", [0, 0, 0, 0])
             if len(box) == 4:
-                b_cx = (box[0] + box[2]) / 2.0
-                b_cy = (box[1] + box[3]) / 2.0
-                dist = (d_cx - b_cx) ** 2 + (d_cy - b_cy) ** 2
-                if dist < best_dist:
-                    best_dist = dist
+                bx1, by1, bx2, by2 = map(float, box)
+                ix1, iy1 = max(dx1, bx1), max(dy1, by1)
+                ix2, iy2 = min(dx2, bx2), min(dy2, by2)
+                intersection = max(0.0, ix2 - ix1) * max(0.0, iy2 - iy1)
+                union = max(0.0, dw * dh) + max(0.0, (bx2 - bx1) * (by2 - by1)) - intersection
+                iou = intersection / union if union > 0 else 0.0
+                if iou >= 0.10 and iou > best_iou:
+                    best_iou = iou
                     best_conf = float(det.get("confidence", 0.0))
                     best_idx = i
 
@@ -193,9 +288,7 @@ def _attach_confidences(defects: list, detections: list) -> list:
             matched_dets.add(best_idx)
             d["confidence"] = round(best_conf, 4) if best_conf is not None else None
         else:
-            # Fallback to class-level confidence if specific instance spatial match is ambiguous
-            matching_confs = [float(det.get("confidence", 0.0)) for det in detections if det.get("class_name") == d_class]
-            d["confidence"] = round(matching_confs[0], 4) if matching_confs else None
+            d["confidence"] = None
 
     return defects
 
@@ -205,9 +298,14 @@ def _attach_confidences(defects: list, detections: list) -> list:
 predictor = CoatingPredictor(model_config)
 
 # 2. Sensor Fusion Manager
+SIMULATION_MODE = (
+    ENVIRONMENT in {"development", "test"}
+    and os.environ.get("SECURECOATING_ENABLE_SENSOR_SIMULATION", "true").lower()
+    in {"1", "true", "yes"}
+)
 fusion_manager = SensorFusionManager(
     target_size=(1024, 1024),
-    enable_mock=True
+    enable_mock=SIMULATION_MODE,
 )
 
 # 3. Fail-Safe Manager
@@ -216,6 +314,9 @@ failsafe = FailSafeManager(
     enable_frame_validation=True,
     enable_auto_recovery=True
 )
+if not (predictor.yolo_available or predictor.onnx_available):
+    failsafe.health.model_inference_ok = False
+    failsafe._update_system_state()
 
 # 4. Quality Memory (SQLite traceability)
 db_path = app_config.get("paths", {}).get("db_path", "data/quality_history.db")
@@ -223,13 +324,20 @@ quality_mem = QualityMemory(db_path)
 
 # 5. Industrial Protocol Manager (OPC UA / Modbus TCP)
 industrial_config = app_config.get("industrial_io", {})
+industrial_config = dict(industrial_config)
+if "SECURECOATING_INDUSTRIAL_MOCK_MODE" in os.environ:
+    industrial_config["mock_mode"] = os.environ["SECURECOATING_INDUSTRIAL_MOCK_MODE"].lower() in {
+        "1", "true", "yes"
+    }
+if ENVIRONMENT == "production" and industrial_config.get("mock_mode", True):
+    raise RuntimeError("Industrial mock mode is forbidden in production")
 industrial_mgr = IndustrialProtocolManager(industrial_config)
 
 # 6. Web Motion & Continuous Roll Synchronizer
 web_synchronizer = WebSynchronizer()
 
 # 7. Physics-Informed Battery Electrode Metrology
-electrode_metrology = ElectrodeMetrologyEngine(pixel_to_mm_ratio=0.1)
+electrode_metrology = ElectrodeMetrologyEngine(pixel_to_mm_ratio=PIXEL_SIZE_MM)
 
 # 8. AI Closed-Loop Root-Cause Diagnostics
 root_cause_engine = RootCauseDiagnosticEngine()
@@ -241,7 +349,10 @@ multi_stage_pipeline = MultiStageIndustrialPipeline(
     failsafe_manager=failsafe,
     industrial_manager=industrial_mgr,
     web_synchronizer=web_synchronizer,
-    pixel_to_mm_ratio=0.1
+    pixel_to_mm_ratio=PIXEL_SIZE_MM,
+    calibration_verified=CALIBRATION_VERIFIED or SIMULATION_MODE,
+    fov_width_mm=float(calibration_config["fov_width_mm"]),
+    fov_length_m=float(calibration_config["fov_length_m"]),
 )
 
 
@@ -277,12 +388,26 @@ class HealthResponse(BaseModel):
 
 
 # --- Endpoints ---
+@app.get("/live")
+def liveness_check():
+    """Process liveness only; safety/readiness state is reported by /health."""
+    return {"status": "ALIVE"}
+
+
 @app.get("/health", response_model=HealthResponse)
 def health_check():
     """System health check with component status."""
     health = failsafe.get_health_report()
-    return {
-        "status": "HEALTHY" if health["system_state"] != "OFFLINE" else "DEGRADED",
+    industrial_state = industrial_mgr.get_plc_state()
+    ready = (
+        health["system_state"] == "OPTIMAL"
+        and not industrial_state["interlock_latched"]
+        and quality_mem.healthy
+        and (predictor.yolo_available or predictor.onnx_available)
+        and industrial_mgr.transport_ready
+    )
+    payload = {
+        "status": "HEALTHY" if ready else "DEGRADED",
         "device": str(predictor.device),
         "model_version": model_config.get("model", {}).get("version", "2.0.0"),
         "onnx_available": predictor.onnx_available,
@@ -297,8 +422,16 @@ def health_check():
             )
         ),
         "system_state": health["system_state"],
-        "sensors": health["sensors"]
+        "sensors": health["sensors"],
+        "industrial_interlock_latched": industrial_state["interlock_latched"],
+        "traceability_ok": quality_mem.healthy,
+        "simulation_mode": SIMULATION_MODE,
+        "industrial_transport_ready": industrial_mgr.transport_ready,
     }
+    return JSONResponse(
+        status_code=200 if ready else 503,
+        content=payload,
+    )
 
 
 @app.post("/api/inspect", response_model=InspectionResponse)
@@ -323,12 +456,7 @@ async def inspect(
     using_real_image = False
 
     if image is not None and image.filename:
-        raw_bytes = await image.read()
-        if len(raw_bytes) > MAX_UPLOAD_SIZE:
-            raise HTTPException(
-                status_code=413,
-                detail=f"Uploaded image exceeds maximum payload limit of {MAX_UPLOAD_SIZE // (1024 * 1024)}MB."
-            )
+        raw_bytes = await _read_upload_limited(image)
         optical = _decode_upload(raw_bytes)
         using_real_image = True
     elif sample_name:
@@ -340,18 +468,20 @@ async def inspect(
     h, w = optical.shape[:2]
 
     # 2. Multi-source sensor fusion
+    effective_thermal_online = thermal_online if SIMULATION_MODE else False
+    effective_profiler_online = profiler_online if SIMULATION_MODE else False
     fusion_result = fusion_manager.fuse(
         rgb_image=optical,
-        thermal_online=thermal_online,
-        profiler_online=profiler_online,
+        thermal_online=effective_thermal_online,
+        profiler_online=effective_profiler_online,
     )
 
     thermal = fusion_result.thermal_frame
     height = fusion_result.height_frame
 
     # 3. Update fail-safe sensor status from THIS request (non-sticky intent)
-    failsafe.health.thermal_sensor_ok = thermal_online
-    failsafe.health.profiler_sensor_ok = profiler_online
+    failsafe.health.thermal_sensor_ok = fusion_result.sensor_status.thermal_online
+    failsafe.health.profiler_sensor_ok = fusion_result.sensor_status.profiler_online
     failsafe.health.rgb_sensor_ok = True
     failsafe._update_system_state()
 
@@ -360,7 +490,7 @@ async def inspect(
 
     # 5. Postprocess: extract physical defect measurements
     seg_mask = result.get("segmentation_mask", np.zeros((h, w), dtype=np.uint8))
-    defects = extract_defects_from_mask(seg_mask, height, pixel_to_mm_ratio=0.1)
+    defects = extract_defects_from_mask(seg_mask, height, pixel_to_mm_ratio=PIXEL_SIZE_MM)
 
     # Camera-sim only: if synthetic overlay was not detected, plant a visible region
     # so grading/PLC demo still works without claiming false ONNX detections.
@@ -373,33 +503,41 @@ async def inspect(
         class_map = {"scratch": 1, "void": 2, "blister": 3, "delamination": 4}
         cid = class_map.get(simulate_defect, 1)
         cv2.circle(seg_mask, (w // 2, h // 2), min(h, w) // 10, int(cid), -1)
-        defects = extract_defects_from_mask(seg_mask, height, pixel_to_mm_ratio=0.1)
+        defects = extract_defects_from_mask(seg_mask, height, pixel_to_mm_ratio=PIXEL_SIZE_MM)
 
     # 6. Grade the coating against quality rules
     grading_rules = model_config.get("inference", {}).get("grading", {})
     grade = grade_coating(defects, grading_rules)
 
-    # 7. Industrial protocol signaling (PLC/MES)
-    industrial_result = industrial_mgr.process_inspection_result(
-        part_id=part_id,
-        batch_id=batch_id,
-        defects=defects,
-        grade_result=grade,
-    )
+    # 7. Authoritative safety gate. Grading output is never allowed to
+    # override inference/model/sensor/PLC/traceability readiness.
+    result_state = result.get("system_state", "EMERGENCY")
+    safety_reasons = []
+    if result_state != "OPTIMAL" or not failsafe.decision_permitted():
+        safety_reasons.append(f"Inspection state is {result_state}; automatic gate decision forbidden")
+    if result.get("untrained_fallback", False) or not (
+        predictor.yolo_available or predictor.onnx_available
+    ):
+        safety_reasons.append("No trained and verified inference model is ready")
+    if result.get("error_reason"):
+        safety_reasons.append(str(result["error_reason"]))
+    if industrial_mgr.interlock_latched:
+        safety_reasons.append("PLC safety interlock is already latched")
+    if not industrial_mgr.transport_ready:
+        safety_reasons.append("Industrial transport security/readback configuration is not ready")
+    if not (CALIBRATION_VERIFIED or SIMULATION_MODE):
+        safety_reasons.append("Factory coordinate calibration is missing or unverified")
 
-    # 8. Log to Quality Memory database
+    # 8. Persist the inspection before issuing any normal PLC gate command.
     max_len = max([d["length_mm"] for d in defects]) if defects else 0.0
     max_area = max([d["area_mm2"] for d in defects]) if defects else 0.0
     peak_h = max([d["peak_height_um"] for d in defects]) if defects else 0.0
-    primary_class = (
-        simulate_defect
-        or (defects[0]["class_name"] if defects else "none")
-    )
+    primary_class = defects[0]["class_name"] if defects else "none"
     detections = result.get("detections", [])
     defects = _attach_confidences(defects, detections)
     run_id = f"RUN_{uuid.uuid4().hex[:12].upper()}"
-
-    quality_mem.add_entry(
+    planned_action = "HOLD" if safety_reasons else ("PASS" if grade["passed"] else "REJECT")
+    trace_written = quality_mem.add_entry(
         batch_id=batch_id,
         part_id=part_id,
         has_defect=not grade["passed"],
@@ -411,7 +549,45 @@ async def inspect(
         fallback=result.get("fallback_active", False),
         model_version=result.get("model_version", predictor.model_version),
         run_id=run_id,
+        roll_id=web_synchronizer.roll.roll_id,
+        gate_action=planned_action,
+        system_state=result_state,
+        inspection_valid=not safety_reasons,
+        error_reason="; ".join(safety_reasons) or None,
     )
+    if not trace_written:
+        safety_reasons.append("Traceability write failed; automatic gate decision forbidden")
+
+    # 9. Industrial protocol signaling (PLC/MES)
+    industrial_result = industrial_mgr.process_inspection_result(
+        part_id=part_id,
+        batch_id=batch_id,
+        defects=defects,
+        grade_result=grade,
+        safety_permitted=not safety_reasons,
+        safety_reasons=safety_reasons,
+    )
+    final_gate_action = industrial_result["gate_action"]
+    if trace_written and not quality_mem.update_decision(run_id, final_gate_action, result_state):
+        safety_reasons.append("Traceability finalization failed; HOLD latched")
+        hold_signal = industrial_mgr.trigger_hold(part_id, batch_id, safety_reasons)
+        final_gate_action = "HOLD"
+        industrial_result.update({
+            "gate_action": "HOLD",
+            "signal_id": hold_signal.signal_id,
+            "rejection_reasons": safety_reasons,
+        })
+
+    final_passed = bool(
+        grade["passed"]
+        and not safety_reasons
+        and result_state == "OPTIMAL"
+        and final_gate_action == "PASS"
+    )
+    response_reasons = list(grade["reject_reasons"])
+    for reason in safety_reasons:
+        if reason not in response_reasons:
+            response_reasons.append(reason)
 
     sanitized_detections = [
         {k: v for k, v in d.items() if not isinstance(v, np.ndarray)}
@@ -423,13 +599,13 @@ async def inspect(
         "batch_id": batch_id,
         "run_id": run_id,
         "status": result.get("status", "Unknown"),
-        "passed": grade["passed"],
-        "reject_reasons": grade["reject_reasons"],
+        "passed": final_passed,
+        "reject_reasons": response_reasons,
         "latency_ms": round(result.get("latency_ms", 0.0), 2),
         "defects_found": defects,
         "fallback_active": result.get("fallback_active", False),
         "system_state": result.get("system_state", "OPTIMAL"),
-        "gate_action": industrial_result["gate_action"],
+        "gate_action": final_gate_action,
         "engine": result.get("engine", "unknown"),
         "model_version": result.get("model_version", predictor.model_version),
         "detections": sanitized_detections,
@@ -452,13 +628,18 @@ def list_demo_samples():
 @app.get("/api/metrics/latency")
 def latency_metrics(batch_id: Optional[str] = None, limit: int = 200):
     """Latency p50/p95 vs 35ms competition target."""
-    return quality_mem.get_latency_stats(batch_id=batch_id, limit=limit)
+    result = quality_mem.get_latency_stats(batch_id=batch_id, limit=limit)
+    if result.get("status") == "ERROR":
+        raise HTTPException(status_code=503, detail="Traceability database unavailable")
+    return result
 
 
 @app.get("/api/batch/{batch_id}/stats")
 def get_batch_stats(batch_id: str):
     """Retrieve aggregated quality indicators for MES integration."""
     stats = quality_mem.get_batch_stats(batch_id)
+    if stats.get("status") == "ERROR":
+        raise HTTPException(status_code=503, detail="Traceability database unavailable")
     if stats["total"] == 0:
         raise HTTPException(status_code=404, detail=f"No inspection data for batch {batch_id}")
     return stats
@@ -467,7 +648,10 @@ def get_batch_stats(batch_id: str):
 @app.get("/api/batch/{batch_id}/spc")
 def get_batch_spc(batch_id: str):
     """Check Statistical Process Control alarm state."""
-    return quality_mem.check_spc_alarms(batch_id)
+    result = quality_mem.check_spc_alarms(batch_id)
+    if result.get("status") == "UNKNOWN":
+        raise HTTPException(status_code=503, detail="Traceability database unavailable")
+    return result
 
 
 @app.get("/api/industrial/state")
@@ -485,15 +669,37 @@ def get_signal_history(limit: int = 50):
 @app.post("/api/industrial/estop")
 def emergency_stop(reason: str = Form("API trigger")):
     """Trigger emergency stop on production line."""
-    industrial_mgr.emergency_stop(reason)
-    return {"status": "E-STOP ACTIVATED", "reason": reason}
+    signal = industrial_mgr.emergency_stop(reason)
+    return JSONResponse(
+        status_code=200 if signal.acknowledged or industrial_mgr.mock_mode else 503,
+        content={
+            "status": "SIMULATED" if industrial_mgr.mock_mode else (
+                "ACKNOWLEDGED" if signal.acknowledged else "UNCONFIRMED"
+            ),
+            "action": "EMERGENCY_STOP",
+            "reason": reason,
+            "signal_id": signal.signal_id,
+            "interlock_latched": industrial_mgr.interlock_latched,
+        },
+    )
 
 
 @app.post("/api/industrial/reset")
 def reset_line():
     """Reset production line after emergency stop."""
-    industrial_mgr.reset_line()
-    return {"status": "LINE RESET", "message": "Production line resumed"}
+    signal = industrial_mgr.reset_line()
+    cleared = not industrial_mgr.interlock_latched
+    return JSONResponse(
+        status_code=200 if cleared else 503,
+        content={
+            "status": "SIMULATED" if industrial_mgr.mock_mode and cleared else (
+                "ACKNOWLEDGED" if signal.acknowledged and cleared else "UNCONFIRMED"
+            ),
+            "action": "RESET",
+            "signal_id": signal.signal_id,
+            "interlock_latched": industrial_mgr.interlock_latched,
+        },
+    )
 
 
 @app.get("/api/system/health-report")
@@ -547,7 +753,11 @@ def run_multi_stage_pipeline(
     """
     try:
         sid = sample_name or part_id or f"PART_SAMPLE_{int(time.time()*1000)}"
-        result = multi_stage_pipeline.execute_inspection(sample_id=sid)
+        result = multi_stage_pipeline.execute_inspection(
+            sample_id=sid,
+            cross_web_pos_mm=cross_web_pos_mm,
+            enable_plc_signal=enable_plc_signal,
+        )
         return {
             "status": "success",
             "data": result.to_summary_dict()
@@ -561,47 +771,65 @@ def run_multi_stage_pipeline(
 @app.get("/api/roll/{roll_id}/map")
 def get_roll_defect_map(roll_id: str):
     """Retrieve 2D defect coordinates across the full jumbo roll for digital twin visualization."""
-    summary = web_synchronizer.get_roll_defect_summary()
+    snapshot = web_synchronizer.get_roll_snapshot(roll_id)
+    if snapshot is None:
+        raise HTTPException(status_code=404, detail=f"Roll {roll_id} is not the active roll")
     return {
-        "summary": summary,
-        "defect_records": web_synchronizer.roll_defect_map,
-        "total_records": len(web_synchronizer.roll_defect_map)
+        **snapshot,
+        "total_records": len(snapshot["defect_records"]),
     }
 
 
 @app.get("/api/roll/{roll_id}/certificate")
 def get_roll_certificate(
     roll_id: str,
-    batch_id: str = "BATCH_2026_08A",
+    batch_id: Optional[str] = None,
     electrode_type: str = "Cathode_LFP"
 ):
     """
     Generate an official, tamper-evident Battery Electrode Quality Inspection Certificate
     with SHA-256 cryptographic verification and GB/T 38823-2020 compliance audit.
     """
-    summary = web_synchronizer.get_roll_defect_summary()
+    batch_id = batch_id or web_synchronizer.roll.batch_id
+    snapshot = web_synchronizer.get_roll_snapshot(roll_id, batch_id=batch_id)
+    if snapshot is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No active roll/batch snapshot for {roll_id}/{batch_id}",
+        )
+    summary = snapshot["summary"]
+    defect_records = snapshot["defect_records"]
+    batch_stats = quality_mem.get_batch_stats(batch_id)
+    if batch_stats.get("status") == "ERROR":
+        raise HTTPException(status_code=503, detail="Traceability database unavailable")
     spc = quality_mem.check_spc_alarms(batch_id)
-    root_cause = root_cause_engine.diagnose_batch(web_synchronizer.roll_defect_map)
+    root_cause = root_cause_engine.diagnose_batch(defect_records)
 
     cert = RollCertificateGenerator.build_certificate(
         roll_id=roll_id,
         batch_id=batch_id,
         inspected_length_m=summary["inspected_length_m"],
         total_length_m=summary["total_roll_length_m"],
-        defect_records=web_synchronizer.roll_defect_map,
-        spc_status=spc.get("status", "IN CONTROL"),
+        defect_records=defect_records,
+        spc_status=spc.get("status", "UNKNOWN"),
         root_cause_summary=root_cause.primary_root_cause,
-        electrode_type=electrode_type
+        electrode_type=electrode_type,
+        total_inspections=batch_stats["total"] if batch_stats["total"] > 0 else None,
+        failed_inspections=batch_stats["failed"] if batch_stats["total"] > 0 else None,
+        metric_provenance=f"SQLite batch={batch_id}; roll ledger={roll_id}",
     )
     return cert.to_dict()
 
 
 @app.post("/api/diagnostics/root-cause")
-def get_root_cause_diagnostics(batch_id: str = "BATCH_2026_08A"):
+def get_root_cause_diagnostics(batch_id: Optional[str] = None):
     """
     AI Closed-Loop Diagnostics: attributes coating defects to upstream equipment
     and recommends parameter adjustments (Slot-Die gap, Oven Zone temperatures, Mixer vacuum).
     """
+    batch_id = batch_id or web_synchronizer.roll.batch_id
+    if batch_id != web_synchronizer.roll.batch_id:
+        raise HTTPException(status_code=404, detail=f"Batch {batch_id} is not active")
     report = root_cause_engine.diagnose_batch(web_synchronizer.roll_defect_map)
     return report.to_dict()
 
@@ -609,8 +837,8 @@ def get_root_cause_diagnostics(batch_id: str = "BATCH_2026_08A"):
 @app.get("/api/spc/passport")
 def get_digital_battery_passport():
     """
-    Generate EU DPP / CATL-compliant Digital Battery Passport with Six Sigma Cpk,
-    Spatial FFT mechanical diagnostics, and Slitting Yield Optimization.
+    Generate a provisional telemetry manifest. This is not a regulatory DPP
+    and does not claim Cpk/Ppk without subgroup measurement data.
     """
     passport = multi_stage_pipeline.get_gigafactory_spc_summary()
     return passport

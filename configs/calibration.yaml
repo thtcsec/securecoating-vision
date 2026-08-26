@@ -1,0 +1,14 @@
+# Coordinate calibration contract.
+# This repository does not contain a factory calibration certificate. The
+# values below are simulation-only and must not release production material.
+calibration_id: "SIMULATION_ONLY_UNCALIBRATED"
+verified: false
+sensor_serials: {}
+pixel_size_x_mm: 0.04224
+pixel_size_y_mm: 0.04224
+fov_width_mm: 43.25376
+fov_length_m: 0.04325376
+homography_rgb_to_thermal: null
+homography_rgb_to_profiler: null
+uncertainty_mm: null
+calibrated_at: null

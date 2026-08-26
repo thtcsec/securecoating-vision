@@ -18,6 +18,8 @@ Implements production-grade fault tolerance for the inspection system:
 import time
 import logging
 import traceback
+import threading
+import queue
 import numpy as np
 import cv2
 from typing import Optional, Dict, Callable, Any
@@ -117,6 +119,8 @@ class FailSafeManager:
         self.enable_auto_recovery = enable_auto_recovery
         self.health = HealthMetrics()
         self._start_time = time.time()
+        self._state_lock = threading.RLock()
+        self._active_inference_worker: Optional[threading.Thread] = None
 
         logger.info(f"FailSafeManager initialized (timeout={max_inference_timeout_ms}ms)")
 
@@ -251,6 +255,12 @@ class FailSafeManager:
         else:
             self.health.state = SystemState.OPTIMAL
 
+    def decision_permitted(self) -> bool:
+        """Return True only when inference and every required sensor are healthy."""
+        with self._state_lock:
+            self._update_system_state()
+            return self.health.state == SystemState.OPTIMAL
+
     def safe_predict(
         self,
         predictor,
@@ -279,6 +289,23 @@ class FailSafeManager:
         """
         self.health.uptime_seconds = time.time() - self._start_time
 
+        # A timed-out Python/GPU call cannot be safely killed. Keep the circuit
+        # open until that worker has actually exited so inference jobs never
+        # overlap on a shared model/session after a deadline breach.
+        with self._state_lock:
+            active_worker = self._active_inference_worker
+            if active_worker is not None and active_worker.is_alive():
+                self.health.model_inference_ok = False
+                self.health.add_alert(
+                    AlertLevel.EMERGENCY,
+                    "Previous timed-out inference is still running; circuit remains open",
+                )
+                self._update_system_state()
+                return self._emergency_result(
+                    optical, reason="Inference circuit open after timeout"
+                )
+            self._active_inference_worker = None
+
         # --- Gate 1: Primary sensor validation ---
         if self.enable_frame_validation:
             rgb_check = self.validate_frame(optical, "RGB")
@@ -302,7 +329,37 @@ class FailSafeManager:
         # --- Gate 3: Protected inference execution ---
         try:
             start_time = time.time()
-            result = predictor.predict(optical, thermal, height)
+            result_queue = queue.Queue(maxsize=1)
+
+            def run_prediction():
+                try:
+                    result_queue.put((True, predictor.predict(optical, thermal, height)))
+                except BaseException as error:
+                    result_queue.put((False, error))
+
+            worker = threading.Thread(target=run_prediction, daemon=True)
+            with self._state_lock:
+                self._active_inference_worker = worker
+            worker.start()
+            worker.join(timeout=self.max_inference_timeout_ms / 1000.0)
+            if worker.is_alive():
+                elapsed_ms = (time.time() - start_time) * 1000.0
+                self.health.model_inference_ok = False
+                self.health.consecutive_failures += 1
+                self.health.add_alert(
+                    AlertLevel.EMERGENCY,
+                    f"Inference deadline exceeded: {elapsed_ms:.0f}ms "
+                    f"(limit: {self.max_inference_timeout_ms:.0f}ms)"
+                )
+                self._update_system_state()
+                return self._emergency_result(optical, reason="Inference timeout")
+
+            succeeded, value = result_queue.get_nowait()
+            with self._state_lock:
+                self._active_inference_worker = None
+            if not succeeded:
+                raise value
+            result = value
             elapsed_ms = (time.time() - start_time) * 1000.0
 
             # Check for timeout
@@ -313,8 +370,9 @@ class FailSafeManager:
                 )
 
             # Success: reset failure counter
-            self.health.consecutive_failures = 0
-            self.health.model_inference_ok = True
+            is_trained_model = not result.get("untrained_fallback", False)
+            self.health.consecutive_failures = 0 if is_trained_model else 1
+            self.health.model_inference_ok = is_trained_model
             self.health.last_successful_inference_ms = elapsed_ms
 
             # Track fallback activations
@@ -380,6 +438,8 @@ class FailSafeManager:
             result["system_state"] = SystemState.DEGRADED.value
             result["recovery_mode"] = "RGB-only fallback"
             self.health.total_fallback_activations += 1
+            self.health.model_inference_ok = not result.get("untrained_fallback", False)
+            self._update_system_state()
             logger.info("Auto-recovery successful: running in RGB-only mode")
             return result
         except Exception as e:

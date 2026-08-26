@@ -41,7 +41,7 @@ class SimpleFusionNetwork(nn.Module):
         features = self.relu(self.conv2(x))
         pooled = self.pool(features)
         cls_out = self.classifier(pooled)
-        seg_out = self.segmentor(features)
+        seg_out = self.segmentor(pooled)
         return cls_out, seg_out
 
 
@@ -317,7 +317,8 @@ class CoatingPredictor:
             "detections": [],
             "latency_ms": (time.time() - start_time) * 1000.0,
             "fallback_active": fallback_active,
-            "status": "Degraded Mode" if fallback_active else "Optimal",
+            "untrained_fallback": True,
+            "status": "Degraded Mode",
             "engine": "PyTorch (Fusion Fallback)",
             "model_version": self.model_version,
         }
