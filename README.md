@@ -14,6 +14,16 @@ It is **not production-qualified**. The repository does not contain a factory ca
 
 These properties are covered by software tests, but physical actuator behavior still requires vendor-specific HIL and safety validation.
 
+## Status and Upgrade Plan
+
+The staged implementation checklist, evidence matrix, release gates, and next-step plan are maintained in [docs/implementation_status.md](docs/implementation_status.md).
+
+For a running local API in explicit development simulation mode, use the existing smoke script:
+
+```powershell
+.venv\Scripts\python.exe scripts/smoke_live.py
+```
+
 ## Model and metric evidence
 
 Tracked reports under `reports/` are development artifacts, not production qualification results. The existing `data/evaluation` files overlap the tracked training validation split; therefore those results must not be presented as an independent test-set estimate.

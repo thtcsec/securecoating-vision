@@ -22,6 +22,10 @@ uvicorn src.api.main:app --host 127.0.0.1 --port 8000 --workers 1
 
 该模式仅限可信开发工作站，不得对外网开放。Dashboard 是本地只读仿真视图，不拥有真实 PLC 控制权。
 
+## 实施状态与升级计划
+
+分阶段功能清单、验证证据、发布门槛和后续计划见 [docs/implementation_status.md](docs/implementation_status.md)。文档明确区分代码测试、本地仿真、硬件在环和工厂验证，避免把未验证内容当作已完成能力。
+
 ## 验证命令
 
 ```powershell
