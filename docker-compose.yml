@@ -53,6 +53,8 @@ services:
       CALIBRATION_CONFIG: configs/calibration.yaml
       PYTHONPATH: /app
       SECURECOATING_ENV: ${SECURECOATING_ENV:-production}
+      SECURECOATING_API_URL: http://api:8000
+      SECURECOATING_API_KEY: ${SECURECOATING_API_KEY:-}
       SECURECOATING_FACTORY_SECRET: ${SECURECOATING_FACTORY_SECRET:-}
     volumes:
       - ./outputs:/app/outputs

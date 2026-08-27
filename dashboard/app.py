@@ -22,9 +22,11 @@ import yaml
 import numpy as np
 import cv2
 import pandas as pd
+import requests
 import streamlit as st
 import plotly.graph_objects as go
 import plotly.express as px
+from api_client import InspectionApiClient
 
 # Page configuration
 st.set_page_config(
@@ -157,6 +159,34 @@ pipeline = MultiStageIndustrialPipeline(
 db_path = app_config.get("paths", {}).get("db_path", "data/quality_history.db")
 quality_mem = QualityMemory(db_path)
 
+api_client = InspectionApiClient(
+    base_url=os.environ.get("SECURECOATING_API_URL", "http://127.0.0.1:8000"),
+    api_key=os.environ.get("SECURECOATING_API_KEY", ""),
+)
+api_online = True
+api_error = ""
+try:
+    api_health = api_client.health()
+    api_roll_id = os.environ.get("SECURECOATING_ACTIVE_ROLL_ID", "ROLL_2026_CATL_001")
+    api_roll = api_client.roll_map(api_roll_id)
+    api_summary = api_roll["summary"]
+    api_batch_id = api_summary["batch_id"]
+    api_stats = api_client.batch_stats(api_batch_id)
+    api_spc = api_client.batch_spc(api_batch_id)
+    api_plc_state = api_client.industrial_state()
+    api_passport = api_client.passport()
+except (OSError, ValueError, KeyError, requests.RequestException) as exc:
+    api_online = False
+    api_error = str(exc)
+    api_health = {}
+    api_roll = {}
+    api_summary = web_sync.get_roll_defect_summary()
+    api_batch_id = web_sync.roll.batch_id
+    api_stats = quality_mem.get_batch_stats(api_batch_id)
+    api_spc = quality_mem.check_spc_alarms(api_batch_id)
+    api_plc_state = industrial_mgr.get_plc_state()
+    api_passport = pipeline.get_gigafactory_spc_summary()
+
 # Initialize Session State
 if "inspection_history" not in st.session_state:
     st.session_state.inspection_history = []
@@ -181,9 +211,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Top 6 Telemetry Metrics
-roll_summary = web_sync.get_roll_defect_summary()
-stats = quality_mem.get_batch_stats(web_sync.roll.batch_id)
-spc = quality_mem.check_spc_alarms(web_sync.roll.batch_id)
+roll_summary = api_summary
+stats = api_stats
+spc = api_spc
+if not api_online:
+    st.warning(f"Authoritative API unavailable; showing isolated local sandbox data: {api_error}")
 
 m1, m2, m3, m4, m5, m6 = st.columns(6)
 with m1:
@@ -422,7 +454,7 @@ with tabs[1]:
 # -------------------------------------------------------------------------
 with tabs[2]:
     st.markdown("<h4 style='color:#FFF;'>Continuous 1,200m Roll Defect Map (Digital Twin Waterfall View)</h4>", unsafe_allow_html=True)
-    roll_defects = web_sync.roll_defect_map
+    roll_defects = api_roll.get("defect_records", []) if api_online else web_sync.roll_defect_map
     
     if not roll_defects:
         st.info("No defects logged on the active roll yet. Run inspections to populate the digital twin.")
@@ -437,9 +469,9 @@ with tabs[2]:
             color="class_name",
             size="area_mm2",
             hover_data=["defect_id", "lane_id", "peak_height_um", "severity"],
-            title=f"Roll Defect Map: {web_sync.roll.roll_id} (Total Length: {web_sync.roll.total_length_m:.0f}m, Web Width: 650mm)",
+            title=f"Roll Defect Map: {roll_summary['roll_id']} (Total Length: {roll_summary['total_roll_length_m']:.0f}m, Web Width: 650mm)",
             labels={"linear_pos_m": "Roll Length X (Meters)", "cross_pos_mm": "Cross-Web Width Y (mm)"},
-            range_x=[0, max(100.0, web_sync.current_pos_m + 10.0)],
+            range_x=[0, max(100.0, roll_summary['inspected_length_m'] + 10.0)],
             range_y=[0, 650.0]
         )
         fig_map.update_layout(paper_bgcolor="#0E121B", plot_bgcolor="#131824", font_color="#FFF", height=450)
@@ -547,7 +579,7 @@ with tabs[4]:
 # -------------------------------------------------------------------------
 with tabs[5]:
     st.markdown("<h4 style='color:#FFF;'>Industrial Hardware, Optical Budget & P99.9 Latency Determinism</h4>", unsafe_allow_html=True)
-    plc_state = industrial_mgr.get_plc_state()
+    plc_state = api_plc_state
     opt_budget = pipeline.optical_budget.compute_budget(line_speed_m_s=web_sync.line_speed_m_s)
     lat_budget = pipeline.latency_budget.compute_budget(line_speed_m_s=web_sync.line_speed_m_s)
     
@@ -597,7 +629,7 @@ with tabs[5]:
 # -------------------------------------------------------------------------
 with tabs[6]:
     st.markdown("<h4 style='color:#FFF;'>Experimental Defect Density, Spatial Periodicity & Slitting Model</h4>", unsafe_allow_html=True)
-    passport_data = pipeline.get_gigafactory_spc_summary()
+    passport_data = api_passport
     
     col_s1, col_s2 = st.columns(2)
     with col_s1:

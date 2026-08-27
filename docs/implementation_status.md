@@ -73,6 +73,8 @@ This document is the project status ledger. A feature is marked **verified** onl
 - [x] Liveness is separated from readiness/health.
 - [x] Environment examples distinguish local simulation from production configuration.
 - [x] Dashboard is read-only and does not create a second live PLC command owner.
+- [x] Dashboard reads authoritative health, roll, batch, SPC, PLC, and passport telemetry from the API when available.
+- [x] Dashboard API client has bounded requests and explicit HTTP/JSON error handling.
 - [ ] Build and run the image with Docker Desktop or CI; local Docker daemon was unavailable during the 2026-08-26 review.
 - [ ] Add CI for tests, compile, dependency checks, Docker build, and release artifact checks.
 - [ ] Add dashboard AppTest or browser smoke coverage.
@@ -108,7 +110,7 @@ A release may be called **research/demo-ready** only when automated tests and ev
 
 ## Next Execution Plan
 
-1. **Next engineering slice**: connect the read-only dashboard to authenticated API reads and add dashboard/browser smoke coverage.
+1. **Next engineering slice**: add dashboard/browser smoke coverage and verify API-backed telemetry against a running Compose stack.
 2. **Next integration slice**: run a PLC simulator/HIL matrix for OPC UA/Modbus readback and failure modes.
 3. **Next evidence slice**: create an immutable roll-disjoint manifest and rerun evaluation; publish only metrics produced by that manifest.
 4. **Next deployment slice**: restore Docker daemon, build the locked image, run liveness/readiness checks as non-root, and document rollback.
