@@ -79,12 +79,13 @@ Evaluation requires a real ONNX artifact. Missing models, malformed labels, unde
 ```powershell
 .venv\Scripts\python.exe scripts/run_evaluation.py `
   --dataset-dir <independent-roll-test-set> `
+  --dataset-manifest <immutable-roll-disjoint-manifest.json> `
   --model-path <exported-model.onnx> `
   --ultralytics-model-path <source-model.pt> `
   --ultralytics-data-config <matching-dataset.yaml>
 ```
 
-Before publishing results, prove by hash that the evaluation set does not overlap train/validation data and record the model, dataset and commit hashes.
+The manifest must contain non-empty `train`, `val`, and `test` lists. Each entry must include `path`, `roll_id`, and SHA-256; roll IDs may not cross splits, and the test list must exactly match the evaluation image directory. Before publishing results, prove by hash that the evaluation set does not overlap train/validation data and record the model, dataset, manifest, and commit hashes.
 
 ## Training
 

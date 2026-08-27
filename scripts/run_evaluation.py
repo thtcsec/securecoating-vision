@@ -63,6 +63,8 @@ def parse_args():
                         help="Dataset YAML matching --dataset-dir; required with --ultralytics-model-path")
     parser.add_argument("--reference-dataset-dir", default="data/coating_defects",
                         help="Training dataset root used for mandatory hash-overlap audit")
+    parser.add_argument("--dataset-manifest", required=True,
+                        help="Immutable JSON manifest with train/val/test roll IDs and SHA-256 files")
     return parser.parse_args()
 
 
@@ -310,6 +312,7 @@ def run_evaluation(
     ultralytics_model_path: str = None,
     ultralytics_data_config: str = None,
     reference_dataset_dir: str = "data/coating_defects",
+    dataset_manifest: str = None,
 ):
     """
     Main evaluation pipeline: runs inference on all images, evaluates Box/Mask metrics,
@@ -326,6 +329,12 @@ def run_evaluation(
 
     if not os.path.isdir(images_dir):
         raise FileNotFoundError(f"Evaluation images directory not found: {images_dir}")
+    if not dataset_manifest:
+        raise ValueError("dataset_manifest is required for evaluation provenance")
+    from evaluation.dataset_manifest import validate_roll_disjoint_manifest
+    manifest_summary = validate_roll_disjoint_manifest(
+        dataset_manifest, PROJECT_ROOT, evaluation_dataset_dir=dataset_dir
+    )
     assert_no_dataset_overlap(images_dir, reference_dataset_dir)
 
     # Initialize ONNX inference engine
@@ -510,10 +519,11 @@ def run_evaluation(
             "model_path": os.path.relpath(model_path, PROJECT_ROOT),
             "model_sha256": _file_sha256(model_path),
             "dataset_sha256": _dataset_sha256(dataset_dir),
+            "roll_disjoint_manifest": manifest_summary,
             "source_commit": _git_commit(),
             "matching_policy": (
-                "class-aware, confidence-descending, one-to-one greedy matching; "
-                "bbox and instance-mask matches evaluated independently"
+                "class-aware, confidence-descending, one-to-one greedy bbox matching; "
+                "mask metrics evaluated on the same matched instance pair"
             ),
             "box_format": "xyxy",
         },
@@ -585,4 +595,5 @@ if __name__ == "__main__":
         ultralytics_model_path=args.ultralytics_model_path,
         ultralytics_data_config=args.ultralytics_data_config,
         reference_dataset_dir=args.reference_dataset_dir,
+        dataset_manifest=args.dataset_manifest,
     )

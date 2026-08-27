@@ -3,6 +3,8 @@
 import sys
 import tempfile
 import unittest
+import hashlib
+import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -11,6 +13,7 @@ sys.path.insert(0, str(ROOT))
 import numpy as np
 
 from scripts.run_evaluation import assert_no_dataset_overlap, evaluate_sample_predictions
+from src.evaluation.dataset_manifest import validate_roll_disjoint_manifest
 
 
 class TestEvaluationIntegrity(unittest.TestCase):
@@ -73,6 +76,43 @@ class TestEvaluationIntegrity(unittest.TestCase):
         self.assertEqual(result["mask_tp"], 0)
         self.assertEqual(result["mask_fp"], 1)
         self.assertEqual(result["mask_fn"], 1)
+
+    def test_manifest_rejects_roll_overlap(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            artifacts = root / "artifacts"
+            artifacts.mkdir()
+            paths = {}
+            for name in ("train.jpg", "val.jpg", "test.jpg"):
+                path = artifacts / name
+                path.write_bytes(name.encode("ascii"))
+                paths[name] = hashlib.sha256(path.read_bytes()).hexdigest()
+            manifest = root / "manifest.json"
+            manifest.write_text(json.dumps({"splits": {
+                "train": [{"path": "artifacts/train.jpg", "roll_id": "R1", "sha256": paths["train.jpg"]}],
+                "val": [{"path": "artifacts/val.jpg", "roll_id": "R1", "sha256": paths["val.jpg"]}],
+                "test": [{"path": "artifacts/test.jpg", "roll_id": "R2", "sha256": paths["test.jpg"]}],
+            }}), encoding="utf-8")
+            with self.assertRaises(ValueError):
+                validate_roll_disjoint_manifest(str(manifest), str(root))
+
+    def test_manifest_test_split_must_match_evaluation_images(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "evaluation" / "images").mkdir(parents=True)
+            image = root / "evaluation" / "images" / "test.jpg"
+            image.write_bytes(b"test")
+            digest = hashlib.sha256(image.read_bytes()).hexdigest()
+            manifest = root / "manifest.json"
+            manifest.write_text(json.dumps({"splits": {
+                "train": [{"path": "evaluation/images/test.jpg", "roll_id": "R1", "sha256": digest}],
+                "val": [{"path": "evaluation/images/test.jpg", "roll_id": "R2", "sha256": digest}],
+                "test": [{"path": "evaluation/images/test.jpg", "roll_id": "R3", "sha256": digest}],
+            }}), encoding="utf-8")
+            with self.assertRaises(ValueError):
+                validate_roll_disjoint_manifest(
+                    str(manifest), str(root), str(root / "evaluation")
+                )
 
 
 if __name__ == "__main__":

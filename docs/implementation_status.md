@@ -67,7 +67,8 @@ This document is the project status ledger. A feature is marked **verified** onl
 - [x] Missing or untrained fallback models cannot be treated as production-ready inference.
 - [x] ONNX post-processing has regression coverage for mask bounds and confidence output.
 - [x] Box and mask evaluation metrics use one shared prediction-to-ground-truth instance match.
-- [ ] Prove train/validation/test group separation with immutable roll IDs and hashes.
+- [x] Evaluation requires a hash-verified manifest with non-overlapping train/val/test roll IDs.
+- [ ] Supply a real independent roll-disjoint manifest and publish metrics from it.
 - [ ] Run clean-surface false-positive, hard-negative, and defect false-negative suites.
 - [ ] Measure POD, escape rate, confidence intervals, and performance on independent factory data.
 - [ ] Add ONNX-vs-source-model parity and multi-resolution calibration tests.
