@@ -1,0 +1,45 @@
+name: SecureCoating Vision CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-lock.txt
+
+      - name: Install locked dependencies
+        run: python -m pip install -r requirements-lock.txt
+
+      - name: Compile Python sources
+        run: python -m compileall -q src dashboard scripts tests
+
+      - name: Check installed dependencies
+        run: python -m pip check
+
+      - name: Run tests and reject skipped tests
+        run: |
+          python -m pytest -q -ra --junitxml=test-results.xml
+          python -c "import xml.etree.ElementTree as ET; r=ET.parse('test-results.xml').getroot(); s=int(r.attrib.get('skipped', '0')); assert s == 0, f'{s} tests skipped'"
+
+      - name: Validate Compose configuration
+        run: docker compose config
+
+      - name: Audit dependencies
+        run: python -m pip install pip-audit && pip-audit -r requirements-lock.txt
