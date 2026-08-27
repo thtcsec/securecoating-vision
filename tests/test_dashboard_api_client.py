@@ -24,11 +24,20 @@ class TestInspectionApiClient(unittest.TestCase):
             headers={"x-api-key": "secret"},
             timeout=2,
         )
-        response.raise_for_status.assert_called_once_with()
+        response.raise_for_status.assert_not_called()
+
+    def test_degraded_health_is_authoritative_not_offline_fallback(self):
+        client = InspectionApiClient("http://api.local")
+        response = Mock(status_code=503)
+        response.json.return_value = {"status": "DEGRADED", "system_state": "EMERGENCY"}
+        with patch.object(client.session, "get", return_value=response):
+            payload = client.health()
+        self.assertEqual(payload["status"], "DEGRADED")
+        response.raise_for_status.assert_not_called()
 
     def test_http_errors_are_not_hidden(self):
         client = InspectionApiClient("http://api.local")
-        response = Mock()
+        response = Mock(status_code=503)
         response.raise_for_status.side_effect = RuntimeError("503")
         with patch.object(client.session, "get", return_value=response):
             with self.assertRaises(RuntimeError):
@@ -36,7 +45,7 @@ class TestInspectionApiClient(unittest.TestCase):
 
     def test_non_object_json_is_rejected(self):
         client = InspectionApiClient("http://api.local")
-        response = Mock()
+        response = Mock(status_code=200)
         response.json.return_value = []
         with patch.object(client.session, "get", return_value=response):
             with self.assertRaises(ValueError):

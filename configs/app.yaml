@@ -26,6 +26,9 @@ paths:
 industrial_io:
   enabled: true
   mock_mode: true # Set to false in actual production with PLC connected
+  # Exactly one protocol owns commands. The other may be used for read-only telemetry.
+  command_channel: "opc_ua" # opc_ua | modbus
+  ack_timeout_seconds: 0.75
   plc_ip: "192.168.1.100"
   opc_ua:
     endpoint: "opc.tcp://192.168.1.100:4840"
@@ -33,6 +36,8 @@ industrial_io:
     node_id_trigger: "ns=2;s=Device1.LineTrigger"
     node_id_hold: "ns=2;s=Device1.Hold"
     node_id_estop: "ns=2;s=Device1.EStop"
+    node_id_command_sequence: "ns=2;s=Device1.CommandSequence"
+    node_id_ack_sequence: "ns=2;s=Device1.AckSequence"
     security_policy: "Basic256Sha256"
     security_mode: "SignAndEncrypt"
     client_certificate: ""
@@ -44,4 +49,6 @@ industrial_io:
     register_reject: 1001
     register_estop: 1005
     register_hold: 1006
+    register_command_sequence: 1010
+    register_ack_sequence: 1011
     trusted_gateway: false

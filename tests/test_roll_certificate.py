@@ -49,7 +49,7 @@ class TestRollCertificate(unittest.TestCase):
             metric_provenance="unit-test fixture",
         )
         md = cert.to_markdown()
-        self.assertIn("Battery Electrode Quality Inspection Certificate", md)
+        self.assertIn("Provisional Battery Electrode Quality Manifest", md)
         self.assertIn("HMAC", md)
 
         data = cert.to_dict()

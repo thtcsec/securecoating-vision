@@ -1,7 +1,7 @@
 """
 SecureCoating-Vision: Fail-Safe & Graceful Degradation Module
 ==============================================================
-Implements production-grade fault tolerance for the inspection system:
+Implements prototype fail-closed fault handling for the inspection system:
 
 1. Sensor Disconnection Handling: Auto-detects when thermal/3D sensors go offline
    and seamlessly falls back to RGB-only detection with reduced capabilities.
@@ -121,6 +121,9 @@ class FailSafeManager:
         self._start_time = time.time()
         self._state_lock = threading.RLock()
         self._active_inference_worker: Optional[threading.Thread] = None
+        self._inference_interlock_latched = False
+        self._inference_interlock_reason = ""
+        self._reset_probe_permitted = False
 
         logger.info(f"FailSafeManager initialized (timeout={max_inference_timeout_ms}ms)")
 
@@ -246,6 +249,8 @@ class FailSafeManager:
         """Update system state based on current health metrics."""
         if not self.health.rgb_sensor_ok:
             self.health.state = SystemState.OFFLINE
+        elif self._inference_interlock_latched:
+            self.health.state = SystemState.EMERGENCY
         elif self.health.consecutive_failures >= self.MAX_CONSECUTIVE_FAILURES:
             self.health.state = SystemState.EMERGENCY
         elif not self.health.thermal_sensor_ok or not self.health.profiler_sensor_ok:
@@ -259,7 +264,38 @@ class FailSafeManager:
         """Return True only when inference and every required sensor are healthy."""
         with self._state_lock:
             self._update_system_state()
-            return self.health.state == SystemState.OPTIMAL
+            return (
+                self.health.state == SystemState.OPTIMAL
+                and not self._inference_interlock_latched
+            )
+
+    @property
+    def inference_interlock_latched(self) -> bool:
+        with self._state_lock:
+            return self._inference_interlock_latched
+
+    def latch_inference_interlock(self, reason: str) -> None:
+        """Latch inference unsafe until an authenticated operator requests a probe."""
+        with self._state_lock:
+            self._inference_interlock_latched = True
+            self._inference_interlock_reason = reason
+            self._reset_probe_permitted = False
+            self.health.model_inference_ok = False
+            self._update_system_state()
+
+    def request_inference_reset_probe(self) -> bool:
+        """Permit exactly one recovery probe after the timed-out worker has exited."""
+        with self._state_lock:
+            if (
+                self._active_inference_worker is not None
+                and self._active_inference_worker.is_alive()
+            ):
+                return False
+            self._active_inference_worker = None
+            self._reset_probe_permitted = True
+            self.health.model_inference_ok = False
+            self._update_system_state()
+            return True
 
     def safe_predict(
         self,
@@ -305,6 +341,18 @@ class FailSafeManager:
                     optical, reason="Inference circuit open after timeout"
                 )
             self._active_inference_worker = None
+            if self._inference_interlock_latched and not self._reset_probe_permitted:
+                return self._emergency_result(
+                    optical,
+                    reason=(
+                        "Inference interlock latched; authenticated operator reset required: "
+                        f"{self._inference_interlock_reason}"
+                    ),
+                )
+            recovery_probe = self._inference_interlock_latched and self._reset_probe_permitted
+            if recovery_probe:
+                # A reset authorizes one probe only. A failed probe remains latched.
+                self._reset_probe_permitted = False
 
         # --- Gate 1: Primary sensor validation ---
         if self.enable_frame_validation:
@@ -352,6 +400,7 @@ class FailSafeManager:
                     f"(limit: {self.max_inference_timeout_ms:.0f}ms)"
                 )
                 self._update_system_state()
+                self.latch_inference_interlock("Inference timeout")
                 return self._emergency_result(optical, reason="Inference timeout")
 
             succeeded, value = result_queue.get_nowait()
@@ -379,7 +428,14 @@ class FailSafeManager:
             if result.get("fallback_active", False):
                 self.health.total_fallback_activations += 1
 
-            self._update_system_state()
+            with self._state_lock:
+                if is_trained_model and recovery_probe:
+                    self._inference_interlock_latched = False
+                    self._inference_interlock_reason = ""
+                elif not is_trained_model:
+                    self._inference_interlock_latched = True
+                    self._inference_interlock_reason = "Untrained fallback model"
+                self._update_system_state()
 
             # Enrich result with fail-safe metadata
             result["system_state"] = self.health.state.value
@@ -400,6 +456,7 @@ class FailSafeManager:
                 f"Out of Memory during inference: {str(e)}"
             )
             self._update_system_state()
+            self.latch_inference_interlock("Inference out of memory")
             return self._emergency_result(optical, reason="OOM Error - reduce batch/resolution")
 
         except RuntimeError as e:
@@ -411,6 +468,7 @@ class FailSafeManager:
                 f"Runtime error during inference: {str(e)[:200]}"
             )
             self._update_system_state()
+            self.latch_inference_interlock(f"Runtime inference failure: {str(e)[:160]}")
 
             # A primary model runtime failure is not safe to downgrade into an
             # automatic decision path; recovery requires an explicit operator action.
@@ -426,6 +484,9 @@ class FailSafeManager:
             )
             logger.error(f"Unexpected inference error:\n{traceback.format_exc()}")
             self._update_system_state()
+            self.latch_inference_interlock(
+                f"Unexpected inference failure: {type(e).__name__}: {str(e)[:120]}"
+            )
             return self._emergency_result(optical, reason=f"{type(e).__name__}: {str(e)[:100]}")
 
     def _fallback_rgb_only(self, predictor, optical: np.ndarray) -> Dict[str, Any]:
@@ -478,6 +539,9 @@ class FailSafeManager:
             },
             "inference": {
                 "model_ok": self.health.model_inference_ok,
+                "interlock_latched": self._inference_interlock_latched,
+                "interlock_reason": self._inference_interlock_reason,
+                "reset_probe_permitted": self._reset_probe_permitted,
                 "last_latency_ms": round(self.health.last_successful_inference_ms, 2),
                 "consecutive_failures": self.health.consecutive_failures,
                 "total_fallback_activations": self.health.total_fallback_activations,

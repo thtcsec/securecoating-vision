@@ -33,17 +33,16 @@
 
 ### Minute 3: Edge Computing & Low Latency Optimization
 *   **Model Pipeline:** Powered by YOLOv8n-seg compiled into ONNX Runtime engine.
-*   **Real-Time Latency:** Standalone ONNX inference achieves **8.7 ms per frame** on GPU (RTX 4050) and **44.5 ms** on CPU, while end-to-end pipeline latency is **12.5 ms** on GPU.
+*   **Latency Positioning:** The repository contains modeled budgets and historical development artifacts, but no currently accepted hardware benchmark manifest. Do not quote GPU, end-to-end, or camera-to-ejector latency until the target-hardware run is hash-recorded.
 
 ### Minute 4: Industrial Traceability & Fail-Safe Integration
 *   **Quality Memory:** Converts raw pixel masks into actionable industrial decisions. Every frame is tagged with `Batch_ID`, `Roll_ID`, and spatial offsets stored in a relational Quality Memory DB.
-*   **Fail-Safe Degradation:** If secondary sensors fail or disconnect, the system auto-degrades gracefully to single-source optical processing without dropping conveyor throughput.
-*   **PLC Signaling:** Emulates OPC UA / Modbus TCP registers for instant physical reject gate trigger signals.
+*   **Fail-Safe Behavior:** A required sensor, model, inference, database, calibration, or PLC fault latches/requests `HOLD`; the prototype does not claim uninterrupted production throughput.
+*   **PLC Signaling:** Local demonstrations simulate command sequences. Physical action and ACK timing remain pending vendor PLC HIL.
 
 ### Minute 5: Quantitative Baseline & Failure Analysis
-*   **Reproducible Baseline:** "On the included 50-image demonstration evaluation subset, the current RGB ONNX baseline achieves 54.1% precision, 66.7% recall, and 59.7% F1 at IoU 0.50."
-*   **Class Sensitivity:** "The model achieves 100% recall for void and blister defects, while scratch sensitivity and delamination classification remain the main improvement areas."
-*   **Realistic Positioning:** "These results establish a reproducible prototype baseline rather than a production-ready accuracy claim, giving us a clear fine-tuning roadmap for factory dataset integration."
+*   **Evidence Status:** "The tracked 50-image demonstration result is invalid as independent performance evidence because its images overlap a development validation split. Its JSON artifact reports box precision 50.0%, recall 66.67%, and F1 57.14% at IoU 0.50; these values must not be presented as factory generalization metrics."
+*   **Next Gate:** Publish metrics only from an immutable roll-disjoint test manifest with model/dataset/commit hashes and confidence intervals.
 
 ### Minute 6: Market Impact & Business Strategy
 *   **Deployment Strategy:** High-probability "Private Pilot" model—integrating as a software-overlay on existing industrial camera gateways.

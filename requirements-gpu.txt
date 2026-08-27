@@ -1,7 +1,7 @@
-# SecureCoating-Vision: GPU CUDA Accelerated Dependencies
-# Use this file if deploying on NVIDIA RTX / Jetson edge devices with CUDA 12
+# Tested NVIDIA RTX environment (driver supports CUDA 13.x).
+-r requirements-core.txt
 
--r requirements.txt
-
-# GPU Accelerated ONNX Runtime
+--extra-index-url https://download.pytorch.org/whl/cu130
+torch==2.13.0+cu130
+torchvision==0.28.0+cu130
 onnxruntime-gpu==1.19.2

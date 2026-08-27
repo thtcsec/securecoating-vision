@@ -6,4 +6,6 @@ if (-not (Test-Path $py)) {
     Write-Host "Missing .venv. Create with: python -m venv .venv"
     exit 1
 }
+if (-not $env:SECURECOATING_ENV) { $env:SECURECOATING_ENV = "development" }
+if (-not $env:SECURECOATING_DASHBOARD_SANDBOX) { $env:SECURECOATING_DASHBOARD_SANDBOX = "true" }
 & $py -m streamlit run dashboard/app.py --server.address 127.0.0.1 --server.port 8501

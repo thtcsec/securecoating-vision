@@ -8,7 +8,7 @@ Features:
 2. Synchronized 4-Way Multi-Modal Sensor Split (Brightfield, Darkfield, Thermography Phase, 3D Laser)
 3. Interactive 3D Defect Topography Surface Mesh (Plotly 3D)
 4. 1,200m Jumbo Roll Digital Twin Defect Map (Waterfall View)
-5. Physics-Informed Battery Electrode Metrology (GB/T 38823-2020, Micro-Short Hazard Index)
+5. Prototype Battery Electrode Metrology (engineering policy only)
 6. AI Closed-Loop Equipment Parameter Tuning Feedback (Slot-Die, Drying Oven, Mixer)
 7. Industrial Telemetry (OPC UA Node Tree, Modbus TCP Hex Table, Latency Jitter)
 8. Cryptographic Tamper-Evident Digital Roll Quality Certificate (SHA-256)
@@ -18,6 +18,7 @@ import os
 import sys
 import time
 import datetime
+import json
 import yaml
 import numpy as np
 import cv2
@@ -26,7 +27,7 @@ import requests
 import streamlit as st
 import plotly.graph_objects as go
 import plotly.express as px
-from api_client import InspectionApiClient
+from dashboard.api_client import InspectionApiClient
 
 # Page configuration
 st.set_page_config(
@@ -108,6 +109,12 @@ with open("configs/model.yaml", "r") as f:
 with open("configs/app.yaml", "r") as f:
     app_config = yaml.safe_load(f)
 
+DASHBOARD_SANDBOX_ENABLED = (
+    os.environ.get("SECURECOATING_ENV", "production").lower() in {"development", "test"}
+    and os.environ.get("SECURECOATING_DASHBOARD_SANDBOX", "false").lower()
+    in {"1", "true", "yes"}
+)
+
 # Singleton Resource Initializers
 @st.cache_resource
 def get_predictor():
@@ -167,9 +174,14 @@ api_online = True
 api_error = ""
 try:
     api_health = api_client.health()
-    api_roll_id = os.environ.get("SECURECOATING_ACTIVE_ROLL_ID", "ROLL_2026_CATL_001")
-    api_roll = api_client.roll_map(api_roll_id)
+    configured_roll_id = os.environ.get("SECURECOATING_ACTIVE_ROLL_ID", "").strip()
+    api_roll = (
+        api_client.roll_map(configured_roll_id)
+        if configured_roll_id
+        else api_client.active_roll()
+    )
     api_summary = api_roll["summary"]
+    api_roll_id = api_summary["roll_id"]
     api_batch_id = api_summary["batch_id"]
     api_stats = api_client.batch_stats(api_batch_id)
     api_spc = api_client.batch_spc(api_batch_id)
@@ -178,6 +190,12 @@ try:
 except (OSError, ValueError, KeyError, requests.RequestException) as exc:
     api_online = False
     api_error = str(exc)
+    if not DASHBOARD_SANDBOX_ENABLED:
+        st.error(
+            "Authoritative API unavailable. Production dashboard refuses local fallback. "
+            f"Details: {api_error}"
+        )
+        st.stop()
     api_health = {}
     api_roll = {}
     api_summary = web_sync.get_roll_defect_summary()
@@ -196,16 +214,22 @@ if "last_pipeline_result" not in st.session_state:
 # =========================================================================
 # HEADER & SCADA TELEMETRY BAR
 # =========================================================================
-st.markdown("""
+dashboard_badges = (
+    '<span class="stage-badge stage-done">● AUTHORITATIVE API</span>'
+    '<span class="stage-badge" style="background:#263238; color:#90A4AE;">READ ONLY</span>'
+    if api_online
+    else
+    '<span class="stage-badge stage-warn">● ISOLATED SANDBOX</span>'
+    '<span class="stage-badge" style="background:#263238; color:#90A4AE;">PLC CONTROL DISABLED</span>'
+)
+st.markdown(f"""
 <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #222C3E; padding-bottom:12px; margin-bottom:15px;">
     <div>
         <h2 style="color:#FFFFFF; margin:0; font-weight:800; font-size:24px;">⚡ SecureCoating-Vision | SCADA Industrial Inspection Terminal</h2>
-        <span style="color:#8C9BAE; font-size:12px;">Multi-Modal Inline Battery Electrode Quality Metrology &middot; Plant QA Spec & GB 38031-2025 Baseline</span>
+        <span style="color:#8C9BAE; font-size:12px;">Research inspection telemetry &middot; no regulatory conformity claim</span>
     </div>
     <div>
-        <span class="stage-badge stage-warn">● LOCAL SIMULATION</span>
-        <span class="stage-badge" style="background:#263238; color:#90A4AE;">PLC CONTROL DISABLED</span>
-        <span class="stage-badge" style="background:#1A237E; color:#8C9EFF;">YOLOv8-seg FP16</span>
+        {dashboard_badges}
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -221,7 +245,7 @@ m1, m2, m3, m4, m5, m6 = st.columns(6)
 with m1:
     st.markdown(f"""<div class="scada-metric-card">
         <div class="metric-label">Line Velocity</div>
-        <div class="metric-val">{web_sync.line_speed_m_s:.2f} <span style="font-size:14px; color:#8C9BAE;">m/s</span></div>
+        <div class="metric-val">{float(roll_summary.get('line_speed_m_s', 0.0)):.2f} <span style="font-size:14px; color:#8C9BAE;">m/s</span></div>
     </div>""", unsafe_allow_html=True)
 with m2:
     st.markdown(f"""<div class="scada-metric-card" style="border-left-color:#00E676;">
@@ -249,7 +273,7 @@ with m5:
         <div class="metric-val {spc_color}">{spc_st}</div>
     </div>""", unsafe_allow_html=True)
 with m6:
-    sys_st = failsafe.system_state.value
+    sys_st = api_health.get("system_state", failsafe.system_state.value)
     sys_col = "status-optimal" if sys_st == "OPTIMAL" else "status-warning"
     st.markdown(f"""<div class="scada-metric-card" style="border-left-color:#00E5FF;">
         <div class="metric-label">Fail-Safe Health</div>
@@ -267,7 +291,8 @@ electrode_type = st.sidebar.selectbox(
     index=0
 )
 line_speed_slider = st.sidebar.slider("Line Velocity (m/s)", 0.5, 3.0, 1.8, 0.1)
-web_sync.set_line_speed(line_speed_slider)
+if DASHBOARD_SANDBOX_ENABLED:
+    web_sync.set_line_speed(line_speed_slider)
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("<h3 style='color:#FFF;'>⚡ Trigger Inspection</h3>", unsafe_allow_html=True)
@@ -279,7 +304,12 @@ defect_injection = st.sidebar.selectbox(
 
 cross_pos = st.sidebar.slider("Cross-Web Position (mm)", 0.0, 650.0, 325.0, 10.0)
 
-if st.sidebar.button("🚀 TRIGGER 7-STAGE INSPECTION", type="primary", use_container_width=True):
+if st.sidebar.button(
+    "🚀 TRIGGER 7-STAGE INSPECTION",
+    type="primary",
+    use_container_width=True,
+    disabled=not DASHBOARD_SANDBOX_ENABLED,
+):
     # Map defect injection
     sim_map = {
         "Scratch (Doctor Blade Nick)": "scratch",
@@ -312,7 +342,7 @@ tabs = st.tabs([
     "📺 Live Multi-Stage Station",
     "🏔️ 3D Defect Topography",
     "📜 1,200m Roll Digital Twin",
-    "🔬 Battery Metrology & GB/T 38031",
+    "🔬 Prototype Battery Metrology",
     "⚙️ AI Closed-Loop Diagnostics",
     "🏭 Hardware & Protocol Telemetry",
     "📊 Gigafactory SPC & Slitting Yield",
@@ -498,10 +528,10 @@ with tabs[2]:
             """, unsafe_allow_html=True)
 
 # -------------------------------------------------------------------------
-# TAB 4: BATTERY METROLOGY & STANDARDS AUDIT (GB/T 38031 & Plant QA Spec)
+# TAB 4: PROTOTYPE BATTERY METROLOGY POLICY
 # -------------------------------------------------------------------------
 with tabs[3]:
-    st.markdown("<h4 style='color:#FFF;'>Quantitative Battery Safety Metrology (Plant QA Specification & GB/T 38031)</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color:#FFF;'>Prototype Battery Metrology (unqualified engineering thresholds)</h4>", unsafe_allow_html=True)
     if res is None:
         st.info("Trigger an inspection to evaluate electrochemical safety metrics.")
     else:
@@ -542,7 +572,7 @@ with tabs[3]:
             </div>
             """, unsafe_allow_html=True)
             if res.standards_compliant:
-                st.success("✅ **STATUS:** Fully Compliant with Plant QA Spec & GB/T 38031 Safety Baseline")
+                st.success("✅ Prototype policy checks passed for this simulated inspection; regulatory compliance is not established.")
             else:
                 st.error(f"❌ **NON-COMPLIANT:** {len(res.rejection_reasons)} clause violation(s) detected")
 
@@ -572,7 +602,7 @@ with tabs[4]:
                     if st.button(f"📲 Send Parameter Offset ({item['delta']}) to PLC", key=f"btn_{item['parameter']}"):
                         st.error("PLC parameter writes are disabled in the dashboard. Use an authenticated, audited control workflow.")
         else:
-            st.success("All upstream equipment operating within nominal closed-loop setpoints.")
+            st.info("No heuristic action item is available; equipment condition is NOT MEASURED here.")
 
 # -------------------------------------------------------------------------
 # TAB 6: INDUSTRIAL HARDWARE & REAL-TIME BUDGET TELEMETRY
@@ -580,14 +610,15 @@ with tabs[4]:
 with tabs[5]:
     st.markdown("<h4 style='color:#FFF;'>Industrial Hardware, Optical Budget & P99.9 Latency Determinism</h4>", unsafe_allow_html=True)
     plc_state = api_plc_state
-    opt_budget = pipeline.optical_budget.compute_budget(line_speed_m_s=web_sync.line_speed_m_s)
-    lat_budget = pipeline.latency_budget.compute_budget(line_speed_m_s=web_sync.line_speed_m_s)
+    displayed_line_speed = float(roll_summary.get("line_speed_m_s", 0.0))
+    opt_budget = pipeline.optical_budget.compute_budget(line_speed_m_s=displayed_line_speed)
+    lat_budget = pipeline.latency_budget.compute_budget(line_speed_m_s=displayed_line_speed)
     
     col_p1, col_p2 = st.columns(2)
     with col_p1:
         st.markdown(f"""
         <div class="scada-panel">
-            <h5 style="color:#FFF;">📷 Optical & Line-Scan Throughput Budget (v = {web_sync.line_speed_m_s} m/s)</h5>
+            <h5 style="color:#FFF;">📷 Modeled Optical Budget (v = {displayed_line_speed} m/s)</h5>
             <p><b>Spatial Resolution:</b> {opt_budget['spatial_resolution_x_um_per_px']} µm/px &middot; Coverage: {opt_budget['total_optical_coverage_mm']} mm</p>
             <p><b>Required Line Rate:</b> <b>{opt_budget['required_line_rate_khz']} kHz</b> (Period: {opt_budget['line_period_us']} µs)</p>
             <p><b>Recommended Exposure:</b> <b>{opt_budget['recommended_exposure_time_us']} µs</b> (Motion Blur: <b>{opt_budget['motion_blur_pixels']} px</b> &le; 0.5px)</p>
@@ -620,7 +651,7 @@ with tabs[5]:
             <h5 style="color:#FFF;">OPC UA Node Namespace Tree</h5>
             <p><code>ns=2;s=Device/Inspection/Verdict</code> &rarr; <b>{res.overall_verdict if res else 'NOMINAL'}</b></p>
             <p><code>ns=2;s=Device/Inspection/QualityTier</code> &rarr; <b>{res.quality_tier if res else 'GRADE_A'}</b></p>
-            <p><code>ns=2;s=Device/Motion/LineVelocity</code> &rarr; <b>{web_sync.line_speed_m_s:.2f} m/s</b></p>
+            <p><code>ns=2;s=Device/Motion/LineVelocity</code> &rarr; <b>{displayed_line_speed:.2f} m/s</b></p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -656,7 +687,7 @@ with tabs[6]:
                 &rarr; <b>Action:</b> {an['action']}</p>
                 """, unsafe_allow_html=True)
         else:
-            st.success("✅ Zero repeating periodic spatial patterns detected (All Guide Rollers & Slurry Pumps Nominal).")
+            st.info("No periodic pattern is available in the current data; equipment health is not inferred.")
         st.markdown("</div>", unsafe_allow_html=True)
 
     with col_s2:
@@ -674,7 +705,7 @@ with tabs[6]:
         
         st.markdown(f"""
         <div class="scada-panel">
-            <h5 style="color:#FFF;">🇪🇺 EU Battery Digital Product Passport (DPP) Header</h5>
+            <h5 style="color:#FFF;">Provisional Traceability Manifest (not an EU DPP)</h5>
             <p><b>Regulation:</b> <code>{passport_data.get('passport_standard')}</code></p>
             <p><b>Cleanroom Dew Point:</b> <b>{passport_data.get('traceability_genealogy',{}).get('cleanroom_dew_point_celsius')} °C</b></p>
             <p><b>Slurry Viscosity:</b> <b>{passport_data.get('traceability_genealogy',{}).get('slurry_viscosity_mpa_s')} mPa·s</b></p>
@@ -685,29 +716,38 @@ with tabs[6]:
 # TAB 8: QUALITY LOGS & DIGITAL ROLL CERTIFICATE
 # -------------------------------------------------------------------------
 with tabs[7]:
-    st.markdown("<h4 style='color:#FFF;'>Provisional Local Quality Manifest (HMAC-SHA256)</h4>", unsafe_allow_html=True)
-    
-    cert = RollCertificateGenerator.build_certificate(
-        roll_id=web_sync.roll.roll_id,
-        batch_id=web_sync.roll.batch_id,
-        inspected_length_m=web_sync.current_pos_m,
-        total_length_m=web_sync.roll.total_length_m,
-        defect_records=list(web_sync.roll_defect_map),
-        spc_status=spc.get("status", "IN CONTROL"),
-        root_cause_summary=res.root_cause_report['primary_root_cause'] if res else "Nominal",
-        electrode_type=electrode_type,
-        total_inspections=stats["total"] if stats["total"] else None,
-        failed_inspections=stats["failed"] if stats["total"] else None,
-        metric_provenance="Local dashboard simulation; not a production certificate",
-    )
+    st.markdown("<h4 style='color:#FFF;'>Provisional Tamper-Evident Quality Manifest (HMAC-SHA256)</h4>", unsafe_allow_html=True)
+    if api_online:
+        cert_payload = api_client.certificate(api_roll_id, api_batch_id)
+        cert_id = cert_payload["certificate_id"]
+        cert_markdown = None
+        signature_status = "API-SIGNED PAYLOAD; verify with the protected factory secret"
+    else:
+        cert = RollCertificateGenerator.build_certificate(
+            roll_id=web_sync.roll.roll_id,
+            batch_id=web_sync.roll.batch_id,
+            inspected_length_m=web_sync.current_pos_m,
+            total_length_m=web_sync.roll.total_length_m,
+            defect_records=list(web_sync.roll_defect_map),
+            spc_status=spc.get("status", "UNKNOWN"),
+            root_cause_summary=res.root_cause_report['primary_root_cause'] if res else "UNKNOWN",
+            electrode_type=electrode_type,
+            total_inspections=stats["total"] if stats["total"] else None,
+            failed_inspections=stats["failed"] if stats["total"] else None,
+            metric_provenance="Isolated dashboard sandbox; not a production certificate",
+        )
+        cert_payload = cert.to_dict()
+        cert_id = cert.certificate_id
+        cert_markdown = cert.to_markdown()
+        signature_status = "VALID IN THIS SANDBOX PROCESS" if cert.verify_signature() else "SIGNATURE MISMATCH"
     
     st.markdown(f"""
     <div class="scada-panel" style="border-left:4px solid #00E676;">
-        <p><b>Certificate ID:</b> <code>{cert.certificate_id}</code></p>
-        <p><b>Payload Digest (SHA-256):</b> <code>{cert.payload_hash_sha256}</code></p>
-        <p><b>Cryptographic HMAC Signature:</b> <code style="color:#00F2FE;">{cert.hmac_digital_signature}</code> (Algorithm: <code>{cert.signature_algorithm}</code>)</p>
-        <p><b>Signature Verification:</b> <span>{'VALID FOR THIS PROCESS' if cert.verify_signature() else 'SIGNATURE MISMATCH'}</span></p>
-        <p><b>Overall Quality Grade:</b> <span class="status-optimal">{cert.overall_quality_grade}</span> &middot; <b>Pass Rate:</b> {cert.pass_rate_pct:.1f}%</p>
+        <p><b>Certificate ID:</b> <code>{cert_id}</code></p>
+        <p><b>Payload Digest (SHA-256):</b> <code>{cert_payload['payload_hash_sha256']}</code></p>
+        <p><b>Cryptographic HMAC Signature:</b> <code style="color:#00F2FE;">{cert_payload['hmac_digital_signature']}</code> (Algorithm: <code>{cert_payload['signature_algorithm']}</code>)</p>
+        <p><b>Signature Status:</b> <span>{signature_status}</span></p>
+        <p><b>Overall Quality Grade:</b> <span>{cert_payload['overall_quality_grade']}</span> &middot; <b>Pass Rate:</b> {float(cert_payload['pass_rate_pct']):.1f}%</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -715,19 +755,22 @@ with tabs[7]:
     with col_dl1:
         st.download_button(
             "📥 Download Certificate (Markdown)",
-            data=cert.to_markdown(),
-            file_name=f"{cert.certificate_id}.md",
-            mime="text/markdown",
+            data=cert_markdown or json.dumps(cert_payload, indent=2),
+            file_name=f"{cert_id}.{'md' if cert_markdown else 'json'}",
+            mime="text/markdown" if cert_markdown else "application/json",
             use_container_width=True
         )
     with col_dl2:
         st.download_button(
             "📥 Export Certificate (JSON Manifest)",
-            data=pd.Series(cert.to_dict()).to_json(indent=2),
-            file_name=f"{cert.certificate_id}.json",
+            data=json.dumps(cert_payload, indent=2),
+            file_name=f"{cert_id}.json",
             mime="application/json",
             use_container_width=True
         )
         
     with st.expander("👁️ Preview Full Certificate Document", expanded=False):
-        st.markdown(cert.to_markdown())
+        if cert_markdown:
+            st.markdown(cert_markdown)
+        else:
+            st.json(cert_payload)

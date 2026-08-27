@@ -27,6 +27,14 @@ class FailingPredictor:
         raise RuntimeError("primary inference failed")
 
 
+class HealthyPredictor:
+    def predict(self, optical, thermal, height):
+        return {
+            "segmentation_mask": np.zeros(optical.shape[:2], dtype=np.uint8),
+            "untrained_fallback": False,
+        }
+
+
 class ErrorResponse:
     def isError(self):
         return True
@@ -41,6 +49,36 @@ class ErrorModbusClient:
 
     def write_register(self, *args, **kwargs):
         return ErrorResponse()
+
+    def close(self):
+        pass
+
+
+class RegisterResponse:
+    def __init__(self, registers=None):
+        self.registers = registers or []
+
+    def isError(self):
+        return False
+
+
+class AckingModbusClient:
+    registers = {}
+
+    def __init__(self, *args, **kwargs):
+        self.__class__.registers = {}
+
+    def connect(self):
+        return True
+
+    def write_register(self, address, value, **kwargs):
+        self.registers[address] = value
+        if address == 1010:
+            self.registers[1011] = value
+        return RegisterResponse()
+
+    def read_holding_registers(self, address, **kwargs):
+        return RegisterResponse([self.registers.get(address, 0)])
 
     def close(self):
         pass
@@ -68,6 +106,13 @@ class TestSafetyContracts(unittest.TestCase):
         result = manager.safe_predict(FailingPredictor(), optical=optical)
         self.assertEqual(result["system_state"], SystemState.EMERGENCY.value)
         self.assertNotEqual(result.get("system_state"), SystemState.OPTIMAL.value)
+        blocked = manager.safe_predict(HealthyPredictor(), optical=optical)
+        self.assertIn("operator reset required", blocked["error_reason"])
+        self.assertTrue(manager.inference_interlock_latched)
+        self.assertTrue(manager.request_inference_reset_probe())
+        recovered = manager.safe_predict(HealthyPredictor(), optical=optical)
+        self.assertEqual(recovered["system_state"], SystemState.OPTIMAL.value)
+        self.assertFalse(manager.inference_interlock_latched)
 
     def test_safety_failure_latches_hold_even_in_mock_mode(self):
         manager = IndustrialProtocolManager({"enabled": True, "mock_mode": True})
@@ -97,6 +142,8 @@ class TestSafetyContracts(unittest.TestCase):
 
     def test_production_plc_failure_holds_part_without_ack(self):
         manager = IndustrialProtocolManager({"enabled": True, "mock_mode": False})
+        self.assertTrue(manager.interlock_latched)
+        self.assertIn("Startup PLC state is unverified", manager.get_plc_state()["interlock_reason"])
         result = manager.process_inspection_result(
             part_id="PART_FAIL",
             batch_id="BATCH_FAIL",
@@ -116,6 +163,23 @@ class TestSafetyContracts(unittest.TestCase):
         with patch("industrial.protocol_manager.ModbusTcpClient", ErrorModbusClient):
             confirmed = manager._write_modbus("PART_ERROR", manager.should_reject([])["action"])
         self.assertFalse(confirmed)
+
+    def test_modbus_ack_requires_matching_command_sequence(self):
+        manager = IndustrialProtocolManager({
+            "enabled": True,
+            "mock_mode": False,
+            "command_channel": "modbus",
+            "modbus": {
+                "trusted_gateway": True,
+                "register_command_sequence": 1010,
+                "register_ack_sequence": 1011,
+            },
+        })
+        with patch("industrial.protocol_manager.ModbusTcpClient", AckingModbusClient):
+            confirmed = manager._write_modbus(
+                "PART_ACK", manager.should_reject([])["action"], command_id=73
+            )
+        self.assertTrue(confirmed)
 
     def test_certificate_detects_nested_payload_tampering(self):
         cert = RollCertificateGenerator.build_certificate(

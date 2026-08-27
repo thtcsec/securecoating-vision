@@ -26,12 +26,17 @@ import os
 import sys
 import time
 import uuid
+import secrets
+import re
+import asyncio
 from io import BytesIO
 import yaml
 import logging
 import uvicorn
 from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File, Form, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
@@ -66,6 +71,11 @@ from traceability.root_cause_engine import RootCauseDiagnosticEngine
 from traceability.roll_certificate import RollCertificateGenerator
 
 # --- Application Setup ---
+ENVIRONMENT = os.environ.get("SECURECOATING_ENV", "production").lower()
+EXPOSE_API_DOCS = (
+    ENVIRONMENT != "production"
+    or os.environ.get("SECURECOATING_EXPOSE_DOCS", "false").lower() in {"1", "true", "yes"}
+)
 app = FastAPI(
     title="SecureCoating-Vision API",
     description=(
@@ -73,8 +83,9 @@ app = FastAPI(
         "sensor fusion, fail-safe degradation, and industrial PLC signaling."
     ),
     version="2.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
+    docs_url="/docs" if EXPOSE_API_DOCS else None,
+    redoc_url="/redoc" if EXPOSE_API_DOCS else None,
+    openapi_url="/openapi.json" if EXPOSE_API_DOCS else None,
 )
 
 # CORS middleware for dashboard access. Wildcard origins are unsafe with credentials.
@@ -90,14 +101,21 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "X-API-Key"],
 )
+TRUSTED_HOSTS = [
+    host.strip()
+    for host in os.environ.get(
+        "SECURECOATING_TRUSTED_HOSTS", "localhost,127.0.0.1,api,testserver"
+    ).split(",")
+    if host.strip()
+]
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=TRUSTED_HOSTS)
 
 # Authentication is fail-closed. A deliberate local-only test/demo override is
 # required to run without an API key.
 API_KEY = os.environ.get("SECURECOATING_API_KEY", "").strip()
-ENVIRONMENT = os.environ.get("SECURECOATING_ENV", "production").lower()
 ALLOW_UNAUTHENTICATED_DEMO = (
     ENVIRONMENT in {"development", "test"}
     and os.environ.get("SECURECOATING_ALLOW_UNAUTHENTICATED_DEMO", "false").lower()
@@ -106,6 +124,8 @@ ALLOW_UNAUTHENTICATED_DEMO = (
 REQUIRE_API_KEY = not ALLOW_UNAUTHENTICATED_DEMO or bool(API_KEY)
 if ENVIRONMENT == "production" and not os.environ.get("SECURECOATING_FACTORY_SECRET", "").strip():
     raise RuntimeError("SECURECOATING_FACTORY_SECRET must be configured in production")
+if ENVIRONMENT == "production" and not API_KEY:
+    raise RuntimeError("SECURECOATING_API_KEY must be configured in production")
 
 
 @app.middleware("http")
@@ -121,19 +141,59 @@ async def optional_api_key_guard(request: Request, call_next):
                     )
             except ValueError:
                 return JSONResponse(status_code=400, content={"detail": "Invalid Content-Length"})
-    if REQUIRE_API_KEY and request.url.path.startswith("/api/"):
+    if REQUIRE_API_KEY and (
+        request.url.path.startswith("/api/") or request.url.path == "/health"
+    ):
         if not API_KEY:
             return JSONResponse(
                 status_code=503,
                 content={"detail": "API authentication is not configured"},
             )
         provided = request.headers.get("x-api-key", "")
-        if provided != API_KEY:
+        if not secrets.compare_digest(provided, API_KEY):
             return JSONResponse(
                 status_code=401,
                 content={"detail": "Invalid or missing X-API-Key"},
             )
-    return await call_next(request)
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+MAX_INFLIGHT_INSPECTIONS = max(
+    1, min(int(os.environ.get("SECURECOATING_MAX_INFLIGHT_INSPECTIONS", "1")), 8)
+)
+INSPECTION_CAPACITY_WAIT_SECONDS = max(
+    0.001,
+    min(float(os.environ.get("SECURECOATING_CAPACITY_WAIT_SECONDS", "0.05")), 5.0),
+)
+inspection_capacity = asyncio.Semaphore(MAX_INFLIGHT_INSPECTIONS)
+
+
+@app.middleware("http")
+async def inspection_backpressure(request: Request, call_next):
+    if request.url.path not in {"/api/inspect", "/api/pipeline/multi-stage"}:
+        return await call_next(request)
+    acquired = False
+    try:
+        await asyncio.wait_for(
+            inspection_capacity.acquire(), timeout=INSPECTION_CAPACITY_WAIT_SECONDS
+        )
+        acquired = True
+    except asyncio.TimeoutError:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Inspection capacity is busy; request was not queued"},
+            headers={"Retry-After": "1"},
+        )
+    try:
+        return await call_next(request)
+    finally:
+        if acquired:
+            inspection_capacity.release()
 
 # --- Configuration Loading ---
 CONFIG_PATH = os.environ.get("MODEL_CONFIG", "configs/model.yaml")
@@ -151,6 +211,16 @@ PIXEL_SIZE_MM = float(calibration_config["pixel_size_x_mm"])
 CALIBRATION_VERIFIED = bool(calibration_config.get("verified", False))
 
 TEST_SET_DIR = os.path.join(PROJECT_ROOT, "data", "test_set", "images")
+IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
+
+
+def _validate_identifier(value: str, field_name: str) -> str:
+    if not IDENTIFIER_PATTERN.fullmatch(value or ""):
+        raise HTTPException(
+            status_code=422,
+            detail=f"{field_name} must be 1-128 characters from the approved identifier set",
+        )
+    return value
 
 
 def _decode_upload(file_bytes: bytes) -> np.ndarray:
@@ -204,6 +274,8 @@ async def _read_upload_limited(upload: UploadFile) -> bytes:
 def _load_sample_image(sample_name: str) -> np.ndarray:
     """Load a demo image from data/test_set/images (basename only)."""
     safe_name = os.path.basename(sample_name)
+    if safe_name != sample_name or len(sample_name) > 255:
+        raise HTTPException(status_code=422, detail="sample_name must be a bounded basename")
     path = os.path.join(TEST_SET_DIR, safe_name)
     if not os.path.isfile(path):
         raise HTTPException(
@@ -315,11 +387,18 @@ failsafe = FailSafeManager(
     enable_auto_recovery=True
 )
 if not (predictor.yolo_available or predictor.onnx_available):
-    failsafe.health.model_inference_ok = False
+    failsafe.latch_inference_interlock("No trained inference model is loaded")
+if not SIMULATION_MODE:
+    failsafe.health.rgb_sensor_ok = False
+    failsafe.health.thermal_sensor_ok = False
+    failsafe.health.profiler_sensor_ok = False
     failsafe._update_system_state()
 
 # 4. Quality Memory (SQLite traceability)
-db_path = app_config.get("paths", {}).get("db_path", "data/quality_history.db")
+db_path = os.environ.get(
+    "SECURECOATING_DB_PATH",
+    app_config.get("paths", {}).get("db_path", "data/quality_history.db"),
+)
 quality_mem = QualityMemory(db_path)
 
 # 5. Industrial Protocol Manager (OPC UA / Modbus TCP)
@@ -418,7 +497,7 @@ def health_check():
             else (
                 predictor.onnx_engine.active_provider
                 if predictor.onnx_available
-                else "PyTorchFusion"
+                else "NONE"
             )
         ),
         "system_state": health["system_state"],
@@ -456,6 +535,20 @@ async def inspect(
     using_real_image = False
     active_batch_id = web_synchronizer.roll.batch_id
     batch_id = batch_id or active_batch_id
+    _validate_identifier(batch_id, "batch_id")
+    _validate_identifier(part_id, "part_id")
+    if simulate_defect not in {None, "scratch", "void", "blister", "delamination"}:
+        raise HTTPException(status_code=422, detail="Unsupported simulate_defect value")
+    if not SIMULATION_MODE and (simulate_defect is not None or sample_name is not None):
+        raise HTTPException(
+            status_code=404,
+            detail="Demo sample and defect simulation inputs are disabled in production",
+        )
+    if not SIMULATION_MODE and (image is None or not image.filename):
+        raise HTTPException(
+            status_code=422,
+            detail="Production mode requires an explicit acquired image payload",
+        )
     if batch_id != active_batch_id:
         raise HTTPException(
             status_code=409,
@@ -477,7 +570,8 @@ async def inspect(
     # 2. Multi-source sensor fusion
     effective_thermal_online = thermal_online if SIMULATION_MODE else False
     effective_profiler_online = profiler_online if SIMULATION_MODE else False
-    fusion_result = fusion_manager.fuse(
+    fusion_result = await run_in_threadpool(
+        fusion_manager.fuse,
         rgb_image=optical,
         thermal_online=effective_thermal_online,
         profiler_online=effective_profiler_online,
@@ -493,7 +587,9 @@ async def inspect(
     failsafe._update_system_state()
 
     # 4. Safe prediction with fail-safe wrapping
-    result = failsafe.safe_predict(predictor, optical, thermal, height)
+    result = await run_in_threadpool(
+        failsafe.safe_predict, predictor, optical, thermal, height
+    )
 
     # 5. Postprocess: extract physical defect measurements
     seg_mask = result.get("segmentation_mask", np.zeros((h, w), dtype=np.uint8))
@@ -543,7 +639,6 @@ async def inspect(
     detections = result.get("detections", [])
     defects = _attach_confidences(defects, detections)
     run_id = f"RUN_{uuid.uuid4().hex[:12].upper()}"
-    planned_action = "HOLD" if safety_reasons else ("PASS" if grade["passed"] else "REJECT")
     trace_written = quality_mem.add_entry(
         batch_id=batch_id,
         part_id=part_id,
@@ -557,16 +652,23 @@ async def inspect(
         model_version=result.get("model_version", predictor.model_version),
         run_id=run_id,
         roll_id=web_synchronizer.roll.roll_id,
-        gate_action=planned_action,
+        # The authoritative decision is written only after PLC confirmation.
+        # PENDING cannot be mistaken for a released PASS if finalization fails.
+        gate_action="PENDING",
         system_state=result_state,
         inspection_valid=not safety_reasons,
         error_reason="; ".join(safety_reasons) or None,
     )
     if not trace_written:
-        safety_reasons.append("Traceability write failed; automatic gate decision forbidden")
+        trace_reason = quality_mem.last_error
+        if trace_reason.startswith("Duplicate inspection identity rejected"):
+            safety_reasons.append(trace_reason)
+        else:
+            safety_reasons.append("Traceability write failed; automatic gate decision forbidden")
 
     # 9. Industrial protocol signaling (PLC/MES)
-    industrial_result = industrial_mgr.process_inspection_result(
+    industrial_result = await run_in_threadpool(
+        industrial_mgr.process_inspection_result,
         part_id=part_id,
         batch_id=batch_id,
         defects=defects,
@@ -622,6 +724,8 @@ async def inspect(
 @app.get("/api/samples")
 def list_demo_samples():
     """List demo images available under data/test_set/images."""
+    if not SIMULATION_MODE:
+        raise HTTPException(status_code=404, detail="Demo samples are disabled in production")
     if not os.path.isdir(TEST_SET_DIR):
         return {"samples": [], "directory": TEST_SET_DIR}
     samples = sorted(
@@ -647,17 +751,21 @@ def latency_metrics(
 @app.get("/api/batch/{batch_id}/stats")
 def get_batch_stats(batch_id: str):
     """Retrieve aggregated quality indicators for MES integration."""
+    _validate_identifier(batch_id, "batch_id")
+    if batch_id != web_synchronizer.roll.batch_id:
+        raise HTTPException(status_code=404, detail=f"Batch {batch_id} is not active")
     stats = quality_mem.get_batch_stats(batch_id)
     if stats.get("status") == "ERROR":
         raise HTTPException(status_code=503, detail="Traceability database unavailable")
-    if stats["total"] == 0:
-        raise HTTPException(status_code=404, detail=f"No inspection data for batch {batch_id}")
     return stats
 
 
 @app.get("/api/batch/{batch_id}/spc")
 def get_batch_spc(batch_id: str):
     """Check Statistical Process Control alarm state."""
+    _validate_identifier(batch_id, "batch_id")
+    if batch_id != web_synchronizer.roll.batch_id:
+        raise HTTPException(status_code=404, detail=f"Batch {batch_id} is not active")
     result = quality_mem.check_spc_alarms(batch_id)
     if result.get("status") == "UNKNOWN":
         raise HTTPException(status_code=503, detail="Traceability database unavailable")
@@ -712,6 +820,21 @@ def reset_line():
     )
 
 
+@app.post("/api/system/inference-reset")
+def reset_inference_interlock():
+    """Authorize one trained-model recovery probe after an inference fault."""
+    if not (predictor.yolo_available or predictor.onnx_available):
+        raise HTTPException(status_code=409, detail="No trained model is available for a reset probe")
+    accepted = failsafe.request_inference_reset_probe()
+    return JSONResponse(
+        status_code=202 if accepted else 409,
+        content={
+            "status": "RESET_PROBE_ARMED" if accepted else "RESET_BLOCKED",
+            "inference_interlock_latched": failsafe.inference_interlock_latched,
+        },
+    )
+
+
 @app.get("/api/system/health-report")
 def system_health_report():
     """Detailed system health report including all subsystems."""
@@ -757,10 +880,15 @@ def run_multi_stage_pipeline(
     2. Multi-Modal Physical Acquisition (Brightfield, Darkfield, Lock-in Thermography, 3D Laser)
     3. Homography Registration & 5-Channel Fusion
     4. Edge AI TensorRT/ONNX Instance Segmentation
-    5. Physics-Informed Battery Electrode Metrology & GB/T 38031 Safety Audit
+    5. Prototype battery-electrode metrology policy
     6. Hardware Rejection Interlock
     7. AI Closed-Loop Equipment Diagnostics & Parameter Tuning
     """
+    if not SIMULATION_MODE:
+        raise HTTPException(
+            status_code=404,
+            detail="The synthetic multi-stage demonstration endpoint is disabled in production",
+        )
     try:
         sid = sample_name or part_id or f"PART_SAMPLE_{int(time.time()*1000)}"
         result = multi_stage_pipeline.execute_inspection(
@@ -781,6 +909,7 @@ def run_multi_stage_pipeline(
 @app.get("/api/roll/{roll_id}/map")
 def get_roll_defect_map(roll_id: str):
     """Retrieve 2D defect coordinates across the full jumbo roll for digital twin visualization."""
+    _validate_identifier(roll_id, "roll_id")
     snapshot = web_synchronizer.get_roll_snapshot(roll_id)
     if snapshot is None:
         raise HTTPException(status_code=404, detail=f"Roll {roll_id} is not the active roll")
@@ -790,6 +919,15 @@ def get_roll_defect_map(roll_id: str):
     }
 
 
+@app.get("/api/roll/active")
+def get_active_roll():
+    """Return the authoritative active roll identity and atomic snapshot."""
+    snapshot = web_synchronizer.get_roll_snapshot(web_synchronizer.roll.roll_id)
+    if snapshot is None:
+        raise HTTPException(status_code=503, detail="Active roll state is unavailable")
+    return {**snapshot, "total_records": len(snapshot["defect_records"])}
+
+
 @app.get("/api/roll/{roll_id}/certificate")
 def get_roll_certificate(
     roll_id: str,
@@ -797,10 +935,11 @@ def get_roll_certificate(
     electrode_type: str = "Cathode_LFP"
 ):
     """
-    Generate an official, tamper-evident Battery Electrode Quality Inspection Certificate
-    with SHA-256 cryptographic verification and GB/T 38823-2020 compliance audit.
+    Generate a provisional tamper-evident quality manifest with SHA-256/HMAC.
     """
+    _validate_identifier(roll_id, "roll_id")
     batch_id = batch_id or web_synchronizer.roll.batch_id
+    _validate_identifier(batch_id, "batch_id")
     snapshot = web_synchronizer.get_roll_snapshot(roll_id, batch_id=batch_id)
     if snapshot is None:
         raise HTTPException(
@@ -838,6 +977,7 @@ def get_root_cause_diagnostics(batch_id: Optional[str] = None):
     and recommends parameter adjustments (Slot-Die gap, Oven Zone temperatures, Mixer vacuum).
     """
     batch_id = batch_id or web_synchronizer.roll.batch_id
+    _validate_identifier(batch_id, "batch_id")
     if batch_id != web_synchronizer.roll.batch_id:
         raise HTTPException(status_code=404, detail=f"Batch {batch_id} is not active")
     report = root_cause_engine.diagnose_batch(web_synchronizer.roll_defect_map)

@@ -6,7 +6,7 @@ End-to-End industrial inspection pipeline executing:
 2. Traveling-Wave Thermography & Multi-Modal Acquisition (Darkfield/Brightfield, Thermal Diffusivity Inversion, 3D Laser)
 3. Sub-Pixel Homography Registration & 5-Channel Tensor Concatenation
 4. Edge AI TensorRT / ONNX Instance Segmentation
-5. Physics-Informed Battery Electrode Metrology (Plant QA Specification & GB/T 38031 Safety Baseline)
+5. Prototype battery-electrode metrology policy (not standards certification)
 6. Zero-Defect-Escape Multi-Tier Decision & Sub-15ms Hardware Reject Gate (Modbus/OPC UA)
 7. AI Closed-Loop Diagnostics, Spatial FFT Periodicity Pinpointing & Six Sigma Per-Lane SPC
 """

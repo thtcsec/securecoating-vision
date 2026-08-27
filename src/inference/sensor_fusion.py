@@ -118,6 +118,13 @@ class SensorFusionManager:
 
         # Sensor health tracking
         self.sensor_status = SensorStatus()
+        if not self.enable_mock:
+            # No real acquisition adapter is implemented in this repository.
+            # Never advertise sensors as online before authoritative frames arrive.
+            self.sensor_status.rgb_online = False
+            self.sensor_status.thermal_online = False
+            self.sensor_status.profiler_online = False
+            self.sensor_status.update_degradation()
 
         logger.info(f"SensorFusionManager initialized (target_size={target_size}, mock={enable_mock})")
 

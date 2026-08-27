@@ -41,6 +41,6 @@ USER 10001:10001
 EXPOSE 8000
 EXPOSE 8501
 
-# Default healthcheck against FastAPI
+# Default process-liveness check. Safety/readiness is exposed separately at /health.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:8000/live || exit 1

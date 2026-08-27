@@ -1,6 +1,6 @@
 # Implementation Status and Upgrade Plan
 
-Last reviewed: 2026-08-26
+Last reviewed: 2026-08-27
 
 This document is the project status ledger. A feature is marked **verified** only when its behavior is covered by a reproducible repository test or a recorded manual command. Simulation is never evidence of physical PLC or factory qualification.
 
@@ -24,14 +24,16 @@ This document is the project status ledger. A feature is marked **verified** onl
 - [x] Automatic PASS/REJECT requires `OPTIMAL`, trained model readiness, verified calibration, healthy traceability, and ready industrial transport.
 - [x] Missing sensor, inference error, timeout, database failure, calibration failure, interlock, and PLC communication failure produce `HOLD`.
 - [x] Mock PLC operations are labelled `SIMULATED` and never claim real ACK.
-- [x] Real OPC UA writes require configured security and write/readback confirmation.
-- [x] Real Modbus writes require an explicitly trusted gateway, response validation, and register readback.
+- [x] Exactly one configured protocol owns PLC commands; command sequence and ACK sequence are distinct.
+- [x] Real OPC UA commands require configured SignAndEncrypt, command readback, and matching PLC ACK sequence.
+- [x] Real Modbus commands require an explicitly trusted gateway, response validation, command readback, and matching ACK sequence.
 - [x] E-stop and HOLD latch local state; reset clears the latch only after both channels confirm.
 - [x] Stateful API runs with one worker by default.
 - [x] API control endpoints require authentication unless an explicit local development override is enabled.
 - [x] Upload body, media type, image header, pixel count, and decoded image limits are enforced.
 - [x] Timeout circuit prevents a new inference while a previous timed-out worker is still running.
-- [x] Runtime model errors do not auto-recover into an automatic decision path.
+- [x] Runtime model errors/timeouts latch the inference circuit; an authenticated reset permits one recovery probe.
+- [x] Production PLC state starts latched/unverified after process restart until a sequence-acknowledged reset.
 - [ ] Verify physical HOLD/reject gate behavior with vendor PLC HIL.
 - [ ] Verify safety-rated E-stop and hardwired interlock behavior with the plant safety owner.
 - [ ] Add mTLS/RBAC and OT network segmentation for the target deployment.
@@ -44,6 +46,9 @@ This document is the project status ledger. A feature is marked **verified** onl
 - [x] Certificate output marks provisional metrics as `UNVERIFIED`.
 - [x] SQLite writes report failure instead of silently returning healthy defaults.
 - [x] SQLite connections close deterministically; indexes cover batch/timestamp and run ID queries.
+- [x] Duplicate `(batch_id, part_id)` identities are transactionally claimed before PLC signaling.
+- [x] Trace rows remain `PENDING` until PLC outcome finalization and cannot retain a planned PASS after a finalization failure.
+- [x] SQLite online backup uses the backup API, atomic replace, and integrity check.
 - [x] Confidence matching uses class-aware bounding-box IoU rather than a default origin point.
 - [x] Coordinate mapping uses the actual input frame dimensions.
 - [x] Calibration is loaded from an explicit configuration artifact.
@@ -68,34 +73,53 @@ This document is the project status ledger. A feature is marked **verified** onl
 
 ## Phase 4: Deployment and Operations
 
-- [x] Docker uses Python 3.11, a locked dependency file, a non-root runtime user, dropped capabilities, and loopback bindings by default.
+- [x] Docker uses Python 3.11, direct dependency pins, a non-root runtime user, dropped capabilities, and loopback bindings by default.
 - [x] Compose uses one API worker because the current roll/PLC owner is in-process.
 - [x] Liveness is separated from readiness/health.
 - [x] Environment examples distinguish local simulation from production configuration.
 - [x] Dashboard is read-only and does not create a second live PLC command owner.
 - [x] Dashboard reads authoritative health, roll, batch, SPC, PLC, and passport telemetry from the API when available.
 - [x] Dashboard API client has bounded requests and explicit HTTP/JSON error handling.
-- [ ] Build and run the image with Docker Desktop or CI; local Docker daemon was unavailable during the 2026-08-26 review.
+- [x] Production dashboard refuses automatic local fallback; sandbox fallback is explicit development/test opt-in.
+- [x] Dashboard AppTest renders without exceptions in the explicit sandbox.
+- [x] Dependency resolver dry-run succeeds; Pillow/GitPython/Torch pins were advanced to audited fixed versions.
+- [x] GPU development environment verified Torch 2.13.0+cu130 with the RTX 4050.
+- [ ] Build and run the image with Docker Desktop or CI; local Docker daemon was unavailable during the 2026-08-27 review.
 - [ ] Add CI for tests, compile, dependency checks, Docker build, and release artifact checks.
-- [ ] Add dashboard AppTest or browser smoke coverage.
-- [ ] Add bounded concurrency/backpressure and operational metrics for the target hardware.
+- [ ] Add browser/Compose smoke coverage against the built target image.
+- [x] API inspection endpoints have bounded in-flight concurrency and reject excess work instead of building an unbounded queue.
+- [ ] Add target-hardware operational metrics and alerting.
 
 ## Test Evidence Recorded
 
-The latest repository validation completed on 2026-08-26:
+The latest repository validation completed on 2026-08-27:
 
 ```text
 .venv\Scripts\python.exe -m pytest -q
-66 passed
+82 passed in 30.84s
 
 .venv\Scripts\python.exe -m compileall -q src dashboard scripts tests
 OK
 
 .venv\Scripts\python.exe -m pip check
 No broken requirements found
+
+.venv\Scripts\python.exe -m pip_audit -r requirements-lock.txt
+No known vulnerabilities found
+
+.venv\Scripts\python.exe -m pip install --dry-run -r requirements-lock.txt
+Resolved successfully
+
+docker compose config
+OK
+
+git diff --check
+OK (line-ending conversion notices only)
 ```
 
-The local manual API smoke run also verified clean PASS, real-image defect REJECT, degraded-sensor HOLD, E-stop latch, blocked inspection during E-stop, reset, upload inspection, multi-stage execution with PLC signalling disabled, and provisional certificate output. PLC statuses in that run were `SIMULATED`.
+The local live Uvicorn smoke run on port 8011 verified API liveness/readiness, clean PASS, real-image REJECT, degraded-sensor HOLD, duplicate-part HOLD, E-stop latch, simulated reset, and upload inspection. PLC statuses were `SIMULATED`, never physical ACK. The observed timings are smoke diagnostics, not benchmarks.
+
+The default evaluation command was also run and correctly refused to publish metrics because all 50 evaluation images overlap the development validation set by SHA-256.
 
 ## Release Gates
 
@@ -110,7 +134,7 @@ A release may be called **research/demo-ready** only when automated tests and ev
 
 ## Next Execution Plan
 
-1. **Next engineering slice**: add dashboard/browser smoke coverage and verify API-backed telemetry against a running Compose stack.
+1. **Next engineering slice**: verify API-backed dashboard telemetry against a running Compose stack and add browser smoke coverage.
 2. **Next integration slice**: run a PLC simulator/HIL matrix for OPC UA/Modbus readback and failure modes.
 3. **Next evidence slice**: create an immutable roll-disjoint manifest and rerun evaluation; publish only metrics produced by that manifest.
 4. **Next deployment slice**: restore Docker daemon, build the locked image, run liveness/readiness checks as non-root, and document rollback.

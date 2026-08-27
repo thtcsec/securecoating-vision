@@ -1,10 +1,10 @@
 """
 SecureCoating-Vision: Industrial Web Synchronizer & Line-Scan Temporal Frame Anchoring
 ========================================================================================
-Production-grade continuous roll-to-roll motion synchronization with:
-1. True 4-State Gray-Code Quadrature A/B Optical Encoder (Sub-nanometer integer pulse accumulator)
-2. Temporal Frame Context Anchoring (Defect MD coordinates rewind to exposure capture instant, eliminating latency drift)
-3. Formal Industrial State Machine with strict transition table
+Prototype continuous roll-to-roll motion simulation with:
+1. Simulated 4-state Gray-code quadrature A/B encoder
+2. Monotonic frame-context anchoring for software coordinate tests
+3. In-process state machine with a strict transition table
 4. Separation of Bounded Event Cache from Lifetime Roll Defect Counters
 5. Strict Coordinate Validation & Explicit Slitting Lane Boundaries
 """
@@ -48,8 +48,8 @@ VALID_STATE_TRANSITIONS: Dict[RollState, Set[RollState]] = {
 @dataclass(frozen=True)
 class FrameContext:
     """
-    Hardware-captured frame acquisition metadata.
-    Anchors the exact encoder pulse count and Machine Direction (MD) coordinate at photon arrival.
+    Simulated frame acquisition metadata.
+    A hardware adapter must supply authoritative encoder/timestamp values in production.
     """
     frame_id: int
     roll_id: str
@@ -95,7 +95,7 @@ class RollMetadata:
 
 class QuadratureEncoderSimulator:
     """
-    Simulates a true optical incremental quadrature A/B rotary encoder.
+    Simulates an optical incremental quadrature A/B rotary encoder.
     Generates exact 4-state Gray Code transitions:
     Forward:  00 -> 01 -> 11 -> 10 -> 00
     Reverse:  00 -> 10 -> 11 -> 01 -> 00
@@ -328,6 +328,7 @@ class WebSynchronizer:
                 "roll_id": self.roll.roll_id,
                 "batch_id": self.roll.batch_id,
                 "state": self.state.value,
+                "line_speed_m_s": round(self.line_speed_m_s, 4),
                 "inspected_length_m": round(scanned_m, 2),
                 "total_roll_length_m": self.roll.total_length_m,
                 "total_defects_lifetime": self.lifetime_total_defects,

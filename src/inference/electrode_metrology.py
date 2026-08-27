@@ -8,8 +8,8 @@ Architecture:
 - Level 1: Calibrated Physical Geometry (minAreaRect, Web-Relative Orientation, Expanded Uncertainty U)
 - Level 2: 3D Topography & Surface Plane Baseline Leveling (V_protrusion, V_depression, V_net, Ra)
 - Level 3: Micro-Short Hazard Risk Scoring relative to separator safety margin (Cell Stack Model)
-- Level 4: Plant Engineering Specification with Guard-Banding (Tolerance - U, ISO 14253-1)
-- Level 5: Industrial Quality Standards Traceability (Plant QA Specification & GB/T 38031 Safety Baseline)
+- Level 4: Prototype engineering threshold with modeled guard-banding
+- Level 5: Traceability fields for future independently qualified policy mapping
 """
 
 import math
@@ -153,7 +153,7 @@ class ElectrodeMetrologyEngine:
             "scratch": {"max_length_mm": 5.0, "guard_band_mm": 0.15},
             "void": {"max_area_mm2": 1.5, "guard_band_mm2": 0.08},
             "blister": {"max_post_cal_height_um": 11.0, "guard_band_um": 1.0},
-            "delamination": {"max_area_mm2": 0.0},  # Strict zero-escape
+            "delamination": {"max_area_mm2": 0.0},  # Prototype reject-any configured policy
         }
 
     def compute_rotated_geometry(
@@ -274,12 +274,12 @@ class ElectrodeMetrologyEngine:
         else:
             cell_hazard = "Surface Coating Cosmetic Anomaly"
 
-        # 5. Guard-Banded Decision (Plant QA Specification & GB/T 38031 Traceability)
+        # 5. Prototype guard-banded decision; no standards-conformity claim.
         guard_pass = True
         
         if class_name == "delamination":
             guard_pass = False
-            rejection_clauses.append("Plant QA Spec (GB/T 38031 Safety Baseline): Delamination strictly prohibited (Zero Tolerance)")
+            rejection_clauses.append("Prototype policy: any measured delamination evidence is rejected")
             
         elif class_name == "scratch":
             limit = self.plant_limits["scratch"]["max_length_mm"]
@@ -302,7 +302,7 @@ class ElectrodeMetrologyEngine:
         if post_cal_h >= self.plant_limits["blister"]["max_post_cal_height_um"]:
             guard_pass = False
             rejection_clauses.append(
-                f"Plant QA Spec (GB/T 38031 Micro-Short Prevention): Post-calendering protrusion ({post_cal_h:.1f}um) exceeds separator safety limit (11.0um)"
+                f"Prototype policy: modeled post-calendering protrusion ({post_cal_h:.1f}um) exceeds configured 11.0um threshold"
             )
 
         # Quality Tier

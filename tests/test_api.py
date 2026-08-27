@@ -6,6 +6,9 @@ import unittest
 import asyncio
 import struct
 import zlib
+import tempfile
+import atexit
+import shutil
 from unittest.mock import patch
 
 import httpx
@@ -16,6 +19,9 @@ sys.path.insert(0, os.path.join(ROOT, "src"))
 os.environ.setdefault("SECURECOATING_ENV", "test")
 os.environ.setdefault("SECURECOATING_ALLOW_UNAUTHENTICATED_DEMO", "true")
 os.environ.setdefault("SECURECOATING_ENABLE_SENSOR_SIMULATION", "true")
+API_TEST_TEMP_DIR = tempfile.mkdtemp(prefix="securecoating_api_test_")
+atexit.register(shutil.rmtree, API_TEST_TEMP_DIR, ignore_errors=True)
+os.environ.setdefault("SECURECOATING_DB_PATH", os.path.join(API_TEST_TEMP_DIR, "quality.db"))
 
 # Import after cwd so config paths resolve
 from api.main import app  # noqa: E402
@@ -65,6 +71,17 @@ class TestAPI(unittest.TestCase):
         if os.path.isdir(os.path.join(ROOT, "data", "test_set", "images")):
             self.assertGreaterEqual(body["count"], 1)
 
+    def test_active_roll_discovery_is_authoritative(self):
+        resp = self.client.get("/api/roll/active")
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["summary"]["batch_id"], "BATCH_2026_MSE_01")
+
+    def test_demo_samples_are_hidden_when_simulation_is_disabled(self):
+        with patch("api.main.SIMULATION_MODE", False):
+            resp = self.client.get("/api/samples")
+        self.assertEqual(resp.status_code, 404)
+
     def test_api_key_guard_fails_closed(self):
         with patch("api.main.REQUIRE_API_KEY", True), patch("api.main.API_KEY", "unit-secret"):
             denied = self.client.get("/api/samples")
@@ -96,6 +113,13 @@ class TestAPI(unittest.TestCase):
             data={"batch_id": "BATCH_NOT_ACTIVE", "part_id": "PART_BAD_BATCH"},
         )
         self.assertEqual(resp.status_code, 409)
+
+    def test_identifier_validation_rejects_log_and_path_metacharacters(self):
+        resp = self.client.post(
+            "/api/inspect",
+            data={"batch_id": "BATCH_2026_MSE_01", "part_id": "bad/id\nvalue"},
+        )
+        self.assertEqual(resp.status_code, 422)
 
     def test_inspect_defaults_to_active_batch(self):
         resp = self.client.post(

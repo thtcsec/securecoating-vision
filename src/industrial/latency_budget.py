@@ -163,5 +163,5 @@ class LatencyBudgetEngine:
             "installed_ejector_distance_mm": installed_ejector_distance_mm,
             "safety_margin_ratio": round(safety_margin_ratio, 2),
             "is_theoretical_budget_pass": (safety_margin_ratio >= 1.0),
-            "engineering_verdict": f"Installed ejector distance ({installed_ejector_distance_mm}mm) provides {safety_margin_ratio:.1f}x safety buffer over P99.9 design latency ({t_design_ms:.1f}ms)."
+            "engineering_verdict": f"Modeled only: configured ejector distance ({installed_ejector_distance_mm}mm) is {safety_margin_ratio:.1f}x the distance implied by the synthetic P99.9 latency ({t_design_ms:.1f}ms); hardware verification required."
         }

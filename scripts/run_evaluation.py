@@ -30,6 +30,7 @@ import csv
 import time
 import argparse
 import hashlib
+import subprocess
 from datetime import datetime, timezone
 from collections import defaultdict
 import numpy as np
@@ -84,6 +85,10 @@ def assert_no_dataset_overlap(evaluation_images_dir: str, reference_dataset_dir:
             path = os.path.join(split_dir, name)
             if os.path.isfile(path):
                 reference_hashes[_file_sha256(path)] = path
+    if not reference_hashes:
+        raise FileNotFoundError(
+            f"Leakage audit reference has no train/val images: {reference_dataset_dir}"
+        )
     overlaps = []
     for name in os.listdir(evaluation_images_dir):
         path = os.path.join(evaluation_images_dir, name)
@@ -96,6 +101,35 @@ def assert_no_dataset_overlap(evaluation_images_dir: str, reference_dataset_dir:
         raise RuntimeError(
             f"Evaluation leakage detected: {len(overlaps)} image(s) overlap train/val by SHA-256. {examples}"
         )
+
+
+def _dataset_sha256(dataset_dir: str) -> str:
+    """Hash relative paths and bytes for every evaluation image and label."""
+    digest = hashlib.sha256()
+    files = []
+    for subdir in ("images", "labels"):
+        root = os.path.join(dataset_dir, subdir)
+        if not os.path.isdir(root):
+            raise FileNotFoundError(f"Evaluation directory missing: {root}")
+        for name in os.listdir(root):
+            path = os.path.join(root, name)
+            if os.path.isfile(path):
+                files.append(path)
+    for path in sorted(files, key=lambda p: os.path.relpath(p, dataset_dir)):
+        relative = os.path.relpath(path, dataset_dir).replace("\\", "/")
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(bytes.fromhex(_file_sha256(path)))
+    return digest.hexdigest()
+
+
+def _git_commit() -> str:
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=PROJECT_ROOT, text=True
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return "UNKNOWN"
 
 
 def load_gt_labels(label_path: str, img_h: int = 640, img_w: int = 640):
@@ -225,7 +259,10 @@ def evaluate_sample_predictions(gt_labels: list, detections: list, seg_mask: np.
         # Extract detection binary mask for this instance
         det_binary_mask = det.get("mask", None)
         if det_binary_mask is None:
-            det_binary_mask = (seg_mask == (det_class + 1)).astype(np.uint8)
+            raise ValueError(
+                "Instance segmentation evaluation requires a per-detection mask; "
+                "a class-wide semantic mask cannot prove instance matching"
+            )
         elif det_binary_mask.shape != (img_h, img_w):
             det_binary_mask = cv2.resize(det_binary_mask.astype(np.uint8), (img_w, img_h), interpolation=cv2.INTER_NEAREST)
 
@@ -413,13 +450,11 @@ def run_evaluation(
 
     # Run Ultralytics mAP validation if available to merge formal mAP50 / mAP50-95
     ultralytics_map = {}
-    try:
-        if bool(ultralytics_model_path) != bool(ultralytics_data_config):
-            raise ValueError(
-                "--ultralytics-model-path and --ultralytics-data-config must be provided together"
-            )
-        if not ultralytics_model_path:
-            raise RuntimeError("explicit Ultralytics model/config not provided")
+    if bool(ultralytics_model_path) != bool(ultralytics_data_config):
+        raise ValueError(
+            "--ultralytics-model-path and --ultralytics-data-config must be provided together"
+        )
+    if ultralytics_model_path:
         from run_ultralytics_validation import run_ultralytics_validation
         val_res = run_ultralytics_validation(
             model_pt=ultralytics_model_path,
@@ -432,8 +467,8 @@ def run_evaluation(
                 "mask_map50": val_res.get("mask_map50", None),
                 "mask_map50_95": val_res.get("mask_map50_95", None)
             }
-    except Exception as e:
-        print(f"  [NOTE] Ultralytics direct validation skipped: {e}")
+    else:
+        print("  [NOTE] Ultralytics mAP not requested; unified report will mark it unavailable")
 
     # Output formatted report to stdout
     print("\n" + "=" * 75)
@@ -485,6 +520,17 @@ def run_evaluation(
         "iou_threshold": iou_threshold,
         "confidence_threshold": conf_threshold,
         "seed": seed,
+        "provenance": {
+            "model_path": os.path.relpath(model_path, PROJECT_ROOT),
+            "model_sha256": _file_sha256(model_path),
+            "dataset_sha256": _dataset_sha256(dataset_dir),
+            "source_commit": _git_commit(),
+            "matching_policy": (
+                "class-aware, confidence-descending, one-to-one greedy matching; "
+                "bbox and instance-mask matches evaluated independently"
+            ),
+            "box_format": "xyxy",
+        },
         "detection_metrics": {
             "box_precision": round(box_prec, 4),
             "box_recall": round(box_rec, 4),

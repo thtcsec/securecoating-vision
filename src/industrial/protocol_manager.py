@@ -38,8 +38,10 @@ except ImportError:
 
 try:
     from asyncua import Client as OpcUaClient
+    from asyncua import ua as opc_ua_types
     asyncua_available = True
 except ImportError:
+    opc_ua_types = None
     asyncua_available = False
 
 logger = logging.getLogger("SecureCoatingVision.Industrial")
@@ -129,6 +131,10 @@ class IndustrialProtocolManager:
         self.enabled = config.get("enabled", True)
         self.mock_mode = config.get("mock_mode", True)
         self.plc_ip = config.get("plc_ip", "192.168.1.100")
+        self.command_channel = str(config.get("command_channel", "opc_ua")).lower()
+        self.ack_timeout_seconds = max(
+            0.05, min(float(config.get("ack_timeout_seconds", 0.75)), 5.0)
+        )
         
         # OPC UA config
         opc_config = config.get("opc_ua", {})
@@ -137,6 +143,8 @@ class IndustrialProtocolManager:
         self.opc_node_trigger = opc_config.get("node_id_trigger", "ns=2;s=Device1.LineTrigger")
         self.opc_node_hold = opc_config.get("node_id_hold", "ns=2;s=Device1.Hold")
         self.opc_node_estop = opc_config.get("node_id_estop", "ns=2;s=Device1.EStop")
+        self.opc_node_command_sequence = opc_config.get("node_id_command_sequence", "")
+        self.opc_node_ack_sequence = opc_config.get("node_id_ack_sequence", "")
         self.opc_security_policy = opc_config.get("security_policy", "Basic256Sha256")
         self.opc_security_mode = opc_config.get("security_mode", "SignAndEncrypt")
         self.opc_client_certificate = opc_config.get("client_certificate", "")
@@ -150,6 +158,8 @@ class IndustrialProtocolManager:
         self.modbus_register_reject = modbus_config.get("register_reject", 1001)
         self.modbus_register_estop = modbus_config.get("register_estop", 1005)
         self.modbus_register_hold = modbus_config.get("register_hold", 1006)
+        self.modbus_register_command_sequence = modbus_config.get("register_command_sequence")
+        self.modbus_register_ack_sequence = modbus_config.get("register_ack_sequence")
         self.modbus_trusted_gateway = bool(modbus_config.get("trusted_gateway", False))
         
         # Internal state
@@ -158,6 +168,14 @@ class IndustrialProtocolManager:
         self._signal_counter = 0
         self._lock = threading.RLock()
         self._interlock_reason = ""
+        if not self.mock_mode:
+            # Process memory cannot prove the PLC's state after startup/restart.
+            # Require an explicit, sequence-acknowledged reset before any release.
+            self.plc_state.hold_register = 1
+            self.plc_state.reject_gate_register = 1
+            self.plc_state.opc_reject_node = True
+            self.plc_state.opc_line_active = False
+            self._interlock_reason = "Startup PLC state is unverified; confirmed reset required"
         
         # Defect density threshold for automatic rejection
         self.reject_area_threshold_mm2 = 5.0  # Reject if defect area > 5 mm²
@@ -170,6 +188,8 @@ class IndustrialProtocolManager:
 
     @property
     def transport_ready(self) -> bool:
+        if not self.enabled:
+            return False
         if self.mock_mode:
             return True
         opc_files_ready = all(
@@ -180,7 +200,38 @@ class IndustrialProtocolManager:
                 self.opc_server_certificate,
             )
         )
-        return bool(opc_files_ready and self.modbus_trusted_gateway)
+        if self.command_channel == "opc_ua":
+            return bool(
+                asyncua_available
+                and opc_files_ready
+                and self.opc_node_command_sequence
+                and self.opc_node_ack_sequence
+            )
+        if self.command_channel == "modbus":
+            return bool(
+                pymodbus_available
+                and self.modbus_trusted_gateway
+                and self.modbus_register_command_sequence is not None
+                and self.modbus_register_ack_sequence is not None
+            )
+        return False
+
+    def _dispatch_command(
+        self,
+        part_id: str,
+        action: GateAction,
+        defect_info: Dict[str, Any],
+        command_id: int,
+    ) -> tuple[bool, Dict[str, Any]]:
+        """Send through exactly one configured command owner and await its explicit ACK."""
+        if self.command_channel == "opc_ua":
+            confirmed = self._write_opc_ua(part_id, action, defect_info, command_id)
+            return confirmed, {"command_channel": "OPC_UA", "opc_ua_confirmed": confirmed}
+        if self.command_channel == "modbus":
+            confirmed = self._write_modbus(part_id, action, command_id)
+            return confirmed, {"command_channel": "MODBUS_TCP", "modbus_confirmed": confirmed}
+        logger.error("Unsupported PLC command_channel=%s", self.command_channel)
+        return False, {"command_channel": self.command_channel, "configuration_error": True}
 
     @property
     def interlock_latched(self) -> bool:
@@ -291,10 +342,10 @@ class IndustrialProtocolManager:
         }
 
         # --- Write OPC UA and Modbus channels ---
-        opc_written = self._write_opc_ua(part_id, GateAction.REJECT, defect_summary)
-
-        modbus_written = self._write_modbus(part_id, GateAction.REJECT)
-        channels_confirmed = opc_written and modbus_written
+        command_id = self._signal_counter % 65535 or 1
+        channels_confirmed, delivery_metadata = self._dispatch_command(
+            part_id, GateAction.REJECT, defect_summary, command_id
+        )
         if channels_confirmed:
             with self._lock:
                 self._apply_confirmed_state(GateAction.REJECT, defect_summary)
@@ -310,7 +361,7 @@ class IndustrialProtocolManager:
         signal = IndustrialSignal(
             signal_id=signal_id,
             timestamp=datetime.now().isoformat(),
-            protocol="OPC_UA + MODBUS_TCP",
+            protocol=delivery_metadata["command_channel"],
             action=GateAction.REJECT.value,
             part_id=part_id,
             batch_id=batch_id,
@@ -323,8 +374,8 @@ class IndustrialProtocolManager:
                 "modbus_register": self.modbus_register_reject,
                 "gate_response_time_ms": round(latency_ms + 15.0, 1),
                 "delivery_status": delivery_status,
-                "opc_ua_written": opc_written,
-                "modbus_written": modbus_written,
+                "command_id": command_id,
+                **delivery_metadata,
             }
         )
 
@@ -349,9 +400,10 @@ class IndustrialProtocolManager:
             self._signal_counter += 1
             signal_id = f"SIG_{self._signal_counter:06d}"
 
-        opc_written = self._write_opc_ua(part_id, GateAction.PASS, {})
-        modbus_written = self._write_modbus(part_id, GateAction.PASS)
-        channels_confirmed = opc_written and modbus_written
+        command_id = self._signal_counter % 65535 or 1
+        channels_confirmed, delivery_metadata = self._dispatch_command(
+            part_id, GateAction.PASS, {}, command_id
+        )
         if channels_confirmed:
             with self._lock:
                 self._apply_confirmed_state(GateAction.PASS, {})
@@ -366,7 +418,7 @@ class IndustrialProtocolManager:
         signal = IndustrialSignal(
             signal_id=signal_id,
             timestamp=datetime.now().isoformat(),
-            protocol="INTERNAL",
+            protocol=delivery_metadata["command_channel"],
             action=GateAction.PASS.value,
             part_id=part_id,
             batch_id=batch_id,
@@ -375,8 +427,8 @@ class IndustrialProtocolManager:
             acknowledged=channels_confirmed and not self.mock_mode,
             metadata={
                 "delivery_status": delivery_status,
-                "opc_ua_written": opc_written,
-                "modbus_written": modbus_written,
+                "command_id": command_id,
+                **delivery_metadata,
             }
         )
 
@@ -402,9 +454,10 @@ class IndustrialProtocolManager:
             self._signal_counter += 1
             signal_id = f"SIG_{self._signal_counter:06d}"
 
-        opc_confirmed = self._write_opc_ua(part_id, GateAction.HOLD, {})
-        modbus_confirmed = self._write_modbus(part_id, GateAction.HOLD)
-        confirmed = opc_confirmed and modbus_confirmed
+        command_id = self._signal_counter % 65535 or 1
+        confirmed, delivery_metadata = self._dispatch_command(
+            part_id, GateAction.HOLD, {}, command_id
+        )
         if confirmed:
             with self._lock:
                 self._apply_confirmed_state(GateAction.HOLD, {})
@@ -412,7 +465,7 @@ class IndustrialProtocolManager:
         signal = IndustrialSignal(
             signal_id=signal_id,
             timestamp=datetime.now().isoformat(),
-            protocol="OPC_UA + MODBUS_TCP",
+            protocol=delivery_metadata["command_channel"],
             action=GateAction.HOLD.value,
             part_id=part_id,
             batch_id=batch_id,
@@ -423,8 +476,8 @@ class IndustrialProtocolManager:
                 "delivery_status": "SIMULATED" if self.mock_mode else (
                     "ACKNOWLEDGED" if confirmed else "FAILED"
                 ),
-                "opc_ua_confirmed": opc_confirmed,
-                "modbus_confirmed": modbus_confirmed,
+                "command_id": command_id,
+                **delivery_metadata,
             },
         )
         with self._lock:
@@ -432,8 +485,14 @@ class IndustrialProtocolManager:
             self.signal_history = self.signal_history[-500:]
         return signal
 
-    def _write_opc_ua(self, part_id: str, action: GateAction, defect_info: Dict) -> bool:
-        """Write every OPC UA node for a command and confirm each value by readback."""
+    def _write_opc_ua(
+        self,
+        part_id: str,
+        action: GateAction,
+        defect_info: Dict,
+        command_id: Optional[int] = None,
+    ) -> bool:
+        """Write command data then require a matching PLC execution-ACK sequence."""
         if not self.enabled:
             return False
 
@@ -461,6 +520,9 @@ class IndustrialProtocolManager:
                 logger.error("[OPC UA] Real mode requested but asyncua is unavailable")
                 return False
 
+            if command_id is None or not self.opc_node_command_sequence or not self.opc_node_ack_sequence:
+                logger.error("[OPC UA] Explicit command/ACK sequence nodes are required")
+                return False
             outcome = {"confirmed": False, "error": None}
 
             async def write_and_readback():
@@ -485,12 +547,29 @@ class IndustrialProtocolManager:
                             raise RuntimeError(
                                 f"OPC UA readback mismatch for {node_id}: expected {expected}, got {actual}"
                             )
+                    sequence_node = client.get_node(self.opc_node_command_sequence)
+                    await sequence_node.write_value(
+                        opc_ua_types.Variant(command_id, opc_ua_types.VariantType.UInt16)
+                    )
+                    if int(await sequence_node.read_value()) != command_id:
+                        raise RuntimeError("OPC UA command sequence readback mismatch")
+                    ack_node = client.get_node(self.opc_node_ack_sequence)
+                    ack_deadline = time.monotonic() + self.ack_timeout_seconds
+                    while time.monotonic() < ack_deadline:
+                        if int(await ack_node.read_value()) == command_id:
+                            return
+                        await asyncio.sleep(0.01)
+                    raise TimeoutError(f"OPC UA PLC ACK timeout for command {command_id}")
                 finally:
                     await client.disconnect()
 
             def run_write():
                 try:
-                    asyncio.run(asyncio.wait_for(write_and_readback(), timeout=1.0))
+                    asyncio.run(
+                        asyncio.wait_for(
+                            write_and_readback(), timeout=self.ack_timeout_seconds + 1.0
+                        )
+                    )
                     outcome["confirmed"] = True
                 except BaseException as exc:
                     outcome["error"] = exc
@@ -498,7 +577,7 @@ class IndustrialProtocolManager:
             if _event_loop_is_running():
                 worker = threading.Thread(target=run_write, daemon=True)
                 worker.start()
-                worker.join(timeout=1.2)
+                worker.join(timeout=self.ack_timeout_seconds + 1.2)
                 if worker.is_alive():
                     logger.error("[OPC UA] Write/readback exceeded deadline")
                     return False
@@ -512,8 +591,10 @@ class IndustrialProtocolManager:
         logger.debug(f"[OPC UA] {action.value} confirmed={confirmed} part={part_id}")
         return confirmed
 
-    def _write_modbus(self, part_id: str, action: GateAction) -> bool:
-        """Write command registers and validate Modbus responses plus readback."""
+    def _write_modbus(
+        self, part_id: str, action: GateAction, command_id: Optional[int] = None
+    ) -> bool:
+        """Write command registers then require a matching gateway ACK sequence."""
         if not self.enabled:
             return False
 
@@ -541,6 +622,13 @@ class IndustrialProtocolManager:
             return False
         if not self.modbus_trusted_gateway:
             logger.error("[MODBUS TCP] Refusing plaintext control without an explicitly trusted gateway")
+            return False
+        if (
+            command_id is None
+            or self.modbus_register_command_sequence is None
+            or self.modbus_register_ack_sequence is None
+        ):
+            logger.error("[MODBUS TCP] Explicit command/ACK sequence registers are required")
             return False
 
         client = ModbusTcpClient(self.plc_ip, port=self.modbus_port, timeout=1.0)
@@ -571,7 +659,32 @@ class IndustrialProtocolManager:
                         f"expected {expected}, got {readback.registers[0]}"
                     )
                     return False
-            return True
+            sequence_response = client.write_register(
+                self.modbus_register_command_sequence,
+                command_id,
+                slave=self.modbus_slave_id,
+            )
+            if sequence_response is None or (
+                hasattr(sequence_response, "isError") and sequence_response.isError()
+            ):
+                return False
+            ack_deadline = time.monotonic() + self.ack_timeout_seconds
+            while time.monotonic() < ack_deadline:
+                ack = client.read_holding_registers(
+                    self.modbus_register_ack_sequence,
+                    count=1,
+                    slave=self.modbus_slave_id,
+                )
+                if (
+                    ack is not None
+                    and not (hasattr(ack, "isError") and ack.isError())
+                    and getattr(ack, "registers", None)
+                    and int(ack.registers[0]) == command_id
+                ):
+                    return True
+                time.sleep(0.01)
+            logger.error("[MODBUS TCP] PLC ACK timeout for command %s", command_id)
+            return False
         except Exception as exc:
             logger.error(f"[MODBUS TCP] Transaction failed: {exc}")
             return False
@@ -743,19 +856,21 @@ class IndustrialProtocolManager:
         logger.critical(f"[E-STOP] Emergency stop triggered: {reason}")
 
         started = time.time()
-        opc_confirmed = self._write_opc_ua("SYSTEM", GateAction.EMERGENCY_STOP, {})
-        modbus_confirmed = self._write_modbus("SYSTEM", GateAction.EMERGENCY_STOP)
-        confirmed = opc_confirmed and modbus_confirmed
+        with self._lock:
+            self._signal_counter += 1
+            command_id = self._signal_counter % 65535 or 1
+        confirmed, delivery_metadata = self._dispatch_command(
+            "SYSTEM", GateAction.EMERGENCY_STOP, {}, command_id
+        )
         if confirmed:
             with self._lock:
                 self._apply_confirmed_state(GateAction.EMERGENCY_STOP, {})
 
         with self._lock:
-            self._signal_counter += 1
             signal = IndustrialSignal(
                 signal_id=f"SIG_{self._signal_counter:06d}",
                 timestamp=datetime.now().isoformat(),
-                protocol="OPC_UA + MODBUS_TCP",
+                protocol=delivery_metadata["command_channel"],
                 action=GateAction.EMERGENCY_STOP.value,
                 part_id="SYSTEM",
                 batch_id="SYSTEM",
@@ -767,8 +882,8 @@ class IndustrialProtocolManager:
                     "delivery_status": "SIMULATED" if self.mock_mode else (
                         "ACKNOWLEDGED" if confirmed else "FAILED"
                     ),
-                    "opc_ua_confirmed": opc_confirmed,
-                    "modbus_confirmed": modbus_confirmed,
+                    "command_id": command_id,
+                    **delivery_metadata,
                 },
             )
             self.signal_history.append(signal)
@@ -777,18 +892,20 @@ class IndustrialProtocolManager:
     def reset_line(self) -> IndustrialSignal:
         """Clear the safety latch only after both PLC channels confirm reset."""
         started = time.time()
-        opc_confirmed = self._write_opc_ua("SYSTEM", GateAction.RESET, {})
-        modbus_confirmed = self._write_modbus("SYSTEM", GateAction.RESET)
-        confirmed = opc_confirmed and modbus_confirmed
+        with self._lock:
+            self._signal_counter += 1
+            command_id = self._signal_counter % 65535 or 1
+        confirmed, delivery_metadata = self._dispatch_command(
+            "SYSTEM", GateAction.RESET, {}, command_id
+        )
         with self._lock:
             if confirmed:
                 self._apply_confirmed_state(GateAction.RESET, {})
                 self._interlock_reason = ""
-            self._signal_counter += 1
             signal = IndustrialSignal(
                 signal_id=f"SIG_{self._signal_counter:06d}",
                 timestamp=datetime.now().isoformat(),
-                protocol="OPC_UA + MODBUS_TCP",
+                protocol=delivery_metadata["command_channel"],
                 action=GateAction.RESET.value,
                 part_id="SYSTEM",
                 batch_id="SYSTEM",
@@ -799,8 +916,8 @@ class IndustrialProtocolManager:
                     "delivery_status": "SIMULATED" if self.mock_mode else (
                         "ACKNOWLEDGED" if confirmed else "FAILED"
                     ),
-                    "opc_ua_confirmed": opc_confirmed,
-                    "modbus_confirmed": modbus_confirmed,
+                    "command_id": command_id,
+                    **delivery_metadata,
                 },
             )
             self.signal_history.append(signal)

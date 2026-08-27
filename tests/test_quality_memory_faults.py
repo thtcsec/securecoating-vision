@@ -60,6 +60,29 @@ class TestQualityMemoryFaults(unittest.TestCase):
         self.assertEqual(stats["held"], 1)
         self.assertEqual(stats["pass_rate"], 100.0)
 
+    def test_duplicate_part_identity_is_rejected_transactionally(self):
+        kwargs = {
+            "batch_id": "B",
+            "part_id": "DUPLICATE",
+            "has_defect": False,
+            "defect_class": "none",
+        }
+        self.assertTrue(self.memory.add_entry(**kwargs))
+        self.assertFalse(self.memory.add_entry(**kwargs))
+        self.assertTrue(self.memory.healthy)
+        self.assertIn("Duplicate inspection identity rejected", self.memory.last_error)
+        stats = self.memory.get_batch_stats("B")
+        self.assertEqual(stats["total"], 1)
+
+    def test_online_backup_is_readable_and_consistent(self):
+        self.assertTrue(self.memory.add_entry(
+            batch_id="BACKUP", part_id="P1", has_defect=False, defect_class="none"
+        ))
+        backup_path = os.path.join(self.tempdir.name, "backup", "quality.db")
+        self.assertTrue(self.memory.backup_to(backup_path))
+        backup = QualityMemory(backup_path)
+        self.assertEqual(backup.get_batch_stats("BACKUP")["total"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

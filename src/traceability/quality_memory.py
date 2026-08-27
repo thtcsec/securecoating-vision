@@ -3,6 +3,7 @@ import sqlite3
 import datetime
 import logging
 import threading
+import tempfile
 from contextlib import contextmanager
 
 logger = logging.getLogger("SecureCoatingVision.QualityMemory")
@@ -87,6 +88,33 @@ class QualityMemory:
                 "CREATE INDEX IF NOT EXISTS idx_inspections_run_id "
                 "ON inspections(run_id)"
             )
+            cursor.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_inspections_run_id_unique "
+                "ON inspections(run_id) WHERE run_id IS NOT NULL"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_inspections_roll_batch_timestamp "
+                "ON inspections(roll_id, batch_id, timestamp)"
+            )
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS inspection_identity_claims (
+                    batch_id TEXT NOT NULL,
+                    part_id TEXT NOT NULL,
+                    claimed_at TEXT NOT NULL,
+                    PRIMARY KEY (batch_id, part_id)
+                )
+                """
+            )
+            # Preserve existing identities without rewriting historical rows.
+            cursor.execute(
+                """
+                INSERT OR IGNORE INTO inspection_identity_claims(batch_id, part_id, claimed_at)
+                SELECT batch_id, part_id, MIN(timestamp)
+                FROM inspections
+                GROUP BY batch_id, part_id
+                """
+            )
             conn.commit()
 
     def _set_health(self, healthy: bool, error: str = "") -> None:
@@ -121,6 +149,14 @@ class QualityMemory:
         try:
             with self._connection() as conn:
                 cursor = conn.cursor()
+                conn.execute("BEGIN IMMEDIATE")
+                cursor.execute(
+                    """
+                    INSERT INTO inspection_identity_claims(batch_id, part_id, claimed_at)
+                    VALUES (?, ?, ?)
+                    """,
+                    (batch_id, part_id, timestamp),
+                )
                 cursor.execute(
                     """
                     INSERT INTO inspections (
@@ -153,6 +189,16 @@ class QualityMemory:
                 conn.commit()
             self._set_health(True)
             return True
+        except sqlite3.IntegrityError as e:
+            if "inspection_identity_claims" in str(e):
+                message = f"Duplicate inspection identity rejected: {batch_id}/{part_id}"
+                logger.warning(message)
+                # The storage engine remains healthy; this is an input/idempotency violation.
+                self._set_health(True, message)
+                return False
+            logger.error(f"Integrity error logging to quality database: {e}")
+            self._set_health(False, str(e))
+            return False
         except sqlite3.Error as e:
             logger.error(f"Error logging to quality database: {e}")
             self._set_health(False, str(e))
@@ -174,6 +220,42 @@ class QualityMemory:
         except sqlite3.Error as e:
             logger.error(f"Error finalizing quality decision: {e}")
             self._set_health(False, str(e))
+            return False
+
+    def backup_to(self, destination_path: str) -> bool:
+        """Create an atomic SQLite online backup without copying live WAL files."""
+        destination = os.path.abspath(destination_path)
+        source = os.path.abspath(self.db_path)
+        if destination == source:
+            raise ValueError("Backup destination must differ from the live database")
+        destination_dir = os.path.dirname(destination)
+        os.makedirs(destination_dir, exist_ok=True)
+        fd, temporary_path = tempfile.mkstemp(
+            prefix=".quality-backup-", suffix=".db", dir=destination_dir
+        )
+        os.close(fd)
+        try:
+            with self._connection() as source_conn:
+                backup_conn = sqlite3.connect(temporary_path)
+                try:
+                    source_conn.backup(backup_conn)
+                    integrity = backup_conn.execute("PRAGMA integrity_check").fetchone()
+                    if not integrity or integrity[0] != "ok":
+                        raise sqlite3.DatabaseError(
+                            f"Backup integrity_check failed: {integrity}"
+                        )
+                    backup_conn.commit()
+                finally:
+                    backup_conn.close()
+            os.replace(temporary_path, destination)
+            return True
+        except (OSError, sqlite3.Error) as exc:
+            logger.error(f"Quality database backup failed: {exc}")
+            self._set_health(False, str(exc))
+            try:
+                os.unlink(temporary_path)
+            except OSError:
+                pass
             return False
 
     def get_batch_stats(self, batch_id):

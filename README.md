@@ -9,8 +9,8 @@ It is **not production-qualified**. The repository does not contain a factory ca
 - Only an `OPTIMAL` inference result from a loaded trained model may produce an automatic PASS/REJECT decision.
 - Timeout, inference error, missing model, missing sensor, unverified production calibration, traceability failure, PLC communication failure, or a latched interlock produces `HOLD`.
 - Mock OPC UA/Modbus operations are labelled `SIMULATED`; they are never reported as PLC acknowledgements.
-- Real PLC commands require write response validation and readback on both channels. OPC UA is configured for `SignAndEncrypt`; plaintext Modbus is refused unless an explicitly trusted gateway is configured.
-- The dashboard is a local visualization sandbox. It does not own or write to the live PLC channel.
+- Real PLC commands use exactly one configured command-owner protocol and require a unique command sequence plus a matching PLC ACK sequence. OPC UA requires `SignAndEncrypt`; plaintext Modbus is refused unless an explicitly trusted gateway is configured.
+- The dashboard reads the API as its authoritative source. Local fallback is available only when `SECURECOATING_DASHBOARD_SANDBOX=true` in development/test, and it never owns a live PLC channel.
 
 These properties are covered by software tests, but physical actuator behavior still requires vendor-specific HIL and safety validation.
 
@@ -43,7 +43,7 @@ $env:SECURECOATING_FACTORY_SECRET = "<certificate signing secret>"
 $env:SECURECOATING_INDUSTRIAL_MOCK_MODE = "false"
 ```
 
-You must also replace the simulation-only values in `configs/calibration.yaml`, configure OPC UA client/server certificates, and set `modbus.trusted_gateway: true` only after the OT network control has been independently verified.
+You must also replace the simulation-only values in `configs/calibration.yaml`, configure the selected PLC command owner and its command/ACK sequence contract, and provision OPC UA client/server certificates. Set `modbus.trusted_gateway: true` only after the OT network control has been independently verified.
 
 For an explicit unauthenticated local test sandbox only:
 
@@ -51,6 +51,7 @@ For an explicit unauthenticated local test sandbox only:
 $env:SECURECOATING_ENV = "development"
 $env:SECURECOATING_ALLOW_UNAUTHENTICATED_DEMO = "true"
 $env:SECURECOATING_ENABLE_SENSOR_SIMULATION = "true"
+$env:SECURECOATING_DASHBOARD_SANDBOX = "true"
 uvicorn src.api.main:app --host 127.0.0.1 --port 8000 --workers 1
 ```
 
@@ -65,7 +66,7 @@ Never expose that mode outside a trusted developer workstation.
 docker compose config
 ```
 
-The dashboard is a read-only local simulation view:
+The dashboard is API-authoritative by default. To run its explicitly isolated local sandbox:
 
 ```powershell
 .venv\Scripts\streamlit.exe run dashboard/app.py
@@ -94,6 +95,8 @@ Before publishing results, prove by hash that the evaluation set does not overla
 ## Deployment limits
 
 The supplied Compose file runs one API worker because PLC, inference and active-roll ownership are stateful. Scaling requires an external transactional state/event service and a single PLC-command owner. Containers run as a non-root user with dropped capabilities and bind only to loopback by default.
+
+`requirements-lock.txt` pins direct runtime requirements, but it is not a hash-locked, fully resolved cross-platform lock. A release build still requires a CI-generated lock with hashes and a successful container build/SBOM scan for the target platform.
 
 ## License
 

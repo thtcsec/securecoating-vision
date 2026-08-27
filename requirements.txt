@@ -1,46 +1,6 @@
-# SecureCoating-Vision: Local Development Dependencies
-# For Docker deployment, see requirements-docker.txt
-# For GPU CUDA acceleration, see requirements-gpu.txt
+# CPU/local Python 3.11 development environment.
+-r requirements-core.txt
 
-# Core API
-fastapi>=0.104.0
-uvicorn>=0.24.0
-pydantic>=2.5.0
-python-multipart>=0.0.6
-Pillow>=12.2.0,<13.0.0
-
-# Configuration
-PyYAML>=6.0.1
-
-# Scientific computing (numpy<2 keeps ultralytics 8.2 happy)
-numpy>=1.24.0,<2.0
-pandas>=2.1.0
-
-# Computer vision
-opencv-python-headless>=4.8.0
-
-# Deep learning (CPU/Universal PyTorch)
-torch>=2.1.0
-torchvision>=0.16.0
-
-# ONNX Runtime (CPU default for universal compatibility across evaluation machines)
-onnxruntime>=1.16.0
-
-# YOLOv8 segmentation
-ultralytics>=8.1.0
-
-# Dashboard
-streamlit>=1.29.0
-
-# Visualization
-matplotlib>=3.8.0
-plotly>=6.0.0
-
-# Testing
-pytest>=7.4.0
-httpx>=0.25.0
-requests>=2.31.0
-
-# Industrial protocols (required when mock_mode=false)
-asyncua==1.1.8
-pymodbus==3.7.4
+torch>=2.13.0,<2.14.0
+torchvision>=0.28.0,<0.29.0
+onnxruntime>=1.19.2,<1.20.0

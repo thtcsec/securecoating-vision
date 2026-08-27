@@ -6,7 +6,7 @@ fastapi>=0.104.0
 uvicorn>=0.24.0
 pydantic>=2.5.0
 python-multipart>=0.0.6
-Pillow==12.2.0
+Pillow>=12.3.0,<13.0.0
 
 # Configuration
 PyYAML>=6.0.1
@@ -20,14 +20,15 @@ opencv-python-headless>=4.8.0
 
 # PyTorch CPU-only (much smaller download ~200MB vs 2.5GB)
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch>=2.1.0
-torchvision>=0.16.0
+torch>=2.13.0,<2.14.0
+torchvision>=0.28.0,<0.29.0
 
 # ONNX Runtime CPU
 onnxruntime>=1.16.0
 
 # Dashboard & 3D Visualization
-streamlit>=1.29.0
+streamlit>=1.59.0,<2.0.0
+GitPython>=3.1.58,<4.0.0
 plotly>=6.0.0
 
 # Optional utilities (CPU docker does not need ultralytics for inference-only)
@@ -37,6 +38,6 @@ ultralytics>=8.1.0
 # Testing
 pytest>=7.4.0
 httpx>=0.25.0
-requests>=2.31.0
+requests>=2.34.2,<3.0.0
 asyncua==1.1.8
 pymodbus==3.7.4

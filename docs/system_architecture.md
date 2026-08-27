@@ -1,84 +1,34 @@
-# System Architecture
+# System Architecture: Implemented vs Target
 
-This document describes the hardware and software architecture of the **SecureCoating-Vision** system.
+SecureCoating-Vision is a single-process research prototype. The default Compose deployment deliberately uses one API worker because inference circuit state, PLC ownership, and the active roll ledger are held in process memory.
 
-## 1. Hardware Architecture & Sensor Layout
+## Implemented software path
 
-The physical inspection station is installed directly on the coating production line. The architecture utilizes three distinct imaging modalities synchronized with the conveyor's movement.
-
-```
-                  +---------------------------------+
-                  |      Industrial PLC Controller  | <--- Encoder Pulses
-                  +---------------------------------+
-                                   |
-                  +----------------+----------------+
-                  |  Hardware Trigger (Pulse Sync)  |
-                  +----------------+----------------+
-                                   |
-       +---------------------------+---------------------------+
-       |                           |                           |
-       v                           v                           v
-+--------------+            +--------------+            +--------------+
-| Optical Cam  |            |  LWIR Camera |            |  3D Profiler |
-| (RGB 2D)     |            |  (Thermal)   |            |  (Laser)     |
-+--------------+            +--------------+            +--------------+
-       |                           |                           |
-       v                           v                           v
-  [10GbE / GigE]              [GigE Vision]                 [USB 3.0]
-       |                           |                           |
-       +---------------------------+---------------------------+
-                                   |
-                                   v
-                  +---------------------------------+
-                  |      Edge Inference Computer    |
-                  |     (NVIDIA Jetson / RTX GPU)   |
-                  +---------------------------------+
+```text
+HTTP image/demo input
+  -> bounded image validation
+  -> simulated or unavailable secondary-sensor fusion
+  -> trained YOLO/ONNX inference (otherwise HOLD)
+  -> mask post-processing and prototype metrology
+  -> SQLite PENDING trace record
+  -> one configured PLC command owner
+  -> explicit command-sequence / ACK-sequence check
+  -> finalized trace decision, or latched HOLD on failure
 ```
 
-### Sensor Specifications & Roles:
-1.  **Optical RGB Camera:** 2D high-resolution GigE Vision camera. Captures high-frequency spatial details (scratches, pinholes, contamination, hair).
-2.  **LWIR Thermal Camera:** Long-Wave Infrared sensor detecting heat signatures. Active heating/cooling elements before the inspection zone generate thermal differentials. Sub-surface voids and delaminations manifest as local thermal impedance variations (hot/cold spots).
-3.  **3D Laser Line Profiler:** Laser triangulation profiler. Captures precise depth/height profiles to gauge absolute coating thickness and detect bumps/blisters.
+The dashboard is read-only with respect to the PLC. In normal mode it obtains health, active-roll, batch, SPC, PLC, passport, and certificate data from the API. An isolated local simulation fallback exists only when explicitly enabled in development/test.
 
----
+## Not implemented or not verified
 
-## 2. Software Architecture
+- No GigE Vision/LWIR/profilometer acquisition adapter or authoritative sensor timestamp/freshness source exists.
+- No hardware encoder or deterministic multi-camera trigger integration is present.
+- The tracked calibration artifact is explicitly unverified and simulation-only.
+- TensorRT execution is not established by the current repository evidence.
+- PLC execution semantics, physical gate timing, E-stop safety integrity, and reset behavior are not HIL-qualified.
+- Active-roll state and PLC interlock state are not durable across process restart.
+- SQLite backup, restore, retention, and disk-full recovery remain release gates.
+- Multi-worker/multi-instance API deployment is unsafe until state and command ownership are externalized.
 
-The software architecture is modular, event-driven, and designed for sub-40ms execution times.
+## Target production architecture
 
-```
-+-------------------------------------------------------------------------------------------------+
-|                                    Edge Inference Service                                       |
-|                                                                                                 |
-|  +------------------+      +---------------------+      +----------------+                      |
-|  |  Data Capture    | ---> | Multi-Source Fusion | ---> | TensorRT/ONNX  |                      |
-|  |  (Async Workers) |      | (Spatial alignment) |      | Inference Eng. |                      |
-|  +------------------+      +---------------------+      +----------------+                      |
-|                                                                 |                               |
-|                                                                 v                               |
-|  +------------------+      +---------------------+      +----------------+                      |
-|  |  Industrial I/O  | <--- | Post-Processing     | <--- | Defect Map &   |                      |
-|  |  (OPC UA/Modbus) |      | (NMS, Classification|      | Segmentation   |                      |
-|  +------------------+      +---------------------+      +----------------+                      |
-+-------------------------------------------------------------------------------------------------+
-                                      |
-                                      v
-                      +-------------------------------+
-                      |      Quality Database &       |
-                      |      MES REST API Service     |
-                      +-------------------------------+
-                                      |
-                                      v
-                      +-------------------------------+
-                      |      Streamlit Dashboard      |
-                      +-------------------------------+
-```
-
-### Component Details
-
-*   **Data Capture Module:** Uses multi-threaded queues to capture images from RGB, LWIR, and 3D sensors. It ensures frames are temporally matched based on hardware encoder timestamps.
-*   **Fusion & Alignment Module:** Performs spatial registration using pre-calculated homography matrices. Transforms thermal and 3D profiling maps to align precisely with the optical coordinate system.
-*   **Inference Engine:** Runs the fused images through a multi-branch convolutional/transformer network optimized via TensorRT for low latency.
-*   **Post-processing & Grading Module:** Filters raw predictions using Non-Maximum Suppression (NMS), calculates physical defect sizes (in mm), and applies the scoring rubric to make a pass/fail decision.
-*   **Industrial Communication Module:** A TCP client communicating directly with the PLC via OPC UA or Modbus protocol to trigger immediate rejection hardware for failed parts.
-*   **dashboard/app.py:** Real-time user interface showing live feed, historical trends, and quality reports.
+A production design needs a vendor-qualified acquisition service, an isolated inference worker with a killable deadline, a durable roll/event store, exactly one PLC command owner, mTLS/RBAC at the API boundary, OT segmentation, observability, and an independently tested safety PLC/hardwired stop chain. Those are roadmap requirements, not implemented features.
