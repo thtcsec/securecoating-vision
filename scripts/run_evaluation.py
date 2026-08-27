@@ -234,8 +234,7 @@ def evaluate_sample_predictions(gt_labels: list, detections: list, seg_mask: np.
         "mask_ious": []
     })
 
-    matched_gt_box = set()
-    matched_gt_mask = set()
+    matched_gt = set()
 
     # Sort detections by confidence descending
     sorted_dets = sorted(detections, key=lambda d: d.get("confidence", 0.0), reverse=True)
@@ -266,50 +265,37 @@ def evaluate_sample_predictions(gt_labels: list, detections: list, seg_mask: np.
         elif det_binary_mask.shape != (img_h, img_w):
             det_binary_mask = cv2.resize(det_binary_mask.astype(np.uint8), (img_w, img_h), interpolation=cv2.INTER_NEAREST)
 
-        # 1. BBox Matching
+        # Match each prediction to one GT using box IoU. Mask metrics are
+        # evaluated on this same pair to avoid inconsistent instance pairing.
         best_box_iou = 0.0
-        best_gt_box_idx = -1
+        best_gt_idx = -1
         for i, gt in enumerate(gt_labels):
-            if i in matched_gt_box or gt["class_id"] != det_class:
+            if i in matched_gt or gt["class_id"] != det_class:
                 continue
             b_iou = compute_box_iou(det_xyxy, gt["bbox_xyxy"])
             if b_iou > best_box_iou:
                 best_box_iou = b_iou
-                best_gt_box_idx = i
+                best_gt_idx = i
 
-        if best_box_iou >= iou_threshold and best_gt_box_idx >= 0:
-            matched_gt_box.add(best_gt_box_idx)
+        if best_box_iou >= iou_threshold and best_gt_idx >= 0:
+            matched_gt.add(best_gt_idx)
             class_results[det_class]["box_tp"] += 1
+            matched_gt_label = gt_labels[best_gt_idx]
+            matched_mask_iou = compute_mask_iou(det_binary_mask, matched_gt_label["mask"])
+            class_results[det_class]["mask_ious"].append(matched_mask_iou)
+            if matched_mask_iou >= iou_threshold:
+                class_results[det_class]["mask_tp"] += 1
+            else:
+                class_results[det_class]["mask_fp"] += 1
         else:
             class_results[det_class]["box_fp"] += 1
-
-        # 2. Mask IoU Matching
-        best_mask_iou = 0.0
-        best_gt_mask_idx = -1
-        for i, gt in enumerate(gt_labels):
-            if i in matched_gt_mask or gt["class_id"] != det_class:
-                continue
-            m_iou = compute_mask_iou(det_binary_mask, gt["mask"])
-            if m_iou > best_mask_iou:
-                best_mask_iou = m_iou
-                best_gt_mask_idx = i
-
-        # Record best mask IoU found
-        if best_mask_iou > 0:
-            class_results[det_class]["mask_ious"].append(best_mask_iou)
-
-        if best_mask_iou >= iou_threshold and best_gt_mask_idx >= 0:
-            matched_gt_mask.add(best_gt_mask_idx)
-            class_results[det_class]["mask_tp"] += 1
-        else:
             class_results[det_class]["mask_fp"] += 1
 
     # Count False Negatives for unmatched GTs
     for i, gt in enumerate(gt_labels):
         cid = gt["class_id"]
-        if i not in matched_gt_box:
+        if i not in matched_gt:
             class_results[cid]["box_fn"] += 1
-        if i not in matched_gt_mask:
             class_results[cid]["mask_fn"] += 1
 
     return class_results

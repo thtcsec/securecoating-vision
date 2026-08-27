@@ -49,6 +49,31 @@ class TestEvaluationIntegrity(unittest.TestCase):
         with self.assertRaises(ValueError):
             evaluate_sample_predictions(gt, detection, np.ones((8, 8), dtype=np.uint8))
 
+    def test_box_and_mask_metrics_use_the_same_instance_pair(self):
+        gt = [
+            {"class_id": 0, "bbox_xyxy": [0, 0, 4, 4], "mask": np.zeros((8, 8), dtype=np.uint8)},
+            {"class_id": 0, "bbox_xyxy": [4, 4, 8, 8], "mask": np.zeros((8, 8), dtype=np.uint8)},
+        ]
+        gt[0]["mask"][0:4, 0:4] = 1
+        gt[1]["mask"][4:8, 4:8] = 1
+        detection_mask = np.zeros((8, 8), dtype=np.uint8)
+        detection_mask[4:8, 4:8] = 1
+        result = evaluate_sample_predictions(
+            gt,
+            [{
+                "class_id": 0,
+                "box": [0, 0, 4, 4],
+                "box_format": "xyxy",
+                "confidence": 0.9,
+                "mask": detection_mask,
+            }],
+            np.ones((8, 8), dtype=np.uint8),
+        )[0]
+        self.assertEqual(result["box_tp"], 1)
+        self.assertEqual(result["mask_tp"], 0)
+        self.assertEqual(result["mask_fp"], 1)
+        self.assertEqual(result["mask_fn"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
