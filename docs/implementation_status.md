@@ -31,6 +31,7 @@ This document is the project status ledger. A feature is marked **verified** onl
 - [x] API control endpoints require authentication unless an explicit local development override is enabled.
 - [x] Upload body, media type, image header, pixel count, and decoded image limits are enforced.
 - [x] Timeout circuit prevents a new inference while a previous timed-out worker is still running.
+- [x] Runtime model errors do not auto-recover into an automatic decision path.
 - [ ] Verify physical HOLD/reject gate behavior with vendor PLC HIL.
 - [ ] Verify safety-rated E-stop and hardwired interlock behavior with the plant safety owner.
 - [ ] Add mTLS/RBAC and OT network segmentation for the target deployment.
@@ -38,6 +39,7 @@ This document is the project status ledger. A feature is marked **verified** onl
 ## Phase 2: Correctness and Traceability
 
 - [x] Roll and batch identifiers are validated before map/certificate retrieval.
+- [x] Inspection ingestion rejects non-active batches instead of attaching them to the active roll.
 - [x] Certificate signatures cover the complete canonical payload, including nested defect map entries.
 - [x] Certificate output marks provisional metrics as `UNVERIFIED`.
 - [x] SQLite writes report failure instead of silently returning healthy defaults.
@@ -45,6 +47,8 @@ This document is the project status ledger. A feature is marked **verified** onl
 - [x] Confidence matching uses class-aware bounding-box IoU rather than a default origin point.
 - [x] Coordinate mapping uses the actual input frame dimensions.
 - [x] Calibration is loaded from an explicit configuration artifact.
+- [x] HOLD inspections are excluded from resolved PASS/REJECT rate calculations.
+- [x] API latency and signal history limits have bounded request validation.
 - [ ] Add durable multi-roll persistence and transactional roll lifecycle ownership.
 - [ ] Add power-loss recovery, backup/restore, retention, and disk-full validation for SQLite.
 - [ ] Define part identity/duplicate policy for certificate pass-rate calculations.
@@ -80,7 +84,7 @@ The latest repository validation completed on 2026-08-26:
 
 ```text
 .venv\Scripts\python.exe -m pytest -q
-64 passed
+66 passed
 
 .venv\Scripts\python.exe -m compileall -q src dashboard scripts tests
 OK
@@ -104,7 +108,7 @@ A release may be called **research/demo-ready** only when automated tests and ev
 
 ## Next Execution Plan
 
-1. **Next engineering slice**: add endpoint-level tests for production authentication, health readiness, oversized uploads, roll/batch 404 behavior, and concurrent interlock commands.
+1. **Next engineering slice**: connect the read-only dashboard to authenticated API reads and add dashboard/browser smoke coverage.
 2. **Next integration slice**: run a PLC simulator/HIL matrix for OPC UA/Modbus readback and failure modes.
 3. **Next evidence slice**: create an immutable roll-disjoint manifest and rerun evaluation; publish only metrics produced by that manifest.
 4. **Next deployment slice**: restore Docker daemon, build the locked image, run liveness/readiness checks as non-root, and document rollback.

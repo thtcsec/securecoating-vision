@@ -45,6 +45,21 @@ class TestQualityMemoryFaults(unittest.TestCase):
         self.assertEqual(latency["status"], "ERROR")
         self.assertIsNone(latency["p50_ms"])
 
+    def test_hold_is_excluded_from_pass_rate(self):
+        self.assertTrue(self.memory.add_entry(
+            batch_id="B", part_id="PASS", has_defect=False,
+            defect_class="none", gate_action="PASS", inspection_valid=True,
+        ))
+        self.assertTrue(self.memory.add_entry(
+            batch_id="B", part_id="HOLD", has_defect=False,
+            defect_class="none", gate_action="HOLD", inspection_valid=False,
+        ))
+        stats = self.memory.get_batch_stats("B")
+        self.assertEqual(stats["total"], 2)
+        self.assertEqual(stats["passed"], 1)
+        self.assertEqual(stats["held"], 1)
+        self.assertEqual(stats["pass_rate"], 100.0)
+
 
 if __name__ == "__main__":
     unittest.main()

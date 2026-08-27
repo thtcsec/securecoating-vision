@@ -412,10 +412,8 @@ class FailSafeManager:
             )
             self._update_system_state()
 
-            if self.enable_auto_recovery:
-                logger.info("Attempting auto-recovery: RGB-only minimal inference...")
-                return self._fallback_rgb_only(predictor, optical)
-
+            # A primary model runtime failure is not safe to downgrade into an
+            # automatic decision path; recovery requires an explicit operator action.
             return self._emergency_result(optical, reason=str(e)[:200])
 
         except Exception as e:

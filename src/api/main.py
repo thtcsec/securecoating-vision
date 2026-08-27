@@ -30,7 +30,7 @@ from io import BytesIO
 import yaml
 import logging
 import uvicorn
-from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File, Form, Request
+from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File, Form, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -437,7 +437,7 @@ def health_check():
 @app.post("/api/inspect", response_model=InspectionResponse)
 async def inspect(
     background_tasks: BackgroundTasks,
-    batch_id: str = Form("BATCH_DEFAULT"),
+    batch_id: Optional[str] = Form(None),
     part_id: str = Form("PART_000"),
     simulate_defect: Optional[str] = Form(None),
     sample_name: Optional[str] = Form(None),
@@ -454,6 +454,13 @@ async def inspect(
     3. camera simulation canvas (+ optional simulate_defect overlay)
     """
     using_real_image = False
+    active_batch_id = web_synchronizer.roll.batch_id
+    batch_id = batch_id or active_batch_id
+    if batch_id != active_batch_id:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Batch {batch_id} is not active for roll {web_synchronizer.roll.roll_id}",
+        )
 
     if image is not None and image.filename:
         raw_bytes = await _read_upload_limited(image)
@@ -626,7 +633,10 @@ def list_demo_samples():
 
 
 @app.get("/api/metrics/latency")
-def latency_metrics(batch_id: Optional[str] = None, limit: int = 200):
+def latency_metrics(
+    batch_id: Optional[str] = None,
+    limit: int = Query(200, ge=1, le=1000),
+):
     """Latency p50/p95 vs 35ms competition target."""
     result = quality_mem.get_latency_stats(batch_id=batch_id, limit=limit)
     if result.get("status") == "ERROR":
@@ -661,7 +671,7 @@ def get_industrial_state():
 
 
 @app.get("/api/industrial/signals")
-def get_signal_history(limit: int = 50):
+def get_signal_history(limit: int = Query(50, ge=1, le=500)):
     """Get recent industrial signal history."""
     return industrial_mgr.get_signal_history(limit=limit)
 

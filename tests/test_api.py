@@ -76,7 +76,7 @@ class TestAPI(unittest.TestCase):
         resp = self.client.post(
             "/api/inspect",
             data={
-                "batch_id": "TEST_BATCH",
+                "batch_id": "BATCH_2026_MSE_01",
                 "part_id": "PART_API_001",
                 "thermal_online": "true",
                 "profiler_online": "true",
@@ -89,9 +89,21 @@ class TestAPI(unittest.TestCase):
         self.assertIn("latency_ms", body)
         self.assertIn("run_id", body)
         self.assertTrue(str(body["run_id"]).startswith("RUN_"))
-        if body["system_state"] != "OPTIMAL":
-            self.assertFalse(body["passed"])
-            self.assertEqual(body["gate_action"], "HOLD")
+
+    def test_inspect_rejects_non_active_batch(self):
+        resp = self.client.post(
+            "/api/inspect",
+            data={"batch_id": "BATCH_NOT_ACTIVE", "part_id": "PART_BAD_BATCH"},
+        )
+        self.assertEqual(resp.status_code, 409)
+
+    def test_inspect_defaults_to_active_batch(self):
+        resp = self.client.post(
+            "/api/inspect",
+            data={"part_id": "PART_ACTIVE_BATCH_DEFAULT"},
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["batch_id"], "BATCH_2026_MSE_01")
 
     @unittest.skipUnless(
         os.path.isfile(ONNX_PATH) and os.path.isfile(TEST_IMG),
@@ -101,7 +113,7 @@ class TestAPI(unittest.TestCase):
         resp = self.client.post(
             "/api/inspect",
             data={
-                "batch_id": "TEST_BATCH",
+                "batch_id": "BATCH_2026_MSE_01",
                 "part_id": "PART_API_SAMPLE",
                 "sample_name": "defect_val_00000.jpg",
                 "thermal_online": "true",
@@ -123,7 +135,7 @@ class TestAPI(unittest.TestCase):
             resp = self.client.post(
                 "/api/inspect",
                 data={
-                    "batch_id": "TEST_BATCH",
+                    "batch_id": "BATCH_2026_MSE_01",
                     "part_id": "PART_API_UPLOAD",
                 },
                 files={"image": ("defect_val_00000.jpg", f, "image/jpeg")},

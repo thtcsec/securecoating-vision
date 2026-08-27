@@ -181,7 +181,9 @@ class QualityMemory:
         query_stats = """
             SELECT 
                 COUNT(*), 
-                SUM(has_defect),
+                SUM(CASE WHEN gate_action = 'REJECT' THEN 1 ELSE 0 END),
+                SUM(CASE WHEN gate_action = 'PASS' THEN 1 ELSE 0 END),
+                SUM(CASE WHEN gate_action = 'HOLD' OR inspection_valid = 0 THEN 1 ELSE 0 END),
                 AVG(latency_ms)
             FROM inspections
             WHERE batch_id = ?
@@ -201,12 +203,14 @@ class QualityMemory:
                 
                 # Overall counts
                 cursor.execute(query_stats, (batch_id,))
-                total, failed, avg_latency = cursor.fetchone()
+                total, failed, passed, held, avg_latency = cursor.fetchone()
                 if total and total > 0:
                     stats["total"] = total
                     stats["failed"] = failed or 0
-                    stats["passed"] = total - (failed or 0)
-                    stats["pass_rate"] = round((stats["passed"] / total) * 100.0, 2)
+                    stats["passed"] = passed or 0
+                    stats["held"] = held or 0
+                    resolved = stats["passed"] + stats["failed"]
+                    stats["pass_rate"] = round((stats["passed"] / resolved) * 100.0, 2) if resolved else None
                     stats["avg_latency_ms"] = round(avg_latency or 0.0, 2)
                 
                 # Defect distributions

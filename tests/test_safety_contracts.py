@@ -4,6 +4,7 @@ import os
 import sys
 import time
 import unittest
+import numpy as np
 from unittest.mock import patch
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -19,6 +20,11 @@ class SlowPredictor:
     def predict(self, optical, thermal, height):
         time.sleep(0.05)
         return {"segmentation_mask": optical[:, :, 0] * 0}
+
+
+class FailingPredictor:
+    def predict(self, optical, thermal, height):
+        raise RuntimeError("primary inference failed")
 
 
 class ErrorResponse:
@@ -54,6 +60,14 @@ class TestSafetyContracts(unittest.TestCase):
         self.assertLess(elapsed, 0.05)
         second = manager.safe_predict(SlowPredictor(), optical=optical)
         self.assertEqual(second["error_reason"], "Inference circuit open after timeout")
+
+    def test_runtime_model_failure_cannot_recover_to_decision_state(self):
+        manager = FailSafeManager(max_inference_timeout_ms=100.0)
+        optical = np.zeros((8, 8, 3), dtype="uint8")
+        optical[::2] = 100
+        result = manager.safe_predict(FailingPredictor(), optical=optical)
+        self.assertEqual(result["system_state"], SystemState.EMERGENCY.value)
+        self.assertNotEqual(result.get("system_state"), SystemState.OPTIMAL.value)
 
     def test_safety_failure_latches_hold_even_in_mock_mode(self):
         manager = IndustrialProtocolManager({"enabled": True, "mock_mode": True})
