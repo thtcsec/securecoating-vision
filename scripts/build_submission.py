@@ -40,9 +40,12 @@ WHITELIST = [
     "src/training/train_yolo.py",
     "src/training/train_baseline.py",
     "src/evaluation/evaluate.py",
+    "src/evaluation/dataset_manifest.py",
     "src/utils/__init__.py",
     # Dashboard
     "dashboard/app.py",
+    "dashboard/api_client.py",
+    "dashboard/__init__.py",
     # Tests
     "tests/test_failsafe.py",
     "tests/test_sensor_fusion.py",
@@ -58,12 +61,19 @@ WHITELIST = [
     "tests/test_optical_budget.py",
     "tests/test_latency_budget.py",
     "tests/test_spc_spatial_diagnostics.py",
+    "tests/test_safety_contracts.py",
+    "tests/test_quality_memory_faults.py",
+    "tests/test_evaluation_integrity.py",
+    "tests/test_dashboard_api_client.py",
+    "tests/test_dashboard_app.py",
+    "tests/test_production_startup.py",
     # Configs
     "configs/app.yaml",
     "configs/model.yaml",
     "configs/dataset.yaml",
     "configs/evaluation.yaml",
     "configs/coatingvision_real_detect.yaml" if os.path.exists("configs/coatingvision_real_detect.yaml") else None,
+    "configs/calibration.yaml",
     # Scripts
     "scripts/run_evaluation.py",
     "scripts/run_ultralytics_validation.py",
@@ -74,6 +84,7 @@ WHITELIST = [
     "scripts/run_pilot_validation_dossier.py",
     "scripts/smoke_live.py",
     "scripts/verify_inject.py",
+    "scripts/backup_quality_db.py",
     "scripts/run_api.ps1",
     "scripts/run_dashboard.ps1",
     "scripts/evaluate_coatingvision_real.py" if os.path.exists("scripts/evaluate_coatingvision_real.py") else None,
@@ -96,6 +107,7 @@ WHITELIST = [
     "docs/inspection_workflow.md",
     "docs/scoring_rubric_mapping.md",
     "docs/presentation_pitch.md",
+    "docs/implementation_status.md",
     "Al + Materials Competition Application Form.docx",
     # Deployment
     "Dockerfile",
@@ -104,6 +116,7 @@ WHITELIST = [
     "requirements-docker.txt",
     "requirements-gpu.txt",
     "requirements-lock.txt",
+    "requirements-core.txt",
     ".dockerignore",
     ".env.example",
     # Data (images ONLY, no labels)
