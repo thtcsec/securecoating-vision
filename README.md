@@ -4,6 +4,12 @@ SecureCoating-Vision is an **industrial computer-vision research prototype** for
 
 It is **not production-qualified**. The repository does not contain a factory calibration certificate, PLC hardware-in-the-loop evidence, an independent roll-disjoint test set, or plant safety approval. Do not connect it directly to a production gate or treat the software E-stop as a safety-rated E-stop.
 
+## Scope and Evidence
+
+The repository contains a fail-closed inspection prototype, traceability experiments, simulated industrial I/O, and reproducible software checks. Implemented behavior, test evidence, simulation boundaries, and external validation requirements are recorded in the [implementation status ledger](docs/implementation_status.md).
+
+The current software validation snapshot is 85 passing tests with no skips, plus successful compile, dependency, and Compose configuration checks. This does not constitute evidence of factory performance, physical PLC behavior, safety-rated E-stop operation, or production qualification.
+
 ## Current safety contract
 
 - Only an `OPTIMAL` inference result from a loaded trained model may produce an automatic PASS/REJECT decision.
