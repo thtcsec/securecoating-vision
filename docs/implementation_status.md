@@ -81,16 +81,17 @@ This document is the project status ledger. A feature is marked **verified** onl
 - [x] Compose uses one API worker because the current roll/PLC owner is in-process.
 - [x] Liveness is separated from readiness/health.
 - [x] Environment examples distinguish local simulation from production configuration.
-- [x] Dashboard is read-only and does not create a second live PLC command owner.
-- [x] Dashboard reads authoritative health, roll, batch, SPC, PLC, and passport telemetry from the API when available.
+- [x] Dashboard production surface is snapshot-only (line/quality/PLC/traceability) and does not render simulator controls.
+- [x] Dashboard sandbox is an explicit development/test opt-in for simulator and LIBAD evidence demo.
+- [x] Operator control uses authenticated confirm-audit workflow; recipe/PLC parameter writes are not offered.
 - [x] Dashboard API client has bounded requests and explicit HTTP/JSON error handling.
 - [x] Production dashboard refuses automatic local fallback; sandbox fallback is explicit development/test opt-in.
-- [x] Dashboard AppTest renders without exceptions in the explicit sandbox.
+- [x] Dashboard AppTest covers production snapshot console and isolated sandbox render.
 - [x] Dependency resolver dry-run succeeds; Pillow/GitPython/Torch pins were advanced to audited fixed versions.
 - [x] GPU development environment verified Torch 2.13.0+cu130 with the RTX 4050.
 - [x] Docker Desktop build and runtime smoke passed on 2026-08-28 with Python 3.11.16, CPU inference, non-root/read-only containers, and loopback-only published ports.
 - [ ] Add CI for tests, compile, dependency checks, Docker build, and release artifact checks.
-- [x] Manual browser/Compose smoke verified the authoritative read-only dashboard and a real CoatingVision image through the built API image.
+- [x] Manual browser/Compose smoke verified the API-backed dashboard and a real CoatingVision image through the built API image.
 - [ ] Docker Scout still reports 2 Critical and 2 High findings in Debian's essential `perl-base` 5.40.1-6, with no fixed version reported; production release remains blocked pending a fixed/minimal base or documented security acceptance.
 - [x] API inspection endpoints have bounded in-flight concurrency and reject excess work instead of building an unbounded queue.
 - [ ] Add target-hardware operational metrics and alerting.
@@ -102,12 +103,12 @@ The latest repository validation is recorded by `scripts/record_test_manifest.py
 <!-- TEST_MANIFEST:START -->
 ```text
 D:\tu_projects\securecoating-vision\.venv\Scripts\python.exe -m pytest -q
-132 passed in 48.59s
+141 passed in 39.69s
 python 3.11.9
-commit 12e1ed55728f09f8e4d485c76e4d5a6230af0f7b
+commit a14e95bdbda676838ce5a1e57ecf54efaadbcf04
 working_tree_dirty True
-source_diff_sha256 1cc052f39d7e949e13e7556b99843e9a069d06a54bf40b74854eef813566ceae
-log_sha256 e623e779ff9cabab7fd1d897a317c34910efda59d7a2071c3f98943e0e09d0cb
+source_diff_sha256 1731f8626f618366374e986b718a5c7ac5a695821d818bae7da8e436957bc751
+log_sha256 62925f26fbab9d4d98bbcebae235bb1ba917491b4e8061e72f3f2c820a7947a7
 ```
 <!-- TEST_MANIFEST:END -->
 

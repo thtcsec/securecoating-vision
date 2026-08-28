@@ -6,7 +6,7 @@
 **Brand:** SecureCoating-Vision  
 **Format:** 6-Minute Presentation + 2-Minute Q&A  
 
-Do not introduce a fourth title. Slide 1 uses the registered finalist-list title exactly, then the tagline.
+Do not introduce a fourth title. Slide 1 of `SecureCoating-Vision_Final_Defense_6min.pptx` uses the registered finalist-list title exactly, then the tagline.
 
 ---
 
@@ -17,7 +17,7 @@ Do not introduce a fourth title. Slide 1 uses the registered finalist-list title
 |  Minute 1: Problem — electrode scrap, escapes, and unsafe automatic release        |
 |  Minute 2: Architecture — RGB contract first, then LIBAD-compatible evidence lane |
 |  Minute 3: Evidence gate — HOLD turns uncertainty into a controlled industrial state|
-|  Minute 4: Traceability, certificate, OPC UA/Modbus contracts                      |
+|  Minute 4: Operations console, confirm-audit control, certificate, PLC contracts |
 |  Minute 5: LIBAD numbers vs SecureCoating operational metrics                      |
 |  Minute 6: Four-case demo close and honest roadmap                                 |
 +-------------------------------------------------------------------------------------+
@@ -29,7 +29,7 @@ Do not introduce a fourth title. Slide 1 uses the registered finalist-list title
 *   **The Gap:** Academic detection answers *how to detect*. A factory needs *when a detection is safe enough to act on*.
 
 ### Minute 2: Two Evidence Lanes, One Safety Contract
-*   **Lane A, already built:** YOLOv8-seg/ONNX on RGB, FastAPI, dashboard, PASS/REJECT/HOLD, OPC UA/Modbus, HMAC certificates. Thermal and profilometry are **simulated interface adapters**.
+*   **Lane A, already built:** YOLOv8-seg/ONNX on RGB, FastAPI, production operations dashboard, PASS/REJECT/HOLD, OPC UA/Modbus, HMAC certificates. Thermal and profilometry are **simulated interface adapters**.
 *   **Lane B, validation extension:** LIBAD defines aligned VIS and inline-compatible X-rayL inputs plus 10 official splits. This repository implements the adapter and evidence gate; official data execution is still pending.
 *   **One sentence of progress:** "The initial prototype validated the software and safety contract using RGB inspection and simulated secondary modalities. We then added a LIBAD-compatible validation harness; the checked-in run is a protocol fixture, not a paper-comparable result."
 *   **Not a topic change.** YOLO stays. DA-Core stays attributed to Sui et al.
@@ -40,10 +40,12 @@ Do not introduce a fourth title. Slide 1 uses the registered finalist-list title
 *   **PASS** only when evidence and the communication contract both pass.
 *   This is industrial AI: uncertainty becomes an operationally controlled state, not a hidden false-positive rate.
 
-### Minute 4: Traceability and Control-Plane
-*   Every decision carries roll, batch, and part identity.
-*   Trace rows stay PENDING until PLC finalization.
-*   Certificates HMAC-sign the canonical payload, including modality scores and the decision reason.
+### Minute 4: Operations Console, Traceability, and Control-Plane
+*   Production UI has three surfaces only: **Operate / Diagnose / Traceability**, filled from one `/api/operations/snapshot`.
+*   Recipe sliders, defect injection, 7-stage demo, LIBAD evidence cases, and “send to PLC” live only in the explicit sandbox.
+*   Operator E-stop, reset, and inference reset require API authentication, an exact confirmation phrase, and a durable control-audit row. Mock PLC remains labelled `SIMULATED`.
+*   Every decision carries roll, batch, and part identity. Trace rows stay PENDING until PLC finalization.
+*   Certificates HMAC-sign the canonical payload.
 
 ### Minute 5: Why LIBAD Does Not End the Story
 *   Sui et al. report that even the best LIBAD setting still has **FPR95 54.3%** with AUROC 86.7%, AUPR 95.7%, F1-max 90.6%. They say this false-positive rate is too high for direct deployment.

@@ -15,7 +15,7 @@ The repository contains a fail-closed inspection prototype, traceability experim
 The initial prototype validated the software and safety contract using RGB inspection and simulated secondary modalities. The repository now contains a validation adapter and 10-seed harness for [LIBAD](https://arxiv.org/abs/2608.07958), whose official release contains aligned visible-light and inline-compatible X-ray data from real roll-to-roll electrode manufacturing. The checked-in demo and benchmark reports use deterministic protocol fixtures because the official dataset/splits are not present. This is a validation extension, not a change of topic. Details are in [docs/libad_validation_extension.md](docs/libad_validation_extension.md).
 
 <!-- TEST_MANIFEST:START -->
-The current software validation snapshot is 132 passing tests with 0 skips and 0 failures (commit `12e1ed55728f`, working tree dirty, source diff `1cc052f39d7e`, Python 3.11.9, 48.59s). The authoritative record is [reports/test_manifest.json](reports/test_manifest.json). This does not constitute evidence of factory performance, physical PLC behavior, safety-rated E-stop operation, or production qualification.
+The current software validation snapshot is 141 passing tests with 0 skips and 0 failures (commit `a14e95bdbda6`, working tree dirty, source diff `1731f8626f61`, Python 3.11.9, 39.69s). The authoritative record is [reports/test_manifest.json](reports/test_manifest.json). This does not constitute evidence of factory performance, physical PLC behavior, safety-rated E-stop operation, or production qualification.
 <!-- TEST_MANIFEST:END -->
 
 ## Current safety contract
@@ -24,7 +24,7 @@ The current software validation snapshot is 132 passing tests with 0 skips and 0
 - Timeout, inference error, missing model, missing sensor, unverified production calibration, traceability failure, PLC communication failure, modality disagreement, stale evidence, or a latched interlock produces `HOLD`.
 - Mock OPC UA/Modbus operations are labelled `SIMULATED`; they are never reported as PLC acknowledgements.
 - Real PLC commands use exactly one configured command-owner protocol and require a unique command sequence plus a matching PLC ACK sequence. OPC UA requires `SignAndEncrypt`; plaintext Modbus is refused unless an explicitly trusted gateway is configured.
-- The dashboard reads the API as its authoritative source. Local fallback is available only when `SECURECOATING_DASHBOARD_SANDBOX=true` in development/test, and it never owns a live PLC channel.
+- The production dashboard reads one `/api/operations/snapshot` payload. Simulator, recipe sliders, defect injection, and LIBAD evidence demo exist only in the explicit development/test sandbox. Operator control is limited to authenticated confirm-audit actions (E-stop, reset, inference reset); the dashboard never writes recipe offsets to a PLC.
 
 These properties are covered by software tests, but physical actuator behavior still requires vendor-specific HIL and safety validation.
 

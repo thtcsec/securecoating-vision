@@ -39,11 +39,17 @@ class TestQualityMemoryFaults(unittest.TestCase):
             stats = self.memory.get_batch_stats("B")
             spc = self.memory.check_spc_alarms("B")
             latency = self.memory.get_latency_stats("B")
+            recent = self.memory.get_recent_inspections("B")
+            audits = self.memory.get_recent_control_audits()
         self.assertEqual(stats["status"], "ERROR")
         self.assertIsNone(stats["pass_rate"])
         self.assertEqual(spc["status"], "UNKNOWN")
         self.assertEqual(latency["status"], "ERROR")
         self.assertIsNone(latency["p50_ms"])
+        self.assertEqual(recent["status"], "ERROR")
+        self.assertEqual(recent["records"], [])
+        self.assertEqual(audits["status"], "ERROR")
+        self.assertEqual(audits["records"], [])
 
     def test_hold_is_excluded_from_pass_rate(self):
         self.assertTrue(self.memory.add_entry(
@@ -82,6 +88,44 @@ class TestQualityMemoryFaults(unittest.TestCase):
         self.assertTrue(self.memory.backup_to(backup_path))
         backup = QualityMemory(backup_path)
         self.assertEqual(backup.get_batch_stats("BACKUP")["total"], 1)
+
+    def test_control_audit_is_durable_and_queryable(self):
+        self.assertTrue(self.memory.record_control_audit(
+            audit_id="AUD_TEST1",
+            operator_id="OP_A",
+            action="EMERGENCY_STOP",
+            reason="unit test",
+            confirmation="CONFIRM EMERGENCY_STOP",
+            snapshot_id="OPS_TEST",
+            result_status="DISPATCHING",
+            details={"step": "start"},
+        ))
+        self.assertTrue(self.memory.finalize_control_audit(
+            "AUD_TEST1",
+            "SIMULATED",
+            signal_id="SIG_1",
+            details={"step": "done"},
+        ))
+        payload = self.memory.get_recent_control_audits()
+        self.assertEqual(payload["status"], "OK")
+        self.assertEqual(payload["count"], 1)
+        row = payload["records"][0]
+        self.assertEqual(row["audit_id"], "AUD_TEST1")
+        self.assertEqual(row["result_status"], "SIMULATED")
+        self.assertEqual(row["signal_id"], "SIG_1")
+        self.assertEqual(row["details"]["step"], "done")
+
+    def test_control_audit_write_failure_is_reported(self):
+        with patch.object(self.memory, "_get_connection", self.fail_connection):
+            written = self.memory.record_control_audit(
+                audit_id="AUD_FAIL",
+                operator_id="OP_A",
+                action="RESET",
+                reason="unit test",
+                confirmation="CONFIRM RESET",
+            )
+        self.assertFalse(written)
+        self.assertFalse(self.memory.healthy)
 
 
 if __name__ == "__main__":

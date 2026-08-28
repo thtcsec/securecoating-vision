@@ -1,4 +1,5 @@
 import os
+import json
 import sqlite3
 import datetime
 import logging
@@ -114,6 +115,27 @@ class QualityMemory:
                 FROM inspections
                 GROUP BY batch_id, part_id
                 """
+            )
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS control_audit (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    audit_id TEXT NOT NULL UNIQUE,
+                    timestamp TEXT NOT NULL,
+                    operator_id TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    reason TEXT NOT NULL,
+                    confirmation TEXT NOT NULL,
+                    snapshot_id TEXT,
+                    result_status TEXT NOT NULL,
+                    signal_id TEXT,
+                    details_json TEXT NOT NULL
+                )
+                """
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_control_audit_timestamp "
+                "ON control_audit(timestamp)"
             )
             conn.commit()
 
@@ -426,3 +448,183 @@ class QualityMemory:
             "target_ms": 35.0,
             "within_target_pct": round(within, 1),
         }
+
+    def get_recent_inspections(self, batch_id, limit=20):
+        """Return recent inspection rows for the operations snapshot. Empty is not an error."""
+        payload = {"status": "OK", "batch_id": batch_id, "count": 0, "records": []}
+        try:
+            with self._connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT timestamp, part_id, run_id, gate_action, system_state,
+                           defect_class, latency_ms, inspection_valid, error_reason
+                    FROM inspections
+                    WHERE batch_id = ?
+                    ORDER BY timestamp DESC, id DESC
+                    LIMIT ?
+                    """,
+                    (batch_id, limit),
+                )
+                records = []
+                for row in cursor.fetchall():
+                    records.append(
+                        {
+                            "timestamp": row[0],
+                            "part_id": row[1],
+                            "run_id": row[2],
+                            "gate_action": row[3],
+                            "system_state": row[4],
+                            "defect_class": row[5],
+                            "latency_ms": row[6],
+                            "inspection_valid": bool(row[7]) if row[7] is not None else None,
+                            "error_reason": row[8],
+                        }
+                    )
+                payload["count"] = len(records)
+                payload["records"] = records
+                self._set_health(True)
+        except sqlite3.Error as exc:
+            logger.error(f"Recent inspection query failed: {exc}")
+            self._set_health(False, str(exc))
+            return {
+                "status": "ERROR",
+                "batch_id": batch_id,
+                "count": 0,
+                "records": [],
+                "error": str(exc),
+            }
+        return payload
+
+    def record_control_audit(
+        self,
+        audit_id,
+        operator_id,
+        action,
+        reason,
+        confirmation,
+        snapshot_id=None,
+        result_status="DISPATCHING",
+        signal_id=None,
+        details=None,
+    ) -> bool:
+        """Persist a control-audit row before a command is dispatched."""
+        timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        try:
+            with self._connection() as conn:
+                conn.execute(
+                    """
+                    INSERT INTO control_audit (
+                        audit_id, timestamp, operator_id, action, reason, confirmation,
+                        snapshot_id, result_status, signal_id, details_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        audit_id,
+                        timestamp,
+                        operator_id,
+                        action,
+                        reason,
+                        confirmation,
+                        snapshot_id,
+                        result_status,
+                        signal_id,
+                        json.dumps(details or {}, sort_keys=True),
+                    ),
+                )
+                conn.commit()
+            self._set_health(True)
+            return True
+        except sqlite3.Error as exc:
+            logger.error(f"Control audit write failed: {exc}")
+            self._set_health(False, str(exc))
+            return False
+
+    def finalize_control_audit(self, audit_id, result_status, signal_id=None, details=None) -> bool:
+        """Update the audit row after command dispatch. Failure is reported, never hidden."""
+        try:
+            with self._connection() as conn:
+                cursor = conn.cursor()
+                if details is None:
+                    cursor.execute(
+                        """
+                        UPDATE control_audit
+                        SET result_status = ?, signal_id = COALESCE(?, signal_id)
+                        WHERE audit_id = ?
+                        """,
+                        (result_status, signal_id, audit_id),
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        UPDATE control_audit
+                        SET result_status = ?, signal_id = COALESCE(?, signal_id),
+                            details_json = ?
+                        WHERE audit_id = ?
+                        """,
+                        (
+                            result_status,
+                            signal_id,
+                            json.dumps(details, sort_keys=True),
+                            audit_id,
+                        ),
+                    )
+                if cursor.rowcount != 1:
+                    raise sqlite3.DatabaseError(f"Control audit {audit_id} was not updated")
+                conn.commit()
+            self._set_health(True)
+            return True
+        except sqlite3.Error as exc:
+            logger.error(f"Control audit finalization failed: {exc}")
+            self._set_health(False, str(exc))
+            return False
+
+    def get_recent_control_audits(self, limit=25):
+        """Return recent operator control audits for the operations snapshot."""
+        payload = {"status": "OK", "count": 0, "records": []}
+        try:
+            with self._connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT audit_id, timestamp, operator_id, action, reason, confirmation,
+                           snapshot_id, result_status, signal_id, details_json
+                    FROM control_audit
+                    ORDER BY timestamp DESC, id DESC
+                    LIMIT ?
+                    """,
+                    (limit,),
+                )
+                records = []
+                for row in cursor.fetchall():
+                    try:
+                        details = json.loads(row[9] or "{}")
+                    except json.JSONDecodeError:
+                        details = {"error": "audit details_json was not valid JSON"}
+                    records.append(
+                        {
+                            "audit_id": row[0],
+                            "timestamp": row[1],
+                            "operator_id": row[2],
+                            "action": row[3],
+                            "reason": row[4],
+                            "confirmation": row[5],
+                            "snapshot_id": row[6],
+                            "result_status": row[7],
+                            "signal_id": row[8],
+                            "details": details,
+                        }
+                    )
+                payload["count"] = len(records)
+                payload["records"] = records
+                self._set_health(True)
+        except sqlite3.Error as exc:
+            logger.error(f"Control audit query failed: {exc}")
+            self._set_health(False, str(exc))
+            return {
+                "status": "ERROR",
+                "count": 0,
+                "records": [],
+                "error": str(exc),
+            }
+        return payload

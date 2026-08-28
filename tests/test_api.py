@@ -252,6 +252,76 @@ class TestAPI(unittest.TestCase):
         for encoded in body["frames_png_base64"].values():
             self.assertTrue(base64.b64decode(encoded, validate=True).startswith(b"\x89PNG"))
 
+    def test_libad_demo_hidden_when_simulation_is_disabled(self):
+        with patch("api.main.SIMULATION_MODE", False):
+            resp = self.client.get("/api/libad/demo/4")
+        self.assertEqual(resp.status_code, 404)
+
+    def test_operations_snapshot_is_self_contained(self):
+        resp = self.client.get("/api/operations/snapshot")
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertTrue(str(body["snapshot_id"]).startswith("OPS_"))
+        self.assertEqual(body["surface"], "operations")
+        for key in (
+            "readiness", "roll", "quality", "industrial", "signals",
+            "traceability", "control_audit", "control_policy", "line_disposition",
+        ):
+            self.assertIn(key, body)
+        self.assertIn("stats", body["quality"])
+        self.assertIn("spc", body["quality"])
+        self.assertIn("recent_inspections", body["quality"])
+        self.assertIn("EMERGENCY_STOP", body["control_policy"]["actions"])
+        self.assertNotIn("PLC_PARAMETER_WRITE", body["control_policy"]["actions"])
+
+    def test_operations_control_rejects_wrong_confirmation_without_dispatch(self):
+        before = self.client.get("/api/industrial/state").json()
+        resp = self.client.post(
+            "/api/operations/control",
+            data={
+                "action": "EMERGENCY_STOP",
+                "operator_id": "OP_UNIT",
+                "confirmation": "yes",
+                "reason": "unit test wrong phrase",
+            },
+        )
+        self.assertEqual(resp.status_code, 409)
+        after = self.client.get("/api/industrial/state").json()
+        self.assertEqual(after["interlock_latched"], before["interlock_latched"])
+
+    def test_operations_control_estop_is_audited_and_simulated(self):
+        snap = self.client.get("/api/operations/snapshot").json()
+        resp = self.client.post(
+            "/api/operations/control",
+            data={
+                "action": "EMERGENCY_STOP",
+                "operator_id": "OP_UNIT",
+                "confirmation": "CONFIRM EMERGENCY_STOP",
+                "reason": "unit test emergency stop",
+                "snapshot_id": snap["snapshot_id"],
+            },
+        )
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertTrue(str(body["audit_id"]).startswith("AUD_"))
+        self.assertEqual(body["status"], "SIMULATED")
+        self.assertTrue(body["mock_mode"])
+        self.assertFalse(body["acknowledged"])
+        later = self.client.get("/api/operations/snapshot").json()
+        audit_ids = [row["audit_id"] for row in later["control_audit"]["records"]]
+        self.assertIn(body["audit_id"], audit_ids)
+        reset = self.client.post(
+            "/api/operations/control",
+            data={
+                "action": "RESET",
+                "operator_id": "OP_UNIT",
+                "confirmation": "CONFIRM RESET",
+                "reason": "unit test restore after estop",
+                "snapshot_id": later["snapshot_id"],
+            },
+        )
+        self.assertEqual(reset.status_code, 200)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,4 +1,4 @@
-"""Read-only client for the authoritative inspection API."""
+"""Read-only client for the authoritative inspection API, plus audited control."""
 
 from typing import Any, Dict, Optional
 
@@ -36,6 +36,27 @@ class InspectionApiClient:
             raise ValueError(f"Expected JSON object from {path}")
         return payload
 
+    def post(
+        self,
+        path: str,
+        *,
+        accepted_statuses: tuple[int, ...] = (200, 202),
+        data: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        response = self.session.post(
+            f"{self.base_url}{path}",
+            data=data or None,
+            headers=self.headers,
+            timeout=self.timeout_seconds,
+        )
+        if response.status_code not in accepted_statuses:
+            response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise ValueError(f"Expected JSON object from {path}")
+        payload["_http_status"] = response.status_code
+        return payload
+
     def health(self) -> Dict[str, Any]:
         # HTTP 503 is an authoritative DEGRADED readiness payload, not an
         # unreachable API. The dashboard must display it instead of fabricating fallback state.
@@ -55,6 +76,31 @@ class InspectionApiClient:
 
     def industrial_state(self) -> Dict[str, Any]:
         return self.get("/api/industrial/state")
+
+    def operations_snapshot(self, signal_limit: int = 25) -> Dict[str, Any]:
+        if not 1 <= signal_limit <= 100:
+            raise ValueError("signal_limit must be between 1 and 100")
+        return self.get("/api/operations/snapshot", signal_limit=signal_limit)
+
+    def operations_control(
+        self,
+        action: str,
+        operator_id: str,
+        confirmation: str,
+        reason: str,
+        snapshot_id: str = "",
+    ) -> Dict[str, Any]:
+        return self.post(
+            "/api/operations/control",
+            data={
+                "action": action,
+                "operator_id": operator_id,
+                "confirmation": confirmation,
+                "reason": reason,
+                "snapshot_id": snapshot_id,
+            },
+            accepted_statuses=(200, 202, 409, 503),
+        )
 
     def passport(self) -> Dict[str, Any]:
         return self.get("/api/spc/passport")

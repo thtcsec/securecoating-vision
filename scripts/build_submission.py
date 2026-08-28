@@ -58,6 +58,8 @@ WHITELIST = [
     # Dashboard
     "dashboard/app.py",
     "dashboard/api_client.py",
+    "dashboard/production_console.py",
+    "dashboard/sandbox_console.py",
     "dashboard/__init__.py",
     # Tests
     "tests/test_failsafe.py",
@@ -135,6 +137,8 @@ WHITELIST = [
     "docs/presentation_pitch.md",
     "docs/libad_validation_extension.md",
     "docs/implementation_status.md",
+    "scripts/generate_defense_slides.py",
+    "SecureCoating-Vision_Final_Defense_6min.pptx",
     "Al + Materials Competition Application Form.docx",
     # Deployment
     "Dockerfile",

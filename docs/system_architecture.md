@@ -16,9 +16,7 @@ HTTP image/demo input
   -> finalized trace decision, or latched HOLD on failure
 ```
 
-The dashboard is read-only with respect to the PLC. In normal mode it obtains health, active-roll, batch, SPC, PLC, passport, and certificate data from the API. An isolated local simulation fallback exists only when explicitly enabled in development/test.
-
-A 90-second LIBAD protocol-fixture tab shows four staged cases only: normal PASS, surface REJECT, complementary X-ray REJECT, and near-threshold disagreement HOLD.
+The production dashboard consumes one `/api/operations/snapshot` response for line, quality, PLC, and traceability fields. Recipe sliders, defect injection, 7-stage simulation, and the LIBAD evidence lane exist only in the explicit development/test sandbox. Operator commands use `/api/operations/control` with API-key authentication, an exact confirmation phrase, and a durable audit row. The dashboard never writes equipment recipe offsets to a PLC.
 
 ## Not implemented or not verified
 

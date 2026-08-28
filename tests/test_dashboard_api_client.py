@@ -71,6 +71,47 @@ class TestInspectionApiClient(unittest.TestCase):
             client.libad_demo(5)
         get.assert_not_called()
 
+    def test_operations_snapshot_sends_bounded_limit(self):
+        client = InspectionApiClient("http://api.local")
+        response = Mock(status_code=200)
+        response.json.return_value = {"snapshot_id": "OPS_1", "schema_version": "1.1"}
+        with patch.object(client.session, "get", return_value=response) as get:
+            payload = client.operations_snapshot(signal_limit=10)
+        self.assertEqual(payload["snapshot_id"], "OPS_1")
+        get.assert_called_once_with(
+            "http://api.local/api/operations/snapshot",
+            params={"signal_limit": 10},
+            headers={},
+            timeout=5.0,
+        )
+
+    def test_operations_control_posts_confirmation_fields(self):
+        client = InspectionApiClient("http://api.local", api_key="secret")
+        response = Mock(status_code=200)
+        response.json.return_value = {"audit_id": "AUD_1", "status": "SIMULATED"}
+        with patch.object(client.session, "post", return_value=response) as post:
+            payload = client.operations_control(
+                action="EMERGENCY_STOP",
+                operator_id="OP_1",
+                confirmation="CONFIRM EMERGENCY_STOP",
+                reason="unit test stop",
+                snapshot_id="OPS_1",
+            )
+        self.assertEqual(payload["audit_id"], "AUD_1")
+        self.assertEqual(payload["_http_status"], 200)
+        post.assert_called_once_with(
+            "http://api.local/api/operations/control",
+            data={
+                "action": "EMERGENCY_STOP",
+                "operator_id": "OP_1",
+                "confirmation": "CONFIRM EMERGENCY_STOP",
+                "reason": "unit test stop",
+                "snapshot_id": "OPS_1",
+            },
+            headers={"x-api-key": "secret"},
+            timeout=5.0,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

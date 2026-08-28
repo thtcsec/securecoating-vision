@@ -28,6 +28,21 @@ def _docx_text(path: Path) -> str:
     return "".join(root.itertext())
 
 
+def _pptx_text(path: Path) -> str:
+    ns = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+    chunks = []
+    with zipfile.ZipFile(path) as archive:
+        names = sorted(
+            name
+            for name in archive.namelist()
+            if name.startswith("ppt/slides/slide") and name.endswith(".xml")
+        )
+        for name in names:
+            root = ET.fromstring(archive.read(name))
+            chunks.extend(node.text or "" for node in root.iter(f"{ns}t"))
+    return " ".join(chunks)
+
+
 class TestRepositoryEvidenceArtifacts(unittest.TestCase):
     def test_container_build_uses_cpu_lock_and_excludes_runtime_mounts(self):
         dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
@@ -46,10 +61,20 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn("./data:/app/data", compose)
         self.assertIn("./outputs:/app/outputs", compose)
         self.assertIn('SECURECOATING_INFERENCE_DEVICE: "cpu"', compose)
+        self.assertIn('SECURECOATING_DASHBOARD_SANDBOX: "false"', compose)
         self.assertNotIn('["CMD", "curl"', compose)
         dashboard_source = (ROOT / "dashboard/app.py").read_text(encoding="utf-8")
         self.assertNotIn("predictor = get_predictor()", dashboard_source)
-        self.assertIn("if DASHBOARD_SANDBOX_ENABLED:", dashboard_source)
+        self.assertIn("if not DASHBOARD_SANDBOX_ENABLED:", dashboard_source)
+        production_source = (ROOT / "dashboard/production_console.py").read_text(encoding="utf-8")
+        self.assertNotIn("TRIGGER 7-STAGE", production_source)
+        self.assertNotIn("Sensor Simulation Target", production_source)
+        self.assertNotIn("Send Parameter Offset", production_source)
+        self.assertNotIn("RUN 90s", production_source)
+        self.assertNotIn("LIBAD", production_source)
+        self.assertIn("Operate", production_source)
+        self.assertIn("Diagnose", production_source)
+        self.assertIn("Traceability", production_source)
 
     def test_external_demo_accepts_output_paths_outside_repository(self):
         external_path = Path("C:/securecoating-manual/output.png")
@@ -69,6 +94,7 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
             (ROOT / "README.md").read_text(encoding="utf-8"),
             (ROOT / "docs/presentation_pitch.md").read_text(encoding="utf-8"),
             _docx_text(ROOT / "Al + Materials Competition Application Form.docx"),
+            _pptx_text(ROOT / "SecureCoating-Vision_Final_Defense_6min.pptx"),
         ]
         for source in sources:
             self.assertIn(identity["brand"], source)
@@ -153,6 +179,8 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn("configs/project_identity.yaml", string_items)
         self.assertIn("reports/libad/libad_benchmark.json", string_items)
         self.assertIn("reports/libad_demo/demo_manifest.json", string_items)
+        self.assertIn("SecureCoating-Vision_Final_Defense_6min.pptx", string_items)
+        self.assertIn("dashboard/production_console.py", string_items)
 
     def test_test_manifest_discloses_dirty_source_provenance(self):
         manifest = json.loads(

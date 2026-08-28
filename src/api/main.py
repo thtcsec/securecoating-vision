@@ -12,6 +12,8 @@ Integrates:
 
 Endpoints:
 - GET  /health                    -> System health check
+- GET  /api/operations/snapshot   -> Single-timestamp operations snapshot
+- POST /api/operations/control    -> Authenticated confirm-audit control
 - POST /api/inspect               -> Run full inspection pipeline
 - GET  /api/batch/{id}/stats      -> Batch quality statistics
 - GET  /api/batch/{id}/spc        -> SPC alarm status
@@ -30,6 +32,7 @@ import secrets
 import re
 import asyncio
 import base64
+from datetime import datetime, timezone
 from io import BytesIO
 import yaml
 import logging
@@ -213,6 +216,29 @@ CALIBRATION_VERIFIED = bool(calibration_config.get("verified", False))
 
 TEST_SET_DIR = os.path.join(PROJECT_ROOT, "data", "test_set", "images")
 IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
+CONTROL_POLICY = {
+    "endpoint": "/api/operations/control",
+    "actions": {
+        "EMERGENCY_STOP": {
+            "confirmation": "CONFIRM EMERGENCY_STOP",
+            "effect": "Latch local interlock and request PLC E-stop",
+        },
+        "RESET": {
+            "confirmation": "CONFIRM RESET",
+            "effect": "Request PLC reset; latch clears only after confirmation",
+        },
+        "INFERENCE_RESET": {
+            "confirmation": "CONFIRM INFERENCE_RESET",
+            "effect": "Arm one trained-model recovery probe after an inference fault",
+        },
+    },
+    "forbidden": [
+        "PLC_PARAMETER_WRITE",
+        "RECIPE_SLIDER",
+        "DEFECT_INJECTION",
+        "LIBAD_DEMO",
+    ],
+}
 
 
 def _validate_identifier(value: str, field_name: str) -> str:
@@ -474,9 +500,8 @@ def liveness_check():
     return {"status": "ALIVE"}
 
 
-@app.get("/health", response_model=HealthResponse)
-def health_check():
-    """System health check with component status."""
+def _build_health_payload():
+    """Build one authoritative readiness payload for health and operations views."""
     health = failsafe.get_health_report()
     industrial_state = industrial_mgr.get_plc_state()
     ready = (
@@ -508,6 +533,44 @@ def health_check():
         "simulation_mode": SIMULATION_MODE,
         "industrial_transport_ready": industrial_mgr.transport_ready,
     }
+    return payload, ready
+
+
+def _build_roll_certificate_payload(roll_id: str, batch_id: str, electrode_type: str) -> Dict[str, Any]:
+    """Build a certificate from the current roll/batch snapshot without inventing missing stats."""
+    snapshot = web_synchronizer.get_roll_snapshot(roll_id, batch_id=batch_id)
+    if snapshot is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No active roll/batch snapshot for {roll_id}/{batch_id}",
+        )
+    summary = snapshot["summary"]
+    defect_records = snapshot["defect_records"]
+    batch_stats = quality_mem.get_batch_stats(batch_id)
+    if batch_stats.get("status") == "ERROR":
+        raise HTTPException(status_code=503, detail="Traceability database unavailable")
+    spc = quality_mem.check_spc_alarms(batch_id)
+    root_cause = root_cause_engine.diagnose_batch(defect_records)
+    cert = RollCertificateGenerator.build_certificate(
+        roll_id=roll_id,
+        batch_id=batch_id,
+        inspected_length_m=summary["inspected_length_m"],
+        total_length_m=summary["total_roll_length_m"],
+        defect_records=defect_records,
+        spc_status=spc.get("status", "UNKNOWN"),
+        root_cause_summary=root_cause.primary_root_cause,
+        electrode_type=electrode_type,
+        total_inspections=batch_stats["total"] if batch_stats["total"] > 0 else None,
+        failed_inspections=batch_stats["failed"] if batch_stats["total"] > 0 else None,
+        metric_provenance=f"SQLite batch={batch_id}; roll ledger={roll_id}",
+    )
+    return cert.to_dict()
+
+
+@app.get("/health", response_model=HealthResponse)
+def health_check():
+    """System health check with component status."""
+    payload, ready = _build_health_payload()
     return JSONResponse(
         status_code=200 if ready else 503,
         content=payload,
@@ -785,6 +848,206 @@ def get_signal_history(limit: int = Query(50, ge=1, le=500)):
     return industrial_mgr.get_signal_history(limit=limit)
 
 
+@app.get("/api/operations/snapshot")
+def get_operations_snapshot(signal_limit: int = Query(25, ge=1, le=100)):
+    """Return one read-only operations snapshot for the production dashboard."""
+    health, ready = _build_health_payload()
+    roll = web_synchronizer.get_roll_snapshot(web_synchronizer.roll.roll_id)
+    if roll is None:
+        raise HTTPException(status_code=503, detail="Active roll state is unavailable")
+
+    batch_id = roll["summary"]["batch_id"]
+    roll_id = roll["summary"]["roll_id"]
+    stats = quality_mem.get_batch_stats(batch_id)
+    spc = quality_mem.check_spc_alarms(batch_id)
+    recent_inspections = quality_mem.get_recent_inspections(batch_id, limit=20)
+    industrial = industrial_mgr.get_plc_state()
+    signals = industrial_mgr.get_signal_history(limit=signal_limit)
+    control_audit = quality_mem.get_recent_control_audits(limit=25)
+
+    if health["system_state"] == "EMERGENCY":
+        disposition = "EMERGENCY_STOP"
+    elif not ready:
+        disposition = "HOLD_REQUIRED"
+    else:
+        disposition = "AUTOMATIC_DECISIONS_ALLOWED"
+
+    readiness_reasons = []
+    if health["system_state"] != "OPTIMAL":
+        readiness_reasons.append(f"system_state={health['system_state']}")
+    offline_sensors = [
+        name for name, state in health["sensors"].items() if state != "ONLINE"
+    ]
+    if offline_sensors:
+        readiness_reasons.append("offline_sensors=" + ",".join(offline_sensors))
+    if health["industrial_interlock_latched"]:
+        readiness_reasons.append("industrial_interlock_latched")
+    if not health["industrial_transport_ready"]:
+        readiness_reasons.append("industrial_transport_not_ready")
+    if not health["traceability_ok"]:
+        readiness_reasons.append("traceability_not_ready")
+    if not (health["yolo_available"] or health["onnx_available"]):
+        readiness_reasons.append("trained_model_not_ready")
+
+    certificate_payload = None
+    certificate_error = None
+    try:
+        certificate_payload = _build_roll_certificate_payload(
+            roll_id,
+            batch_id,
+            web_synchronizer.roll.coating_type,
+        )
+    except HTTPException as exc:
+        certificate_error = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+
+    return {
+        "schema_version": "1.1",
+        "snapshot_id": f"OPS_{uuid.uuid4().hex[:12].upper()}",
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "consistency": "single_api_response_non_transactional_components",
+        "surface": "operations",
+        "readiness": health,
+        "ready": ready,
+        "line_disposition": disposition,
+        "readiness_reasons": readiness_reasons,
+        "roll": roll,
+        "quality": {
+            "stats": stats,
+            "spc": spc,
+            "recent_inspections": recent_inspections,
+        },
+        "industrial": industrial,
+        "signals": signals,
+        "traceability": {
+            "certificate_status": "OK" if certificate_payload is not None else "UNAVAILABLE",
+            "certificate": certificate_payload,
+            "certificate_error": certificate_error,
+        },
+        "control_audit": control_audit,
+        "control_policy": CONTROL_POLICY,
+    }
+
+
+def _dispatch_confirmed_control(action: str, reason: str) -> Dict[str, Any]:
+    if action == "EMERGENCY_STOP":
+        signal = industrial_mgr.emergency_stop(reason)
+        return {
+            "result_status": "SIMULATED" if industrial_mgr.mock_mode else (
+                "ACKNOWLEDGED" if signal.acknowledged else "UNCONFIRMED"
+            ),
+            "http_status": 200 if signal.acknowledged or industrial_mgr.mock_mode else 503,
+            "signal_id": signal.signal_id,
+            "interlock_latched": industrial_mgr.interlock_latched,
+            "acknowledged": signal.acknowledged,
+            "mock_mode": industrial_mgr.mock_mode,
+        }
+    if action == "RESET":
+        signal = industrial_mgr.reset_line()
+        cleared = not industrial_mgr.interlock_latched
+        return {
+            "result_status": "SIMULATED" if industrial_mgr.mock_mode and cleared else (
+                "ACKNOWLEDGED" if signal.acknowledged and cleared else "UNCONFIRMED"
+            ),
+            "http_status": 200 if cleared else 503,
+            "signal_id": signal.signal_id,
+            "interlock_latched": industrial_mgr.interlock_latched,
+            "acknowledged": signal.acknowledged,
+            "mock_mode": industrial_mgr.mock_mode,
+        }
+    accepted = failsafe.request_inference_reset_probe()
+    return {
+        "result_status": "RESET_PROBE_ARMED" if accepted else "RESET_BLOCKED",
+        "http_status": 202 if accepted else 409,
+        "signal_id": None,
+        "inference_interlock_latched": failsafe.inference_interlock_latched,
+        "acknowledged": accepted,
+        "mock_mode": industrial_mgr.mock_mode,
+    }
+
+
+@app.post("/api/operations/control")
+def operations_control(
+    action: str = Form(...),
+    operator_id: str = Form(...),
+    confirmation: str = Form(...),
+    reason: str = Form(...),
+    snapshot_id: str = Form(""),
+):
+    """Authenticated operator control: exact confirmation phrase, then durable audit."""
+    _validate_identifier(operator_id, "operator_id")
+    if snapshot_id:
+        _validate_identifier(snapshot_id, "snapshot_id")
+    policy = CONTROL_POLICY["actions"].get(action)
+    if policy is None:
+        raise HTTPException(status_code=422, detail="Unsupported control action")
+    expected = policy["confirmation"]
+    if not secrets.compare_digest(confirmation.strip(), expected):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Confirmation must match exactly: {expected}",
+        )
+    reason = reason.strip()
+    if len(reason) < 8:
+        raise HTTPException(status_code=422, detail="Reason must be at least 8 characters")
+    if action == "INFERENCE_RESET" and not (predictor.yolo_available or predictor.onnx_available):
+        raise HTTPException(
+            status_code=409,
+            detail="No trained model is available for a reset probe",
+        )
+
+    audit_id = f"AUD_{uuid.uuid4().hex[:12].upper()}"
+    recorded = quality_mem.record_control_audit(
+        audit_id=audit_id,
+        operator_id=operator_id,
+        action=action,
+        reason=reason,
+        confirmation=expected,
+        snapshot_id=snapshot_id or None,
+        result_status="DISPATCHING",
+        details={"policy_effect": policy["effect"]},
+    )
+    if not recorded:
+        raise HTTPException(
+            status_code=503,
+            detail="Control audit write failed; command was not dispatched",
+        )
+
+    outcome = _dispatch_confirmed_control(action, reason)
+    finalized = quality_mem.finalize_control_audit(
+        audit_id,
+        outcome["result_status"],
+        signal_id=outcome.get("signal_id"),
+        details={
+            "policy_effect": policy["effect"],
+            "acknowledged": outcome.get("acknowledged"),
+            "mock_mode": outcome.get("mock_mode"),
+            "interlock_latched": outcome.get("interlock_latched"),
+            "inference_interlock_latched": outcome.get("inference_interlock_latched"),
+        },
+    )
+    if not finalized:
+        raise HTTPException(
+            status_code=503,
+            detail="Control was dispatched but audit finalization failed; treat the line as HOLD",
+        )
+
+    return JSONResponse(
+        status_code=outcome["http_status"],
+        content={
+            "audit_id": audit_id,
+            "action": action,
+            "operator_id": operator_id,
+            "snapshot_id": snapshot_id or None,
+            "status": outcome["result_status"],
+            "signal_id": outcome.get("signal_id"),
+            "acknowledged": outcome.get("acknowledged"),
+            "mock_mode": outcome.get("mock_mode"),
+            "interlock_latched": industrial_mgr.interlock_latched,
+            "inference_interlock_latched": failsafe.inference_interlock_latched,
+        },
+    )
+
+
 @app.post("/api/industrial/estop")
 def emergency_stop(reason: str = Form("API trigger")):
     """Trigger emergency stop on production line."""
@@ -933,6 +1196,11 @@ def libad_protocol():
 @app.get("/api/libad/demo/{case_id}")
 def libad_demo(case_id: int):
     """Four staged industrial cases for the VIS/X-rayL evidence lane."""
+    if not SIMULATION_MODE:
+        raise HTTPException(
+            status_code=404,
+            detail="LIBAD protocol-fixture demo is disabled in production",
+        )
     if case_id not in {1, 2, 3, 4}:
         raise HTTPException(status_code=422, detail="Demo case must be 1, 2, 3, or 4")
     from libad.demo_cases import run_libad_demo_case
@@ -984,34 +1252,7 @@ def get_roll_certificate(
     _validate_identifier(roll_id, "roll_id")
     batch_id = batch_id or web_synchronizer.roll.batch_id
     _validate_identifier(batch_id, "batch_id")
-    snapshot = web_synchronizer.get_roll_snapshot(roll_id, batch_id=batch_id)
-    if snapshot is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No active roll/batch snapshot for {roll_id}/{batch_id}",
-        )
-    summary = snapshot["summary"]
-    defect_records = snapshot["defect_records"]
-    batch_stats = quality_mem.get_batch_stats(batch_id)
-    if batch_stats.get("status") == "ERROR":
-        raise HTTPException(status_code=503, detail="Traceability database unavailable")
-    spc = quality_mem.check_spc_alarms(batch_id)
-    root_cause = root_cause_engine.diagnose_batch(defect_records)
-
-    cert = RollCertificateGenerator.build_certificate(
-        roll_id=roll_id,
-        batch_id=batch_id,
-        inspected_length_m=summary["inspected_length_m"],
-        total_length_m=summary["total_roll_length_m"],
-        defect_records=defect_records,
-        spc_status=spc.get("status", "UNKNOWN"),
-        root_cause_summary=root_cause.primary_root_cause,
-        electrode_type=electrode_type,
-        total_inspections=batch_stats["total"] if batch_stats["total"] > 0 else None,
-        failed_inspections=batch_stats["failed"] if batch_stats["total"] > 0 else None,
-        metric_provenance=f"SQLite batch={batch_id}; roll ledger={roll_id}",
-    )
-    return cert.to_dict()
+    return _build_roll_certificate_payload(roll_id, batch_id, electrode_type)
 
 
 @app.post("/api/diagnostics/root-cause")

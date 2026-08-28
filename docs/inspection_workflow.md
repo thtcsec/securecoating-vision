@@ -10,7 +10,8 @@
 6. The database first records `PENDING`. A unique `(batch_id, part_id)` claim prevents duplicate command issuance.
 7. Exactly one configured PLC protocol owns commands. Software writes a unique command sequence and treats the operation as acknowledged only after the configured ACK sequence matches. Mock mode is always labelled `SIMULATED` and `acknowledged=false`.
 8. The trace row is finalized after the PLC result. If finalization fails, `HOLD` is latched and the stored row cannot be mistaken for `PASS` because it remains `PENDING`.
-9. The optional LIBAD evidence lane scores aligned VIS and X-rayL with a PatchCore/DA-Core memory baseline, then applies the same fail-closed contract. Detection cannot self-release.
+9. The optional LIBAD evidence lane scores aligned VIS and X-rayL with a PatchCore/DA-Core memory baseline, then applies the same fail-closed contract. Detection cannot self-release. The production dashboard does not host this lane.
+10. The production dashboard reads `/api/operations/snapshot` once per render. Operator E-stop, reset, and inference-reset go through `/api/operations/control` only after API-key authentication, an exact confirmation phrase, and a durable control-audit write.
 
 ## Important limits
 
