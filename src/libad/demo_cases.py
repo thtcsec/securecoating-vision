@@ -16,7 +16,14 @@ import numpy as np
 
 from libad.certificate import EvidenceCertificate, build_evidence_certificate
 from libad.dataset import _draw_density_blob, _draw_scratch, _electrode_canvas
-from libad.evidence_gate import EvidenceContracts, GateDecision, decide_evidence_gate
+from libad.evidence_gate import (
+    EvidenceContracts,
+    GateDecision,
+    NORMAL,
+    UNCERTAIN,
+    classify_score,
+    decide_evidence_gate,
+)
 from libad.protocol import git_source_provenance, load_libad_config, load_project_identity
 from libad.scorer import MemoryAnomalyScorer, SampleScore
 
@@ -91,11 +98,52 @@ def _build_demo_frames(case_id: int, bank: DemoBank) -> Dict[str, np.ndarray]:
     elif case_id == 3:
         xray = _draw_density_blob(xray, rng)
     elif case_id == 4:
-        # A deterministic, minimal contrast perturbation produces a genuine
-        # near-threshold VIS/X-rayL disagreement with otherwise valid contracts.
-        # This is protocol-fixture evidence, not a plant sensor capture.
-        vis[20, 20] = np.uint8(min(255, int(vis[20, 20]) + 8))
+        vis = _synthesize_uncertain_vis(bank)
     return {"vis_a": vis, "vis_b": vis.copy(), "xray_l": xray}
+
+
+def _synthesize_uncertain_vis(
+    bank: DemoBank,
+    threshold: float = 1.0,
+    uncertainty_band: float = 0.12,
+) -> np.ndarray:
+    """Land VIS in the HOLD band without fabricating a score.
+
+    A one-pixel bump is not portable: OpenCV/NumPy wheels on Linux CI can leave
+    the same fixture below threshold (PASS) or jump past the gray band. Binary
+    search a compact contrast blob until the live scorer reports UNCERTAIN VIS
+    and NORMAL X-rayL. This remains a protocol fixture, not a plant capture.
+    """
+    vis0 = bank.vis.astype(np.float32)
+    for amplitude in (24.0, 48.0, 80.0, 140.0):
+        target = vis0.copy()
+        target[16:24, 16:24] = np.clip(target[16:24, 16:24] + amplitude, 0.0, 255.0)
+        lo, hi = 0.0, 1.0
+        chosen: Optional[np.ndarray] = None
+        for _ in range(32):
+            mix = (lo + hi) / 2.0
+            vis = np.clip((1.0 - mix) * vis0 + mix * target, 0.0, 255.0).astype(np.uint8)
+            scored = bank.scorer.score_sample(
+                sample_id="DEMO_CASE_4_SEARCH",
+                vis_a=vis,
+                vis_b=vis,
+                xray_l=bank.xray,
+            )
+            vis_state = classify_score(scored.vis_score, threshold, uncertainty_band)
+            xray_state = classify_score(scored.xray_score, threshold, uncertainty_band)
+            if vis_state == UNCERTAIN and xray_state == NORMAL:
+                chosen = vis
+                hi = mix
+                continue
+            if vis_state == NORMAL:
+                lo = mix
+            else:
+                hi = mix
+        if chosen is not None:
+            return chosen
+    raise RuntimeError(
+        "Could not synthesize a near-threshold VIS/X-rayL disagreement for demo case 4"
+    )
 
 
 def _demo_contracts(case_id: int) -> EvidenceContracts:
