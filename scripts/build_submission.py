@@ -4,8 +4,10 @@ Ensures NO ground-truth labels, __pycache__, .env, or build artifacts are includ
 
 Usage:
     python scripts/build_submission.py
+    python scripts/build_submission.py --require-live-api
 """
 
+import argparse
 import os
 import zipfile
 import sys
@@ -82,6 +84,7 @@ WHITELIST = [
     "tests/test_libad_memory.py",
     "tests/test_libad_demo_cases.py",
     "tests/test_libad_evaluate.py",
+    "tests/test_repository_evidence_artifacts.py",
     "tests/test_production_startup.py",
     # Configs
     "configs/app.yaml",
@@ -153,6 +156,7 @@ WHITELIST = [
     "reports/ultralytics_validation_results.json" if os.path.exists("reports/ultralytics_validation_results.json") else None,
     "reports/dataset_manifest.json" if os.path.exists("reports/dataset_manifest.json") else None,
     "reports/model_sha256.txt" if os.path.exists("reports/model_sha256.txt") else None,
+    "reports/test_manifest.json",
     "reports/environment.txt" if os.path.exists("reports/environment.txt") else None,
     "reports/evaluation_command.txt" if os.path.exists("reports/evaluation_command.txt") else None,
     # Model artifacts (REQUIRED)
@@ -203,7 +207,7 @@ def is_blacklisted(path):
     return False
 
 
-def build_zip():
+def build_zip(require_live_api=False):
     print(f"Building submission ZIP: {OUTPUT_ZIP}")
     print(f"Project root: {PROJECT_ROOT}")
     print()
@@ -245,7 +249,10 @@ def build_zip():
         cwd=PROJECT_ROOT,
     )
     if live.returncode != 0:
-        print("  [WARN] Live inject check failed or API offline — continuing if unit tests passed.")
+        if require_live_api:
+            print("  [ERROR] Live inject check is required and did not pass. Build aborted.")
+            return 1
+        print("  [WARN] Live inject check failed or API offline — archive will not be marked release-ready.")
     else:
         print("  Live inject check PASSED.\n")
 
@@ -319,8 +326,28 @@ def build_zip():
         else:
             print("\n  All safety checks PASSED.")
 
-    print(f"\n  READY TO SUBMIT: {OUTPUT_ZIP} ({zip_size:.1f} MB)")
+    if live.returncode == 0:
+        print(f"\n  READY TO SUBMIT: {OUTPUT_ZIP} ({zip_size:.1f} MB)")
+    else:
+        print(
+            f"\n  ARCHIVE BUILT WITH WARNINGS: {OUTPUT_ZIP} ({zip_size:.1f} MB). "
+            "Start the API and pass --require-live-api before release."
+        )
+    return 0
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Build the evidence-gated SecureCoating-Vision submission archive."
+    )
+    parser.add_argument(
+        "--require-live-api",
+        action="store_true",
+        help="Abort unless scripts/verify_inject.py passes against a running API.",
+    )
+    args = parser.parse_args(argv)
+    return build_zip(require_live_api=args.require_live_api)
 
 
 if __name__ == "__main__":
-    build_zip()
+    raise SystemExit(main())

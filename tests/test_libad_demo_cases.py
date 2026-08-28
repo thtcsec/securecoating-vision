@@ -3,11 +3,13 @@
 import os
 import sys
 import unittest
+from dataclasses import fields
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
 from libad.demo_cases import DEMO_CASES, run_all_demo_cases, run_libad_demo_case
+from libad.certificate import EvidenceCertificate
 from libad.protocol import load_project_identity
 
 
@@ -19,6 +21,11 @@ class TestLibadDemoCases(unittest.TestCase):
         self.assertIn("surface evidence", results[1]["decision"]["reason"])
         self.assertIn("complementary X-ray", results[2]["decision"]["reason"])
         self.assertEqual(results[3]["decision"]["action"], "HOLD")
+        self.assertEqual(results[3]["decision"]["vis_state"], "UNCERTAIN")
+        self.assertEqual(results[3]["decision"]["xray_state"], "NORMAL")
+        self.assertEqual(results[3]["decision"]["contract_holds"], [])
+        self.assertEqual(results[3]["calibration_state"], "VERIFIED")
+        self.assertIn("uncertainty", results[3]["decision"]["reason"].lower())
         for item in results:
             cert = item["certificate"]
             self.assertEqual(cert["roll_id"], item["identity"]["roll_id"])
@@ -26,6 +33,14 @@ class TestLibadDemoCases(unittest.TestCase):
             self.assertEqual(cert["part_id"], item["identity"]["part_id"])
             self.assertTrue(cert["hmac_digital_signature"])
             self.assertEqual(item["expected_action"], DEMO_CASES[item["case_id"]]["expected_action"])
+            self.assertEqual(item["evidence_class"], "protocol_fixture")
+            self.assertFalse(item["comparable_to_paper"])
+            self.assertEqual(
+                cert["source_tree_dirty"], item["source_provenance"]["working_tree_dirty"]
+            )
+            self.assertEqual(
+                cert["source_diff_sha256"], item["source_provenance"]["source_diff_sha256"]
+            )
 
     def test_public_title_is_the_registered_finalist_title_plus_tagline(self):
         identity = load_project_identity()
@@ -34,6 +49,20 @@ class TestLibadDemoCases(unittest.TestCase):
         self.assertEqual(result["tagline"], "Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing")
         self.assertIn("High-Throughput and Zero-Trust Edge-Cloud Pipeline", result["title"])
         self.assertEqual(result["brand"], "SecureCoating-Vision")
+
+    def test_certificate_signature_covers_source_diff_provenance(self):
+        secret = b"unit-test-libad-demo"
+        result = run_libad_demo_case(4, secret=secret)
+        payload = result["certificate"]
+        constructor = {
+            field.name: payload[field.name]
+            for field in fields(EvidenceCertificate)
+            if field.name in payload
+        }
+        certificate = EvidenceCertificate(**constructor)
+        self.assertTrue(certificate.verify(secret))
+        certificate.source_diff_sha256 = "0" * 64
+        self.assertFalse(certificate.verify(secret))
 
 
 if __name__ == "__main__":

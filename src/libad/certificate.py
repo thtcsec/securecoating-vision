@@ -39,6 +39,8 @@ class EvidenceCertificate:
     commit_hash: str
     plc_state: str
     detector_attribution: str
+    source_tree_dirty: Optional[bool] = None
+    source_diff_sha256: Optional[str] = None
     issued_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     payload_hash_sha256: str = ""
     hmac_digital_signature: str = ""
@@ -63,6 +65,8 @@ class EvidenceCertificate:
             "commit_hash": self.commit_hash,
             "plc_state": self.plc_state,
             "detector_attribution": self.detector_attribution,
+            "source_tree_dirty": self.source_tree_dirty,
+            "source_diff_sha256": self.source_diff_sha256,
             "issued_at": self.issued_at,
             "signature_algorithm": self.signature_algorithm,
             "brand": load_project_identity()["brand"],
@@ -116,6 +120,8 @@ def build_evidence_certificate(
     commit_hash: str,
     plc_state: str,
     detector_attribution: str,
+    source_tree_dirty: Optional[bool] = None,
+    source_diff_sha256: Optional[str] = None,
     secret: Optional[bytes] = None,
 ) -> EvidenceCertificate:
     cert = EvidenceCertificate(
@@ -136,5 +142,7 @@ def build_evidence_certificate(
         commit_hash=commit_hash,
         plc_state=plc_state,
         detector_attribution=detector_attribution,
+        source_tree_dirty=source_tree_dirty,
+        source_diff_sha256=source_diff_sha256,
     )
     return cert.sign(secret)

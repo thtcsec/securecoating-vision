@@ -46,6 +46,23 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def sha256_tree(path: Path) -> Optional[str]:
+    """Content hash for a directory tree, including normalized relative paths."""
+    root = Path(path)
+    if not root.is_dir():
+        return None
+    files = sorted(item for item in root.rglob("*") if item.is_file())
+    if not files:
+        return None
+    digest = hashlib.sha256()
+    for item in files:
+        relative = item.relative_to(root).as_posix().encode("utf-8")
+        digest.update(len(relative).to_bytes(8, "big"))
+        digest.update(relative)
+        digest.update(bytes.fromhex(sha256_file(item)))
+    return digest.hexdigest()
+
+
 def sha256_bytes(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
 
@@ -90,6 +107,63 @@ def git_commit_sha(repo_root: Optional[Path] = None) -> str:
     if git_dir.is_file():
         return "unknown"
     return "unknown"
+
+
+def git_source_provenance(repo_root: Optional[Path] = None) -> Dict[str, Any]:
+    """Identify the HEAD commit and any uncommitted implementation state.
+
+    Generated reports must not imply that dirty source came from a clean commit.
+    Report artifacts are deliberately excluded to avoid self-referential hashes.
+    """
+    root = repo_root or PROJECT_ROOT
+    pathspec = [
+        "src", "scripts", "configs", "dashboard",
+        ":(exclude)scripts/record_test_manifest.py",
+        ":(exclude)scripts/build_submission.py",
+        "Dockerfile", "docker-compose.yml", "requirements.txt",
+        "requirements-core.txt", "requirements-docker.txt",
+        "requirements-gpu.txt", "requirements-lock.txt",
+    ]
+    try:
+        import subprocess
+
+        status = subprocess.run(
+            ["git", "status", "--porcelain=v1", "--untracked-files=all", "--", *pathspec],
+            cwd=str(root),
+            check=False,
+            capture_output=True,
+        )
+        diff = subprocess.run(
+            ["git", "diff", "--binary", "HEAD", "--", *pathspec],
+            cwd=str(root),
+            check=False,
+            capture_output=True,
+        )
+        if status.returncode != 0 or diff.returncode != 0:
+            raise OSError("git provenance command failed")
+        status_bytes = status.stdout or b""
+        digest = hashlib.sha256()
+        digest.update(status_bytes)
+        digest.update(diff.stdout or b"")
+        for raw_line in status_bytes.splitlines():
+            line = raw_line.decode("utf-8", errors="surrogateescape")
+            if line.startswith("?? "):
+                untracked = root / line[3:]
+                if untracked.is_file():
+                    digest.update(line[3:].encode("utf-8", errors="surrogateescape"))
+                    digest.update(bytes.fromhex(sha256_file(untracked)))
+        dirty = bool(status_bytes.strip())
+        return {
+            "commit": git_commit_sha(root),
+            "working_tree_dirty": dirty,
+            "source_diff_sha256": digest.hexdigest() if dirty else None,
+        }
+    except OSError:
+        return {
+            "commit": git_commit_sha(root),
+            "working_tree_dirty": None,
+            "source_diff_sha256": None,
+        }
 
 
 def hash_existing_files(paths: Iterable[str]) -> Dict[str, Optional[str]]:

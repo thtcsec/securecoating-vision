@@ -29,6 +29,7 @@ import uuid
 import secrets
 import re
 import asyncio
+import base64
 from io import BytesIO
 import yaml
 import logging
@@ -879,7 +880,7 @@ def run_multi_stage_pipeline(
     1. Web Motion & Encoder Synchronization
     2. Multi-Modal Physical Acquisition (Brightfield, Darkfield, Lock-in Thermography, 3D Laser)
     3. Homography Registration & 5-Channel Fusion
-    4. Edge AI TensorRT/ONNX Instance Segmentation
+    4. Configured YOLO/ONNX instance segmentation
     5. Prototype battery-electrode metrology policy
     6. Hardware Rejection Interlock
     7. AI Closed-Loop Equipment Diagnostics & Parameter Tuning
@@ -937,7 +938,15 @@ def libad_demo(case_id: int):
     from libad.demo_cases import run_libad_demo_case
 
     result = run_libad_demo_case(case_id)
-    return {key: value for key, value in result.items() if key != "frames"}
+    encoded_frames: Dict[str, str] = {}
+    for name, frame in result["frames"].items():
+        ok, payload = cv2.imencode(".png", frame)
+        if not ok:
+            raise HTTPException(status_code=500, detail=f"Failed to encode {name} demo frame")
+        encoded_frames[name] = base64.b64encode(payload.tobytes()).decode("ascii")
+    response = {key: value for key, value in result.items() if key != "frames"}
+    response["frames_png_base64"] = encoded_frames
+    return response
 
 
 

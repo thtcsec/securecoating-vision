@@ -61,3 +61,11 @@ class InspectionApiClient:
 
     def certificate(self, roll_id: str, batch_id: str) -> Dict[str, Any]:
         return self.get(f"/api/roll/{roll_id}/certificate", batch_id=batch_id)
+
+    def libad_protocol(self) -> Dict[str, Any]:
+        return self.get("/api/libad/protocol")
+
+    def libad_demo(self, case_id: int) -> Dict[str, Any]:
+        if case_id not in {1, 2, 3, 4}:
+            raise ValueError("LIBAD demo case must be 1, 2, 3, or 4")
+        return self.get(f"/api/libad/demo/{case_id}")

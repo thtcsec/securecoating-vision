@@ -5,10 +5,10 @@ End-to-End industrial inspection pipeline executing:
 1. Web Motion & Quadrature Encoder Pulse Synchronization (A/B fractional residual tracking)
 2. Traveling-Wave Thermography & Multi-Modal Acquisition (Darkfield/Brightfield, Thermal Diffusivity Inversion, 3D Laser)
 3. Sub-Pixel Homography Registration & 5-Channel Tensor Concatenation
-4. Edge AI TensorRT / ONNX Instance Segmentation
+4. Configured YOLO / ONNX Instance Segmentation
 5. Prototype battery-electrode metrology policy (not standards certification)
-6. Zero-Defect-Escape Multi-Tier Decision & Sub-15ms Hardware Reject Gate (Modbus/OPC UA)
-7. AI Closed-Loop Diagnostics, Spatial FFT Periodicity Pinpointing & Six Sigma Per-Lane SPC
+6. Fail-closed PASS / REJECT / HOLD decision and PLC protocol contract
+7. Prototype rule-based diagnostics, spatial periodicity analysis, and per-lane summaries
 """
 
 import time
@@ -35,6 +35,31 @@ from inference.electrode_metrology import ElectrodeMetrologyEngine, DefectMetrol
 from traceability.root_cause_engine import RootCauseDiagnosticEngine, RootCauseReport
 
 logger = logging.getLogger("SecureCoatingVision.Pipeline")
+
+
+def serialize_detection_metadata(detection: Dict[str, Any]) -> Dict[str, Any]:
+    """Bounded JSON metadata for one detector proposal.
+
+    Instance masks can be megapixel numpy arrays. They remain available to the
+    in-process metrology path but must not be copied into API/artifact summaries.
+    """
+    record: Dict[str, Any] = {}
+    for key, value in detection.items():
+        if key == "mask":
+            if value is not None:
+                mask = np.asarray(value)
+                record["mask_shape"] = [int(v) for v in mask.shape]
+                record["mask_foreground_pixels"] = int(np.count_nonzero(mask))
+            continue
+        if isinstance(value, np.ndarray):
+            record[key] = value.tolist()
+        elif isinstance(value, np.generic):
+            record[key] = value.item()
+        elif isinstance(value, tuple):
+            record[key] = list(value)
+        else:
+            record[key] = value
+    return record
 
 
 @dataclass
@@ -88,7 +113,9 @@ class MultiStageInspectionResult:
             "raw_detections_count": len(self.raw_detections),
             "defects_count": len(self.defect_metrology),
             "defect_metrology": self.defect_metrology,
-            "raw_detections": self.raw_detections,
+            "raw_detections": [
+                serialize_detection_metadata(item) for item in self.raw_detections
+            ],
             "measurement_policy": self.measurement_policy,
             "root_cause_report": self.root_cause_report,
             "system_health": self.system_health,
@@ -98,7 +125,7 @@ class MultiStageInspectionResult:
 
 class MultiStageIndustrialPipeline:
     """
-    Production-grade inspection orchestrator unifying all 7 industrial stations.
+    Research inspection orchestrator unifying the seven prototype stages.
     """
 
     def __init__(
@@ -323,7 +350,10 @@ class MultiStageIndustrialPipeline:
         )
 
         # Signal PLC Hardware Gate
-        plc_action = "HOLD" if overall_tier == "GRADE_B_QUARANTINE" else "PASS"
+        # This is the intended gate action. Transport/ACK state is recorded by
+        # IndustrialProtocolManager when signaling is enabled; a disabled signal
+        # path must never turn a REJECT decision into a displayed PASS action.
+        plc_action = overall_verdict
         if enable_plc_signal:
             grade_dict = {
                 "passed": (overall_verdict == "PASS"),
@@ -385,7 +415,7 @@ class MultiStageIndustrialPipeline:
         )
 
     def get_gigafactory_spc_summary(self) -> Dict[str, Any]:
-        """Compute live Six Sigma Cpk, slitting yield optimization, and Digital Battery Passport."""
+        """Compute provisional lane summaries, a slitting scenario, and traceability schema."""
         roll_summary = self.web_sync.get_roll_defect_summary()
         defects_list = list(self.web_sync.recent_defect_cache)
         

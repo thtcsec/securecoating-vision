@@ -1,15 +1,15 @@
 """
 SecureCoating-Vision: Industrial Latency Measurement & Camera-to-Ejector Distance Budget
 ========================================================================================
-Rigorous statistical latency percentiles and physical reject distance modeling
-incorporating line-scan image formation, PCIe DMA, GPU inference, PLC scan, and pneumatic actuation.
+Monte Carlo latency assumptions and physical reject-distance modeling. These
+defaults are not target-hardware measurements.
 
 Physical Latency Chain:
 1. Line-scan Image Formation: N_lines * t_line_period  (dynamically linked to optical engine)
 2. Sensor Readout & FPGA Frame Grabber Buffer: t_fpga
 3. Zero-Copy PCIe DMA Host Transfer: t_dma
 4. Multi-Modal Spatial Warp & Fusion: t_fusion
-5. TensorRT FP16 AI Instance Segmentation: t_ai
+5. Assumed AI inference stage: t_ai
 6. Physics Metrology & Guard-Band Standards Audit: t_metrology
 7. Industrial Ethernet (Modbus TCP / EtherCAT): t_network
 8. PLC Input Update & Deterministic RPI Scan Cycle: t_plc
@@ -32,7 +32,7 @@ class LatencyVerificationStatus(str, Enum):
 
 @dataclass
 class LatencyStageDistribution:
-    """Statistical measurement samples for a specific pipeline stage."""
+    """Modeled samples for one stage unless verification status says hardware measured."""
     stage_name: str
     samples_ms: np.ndarray = field(default_factory=lambda: np.zeros(100, dtype=np.float32))
 
@@ -76,7 +76,7 @@ class LatencyBudgetEngine:
 
     def _generate_distributions(self, line_speed_m_s: float = 1.8) -> Dict[str, LatencyStageDistribution]:
         """
-        Generate statistical distributions modeled from industrial test-bench data.
+        Generate deterministic engineering-assumption distributions.
         Stage 1 tile formation latency is derived directly from optical line rate!
         """
         rng = np.random.default_rng(seed=42)
@@ -91,7 +91,7 @@ class LatencyBudgetEngine:
             "2. FPGA Buffer & Sensor Readout": (0.45, 0.05),
             "3. PCIe DMA Host Transfer (Zero-Copy)": (1.20, 0.15),
             "4. Multi-Modal Sensor Fusion": (1.80, 0.20),
-            "5. TensorRT FP16 AI Inference": (8.70, 0.60),
+            "5. Assumed AI Inference": (8.70, 0.60),
             "6. Metrology & Guard-Band Decision": (1.50, 0.18),
             "7. Industrial Network (EtherCAT/Modbus)": (0.80, 0.12),
             "8. PLC Scan Cycle (RPI 2.0ms)": (2.00, 0.35),

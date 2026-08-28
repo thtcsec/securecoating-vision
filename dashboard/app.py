@@ -4,13 +4,13 @@ SecureCoating-Vision: SCADA Industrial Quality Inspection Terminal
 Read-only research dashboard for local simulation and inspection visualization.
 
 Features:
-1. 7-Stage Industrial Pipeline Visualizer with Sub-Millisecond Timing Breakdown
+1. 7-Stage Prototype Pipeline Visualizer with observed software timing breakdown
 2. Synchronized 4-Way Multi-Modal Sensor Split (Brightfield, Darkfield, Thermography Phase, 3D Laser)
 3. Interactive 3D Defect Topography Surface Mesh (Plotly 3D)
 4. 1,200m Jumbo Roll Digital Twin Defect Map (Waterfall View)
 5. Prototype Battery Electrode Metrology (engineering policy only)
 6. AI Closed-Loop Equipment Parameter Tuning Feedback (Slot-Die, Drying Oven, Mixer)
-7. Industrial Telemetry (OPC UA Node Tree, Modbus TCP Hex Table, Latency Jitter)
+7. Prototype protocol telemetry (OPC UA / Modbus contracts and modeled latency)
 8. Cryptographic Tamper-Evident Digital Roll Quality Certificate (SHA-256)
 """
 
@@ -19,6 +19,7 @@ import sys
 import time
 import datetime
 import json
+import base64
 import yaml
 import numpy as np
 import cv2
@@ -187,6 +188,7 @@ try:
     api_spc = api_client.batch_spc(api_batch_id)
     api_plc_state = api_client.industrial_state()
     api_passport = api_client.passport()
+    api_libad_protocol = api_client.libad_protocol()
 except (OSError, ValueError, KeyError, requests.RequestException) as exc:
     api_online = False
     api_error = str(exc)
@@ -204,6 +206,12 @@ except (OSError, ValueError, KeyError, requests.RequestException) as exc:
     api_spc = quality_mem.check_spc_alarms(api_batch_id)
     api_plc_state = industrial_mgr.get_plc_state()
     api_passport = pipeline.get_gigafactory_spc_summary()
+    api_libad_protocol = {
+        "dataset": {
+            "official_protocol_complete": False,
+            "comparable_to_paper": False,
+        }
+    }
 
 # Initialize Session State
 if "inspection_history" not in st.session_state:
@@ -339,7 +347,10 @@ if st.sidebar.button(
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("<h3 style='color:#FFF;'>🎯 90s LIBAD Evidence Demo</h3>", unsafe_allow_html=True)
-st.sidebar.caption("Real VIS + inline X-rayL lane. Thermal and profilometry remain simulated adapters.")
+st.sidebar.caption(
+    "Deterministic protocol-fixture VIS + X-rayL cases. Official LIBAD inputs are "
+    "reported separately; thermal/profilometry remain simulated adapters."
+)
 libad_case = st.sidebar.radio(
     "Demo case",
     [1, 2, 3, 4],
@@ -351,10 +362,16 @@ libad_case = st.sidebar.radio(
     }[value],
 )
 if st.sidebar.button("▶ RUN 90s EVIDENCE CASE", use_container_width=True):
-    from libad.demo_cases import run_libad_demo_case
+    try:
+        if api_online:
+            st.session_state.libad_demo = api_client.libad_demo(int(libad_case))
+        elif DASHBOARD_SANDBOX_ENABLED:
+            from libad.demo_cases import run_libad_demo_case
 
-    st.session_state.libad_demo = run_libad_demo_case(int(libad_case))
-    st.rerun()
+            st.session_state.libad_demo = run_libad_demo_case(int(libad_case))
+        st.rerun()
+    except (OSError, ValueError, requests.RequestException) as exc:
+        st.error(f"LIBAD demo endpoint failed; no local fallback was substituted: {exc}")
 
 # =========================================================================
 # MAIN SCADA TABS
@@ -367,7 +384,7 @@ tabs = st.tabs([
     "🔬 Prototype Battery Metrology",
     "⚙️ AI Closed-Loop Diagnostics",
     "🏭 Hardware & Protocol Telemetry",
-    "📊 Gigafactory SPC & Slitting Yield",
+    "📊 Prototype SPC & Slitting Scenario",
     "🗄️ Traceability & Quality Certificate"
 ])
 
@@ -383,16 +400,32 @@ with tabs[0]:
         unsafe_allow_html=True,
     )
     st.caption(
-        "Validation extension on LIBAD VIS + inline-compatible X-rayL. "
+        "Staged protocol-fixture validation for a LIBAD-compatible VIS + X-rayL contract. "
         "DA-Core/PatchCore scores are the authors' detection baseline; "
         "SecureCoating-Vision decides when those scores are safe enough to act on. "
         "Thermal and 3D profilometry remain simulated interface adapters."
     )
+    if not api_libad_protocol["dataset"].get("official_protocol_complete", False):
+        st.warning(
+            "Official LIBAD dataset + all 10 splits are not verified in this runtime. "
+            "These staged cases are protocol_fixture evidence and are not paper-comparable."
+        )
     if demo is None:
         st.info("Use **RUN 90s EVIDENCE CASE** in the sidebar. Only four situations are staged.")
     else:
-        vis = demo["frames"]["vis_bgr"]
-        xray = demo["frames"]["xray_bgr"]
+        if "frames_png_base64" in demo:
+            def decode_demo_frame(name):
+                payload = base64.b64decode(demo["frames_png_base64"][name], validate=True)
+                frame = cv2.imdecode(np.frombuffer(payload, dtype=np.uint8), cv2.IMREAD_COLOR)
+                if frame is None:
+                    raise ValueError(f"API returned an invalid {name} PNG frame")
+                return frame
+
+            vis = decode_demo_frame("vis_bgr")
+            xray = decode_demo_frame("xray_bgr")
+        else:
+            vis = demo["frames"]["vis_bgr"]
+            xray = demo["frames"]["xray_bgr"]
         action = demo["decision"]["action"]
         vis_col, xray_col = st.columns(2)
         with vis_col:
@@ -444,7 +477,7 @@ with tabs[1]:
                 <span class="stage-badge stage-done">1. Web Sync ({res.stage_latencies_ms.get('stage_1_web_sync_ms',0):.1f}ms)</span>
                 <span class="stage-badge stage-done">2. Sensor Acq ({res.stage_latencies_ms.get('stage_2_acquisition_ms',0):.1f}ms)</span>
                 <span class="stage-badge stage-done">3. Homography ({res.stage_latencies_ms.get('stage_3_fusion_ms',0):.1f}ms)</span>
-                <span class="stage-badge stage-done">4. TensorRT AI ({res.stage_latencies_ms.get('stage_4_ai_inference_ms',0):.1f}ms)</span>
+                <span class="stage-badge stage-done">4. AI Inference ({res.stage_latencies_ms.get('stage_4_ai_inference_ms',0):.1f}ms)</span>
                 <span class="stage-badge stage-done">5. Metrology ({res.stage_latencies_ms.get('stage_5_metrology_ms',0):.1f}ms)</span>
                 <span class="stage-badge stage-done">6. PLC Gate ({res.stage_latencies_ms.get('stage_6_decision_plc_ms',0):.1f}ms)</span>
                 <span class="stage-badge stage-done">7. Diagnostics ({res.stage_latencies_ms.get('stage_7_root_cause_ms',0):.1f}ms)</span>

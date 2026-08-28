@@ -21,6 +21,7 @@ from libad.protocol import (
     PROJECT_ROOT,
     load_libad_config,
     official_libad_present,
+    sha256_tree,
     splits_root_from_config,
 )
 
@@ -196,6 +197,42 @@ def _iter_official_samples(dataset_root: Path) -> List[Tuple[str, str, int, Path
     return records
 
 
+def _official_sample_paths(folder: Path, sample_id: str) -> Tuple[Path, Path, Path]:
+    def choose(suffix: str) -> Path:
+        tiff = folder / f"{sample_id}{suffix}.tiff"
+        return tiff if tiff.is_file() else folder / f"{sample_id}{suffix}.tif"
+
+    return choose("A"), choose("B"), choose("L")
+
+
+def _split_manifest_is_complete(
+    split_ids: Optional[Dict[str, List[str]]],
+    by_id: Dict[str, Tuple[str, int, Path]],
+) -> bool:
+    if split_ids is None:
+        return False
+    required_names = ("train", "val", "test")
+    if any(not split_ids.get(name) for name in required_names):
+        return False
+    split_sets = {name: set(split_ids[name]) for name in required_names}
+    if any(len(split_sets[name]) != len(split_ids[name]) for name in required_names):
+        return False
+    if (
+        split_sets["train"] & split_sets["val"]
+        or split_sets["train"] & split_sets["test"]
+        or split_sets["val"] & split_sets["test"]
+    ):
+        return False
+    for sample_id in set().union(*split_sets.values()):
+        record = by_id.get(sample_id)
+        if record is None:
+            return False
+        _, _, folder = record
+        if not all(path.is_file() for path in _official_sample_paths(folder, sample_id)):
+            return False
+    return True
+
+
 def load_official_split(seed: int, config: Optional[dict] = None) -> Optional[LibadSplit]:
     cfg = config or load_libad_config()
     dataset_root = PROJECT_ROOT / cfg["paths"]["dataset_root"]
@@ -203,54 +240,51 @@ def load_official_split(seed: int, config: Optional[dict] = None) -> Optional[Li
         return None
     split_ids = _load_official_split_ids(splits_root_from_config(cfg), seed)
     records = _iter_official_samples(dataset_root)
-    if not records:
+    if not records or split_ids is None:
         return None
     by_id = {stem: (group, label, folder) for stem, group, label, folder in records}
+
+    if not _split_manifest_is_complete(split_ids, by_id):
+        return None
+    required_names = ("train", "val", "test")
 
     def resolve(sample_id: str, split: str) -> Optional[LibadSample]:
         if sample_id not in by_id:
             return None
         group, label, folder = by_id[sample_id]
-        vis_a = folder / f"{sample_id}A.tiff"
-        vis_b = folder / f"{sample_id}B.tiff"
-        xray_l = folder / f"{sample_id}L.tiff"
-        if not vis_a.is_file():
-            vis_a = folder / f"{sample_id}A.tif"
-        if not vis_b.is_file():
-            vis_b = folder / f"{sample_id}B.tif"
-        if not xray_l.is_file():
-            xray_l = folder / f"{sample_id}L.tif"
-        if not vis_a.is_file() or not xray_l.is_file():
+        vis_a, vis_b, xray_l = _official_sample_paths(folder, sample_id)
+        # Paper-protocol inputs contain both visible-light views and X-rayL.
+        # Do not silently duplicate VIS-A when VIS-B is absent.
+        if not vis_a.is_file() or not vis_b.is_file() or not xray_l.is_file():
             return None
-        vis_b_img = _read_gray(vis_b) if vis_b.is_file() else _read_gray(vis_a)
         return LibadSample(
             sample_id=sample_id,
             split=split,
             label=label,
             defect_group=group,
             vis_a=_read_gray(vis_a),
-            vis_b=vis_b_img,
+            vis_b=_read_gray(vis_b),
             xray_l=_read_gray(xray_l),
             vis_a_path=str(vis_a),
-            vis_b_path=str(vis_b) if vis_b.is_file() else None,
+            vis_b_path=str(vis_b),
             xray_l_path=str(xray_l),
         )
 
-    if split_ids is None:
-        return None
     loaded = {
         name: [sample for sample_id in ids if (sample := resolve(sample_id, name))]
         for name, ids in split_ids.items()
     }
-    if not loaded.get("train") or not loaded.get("test"):
+    if any(len(loaded.get(name, [])) != len(split_ids[name]) for name in required_names):
         return None
     return LibadSplit(
         seed=int(seed),
-        source="official_libad_splits",
+        source="libad_structured_inputs",
         train=loaded.get("train", []),
         val=loaded.get("val", []),
         test=loaded.get("test", []),
-        comparable_to_paper=True,
+        # These are official inputs, but this repository's local runner uses a
+        # numpy patch descriptor rather than the authors' DINOv3 implementation.
+        comparable_to_paper=False,
     )
 
 
@@ -282,10 +316,72 @@ def dataset_status(config: Optional[dict] = None) -> Dict[str, object]:
     cfg = config or load_libad_config()
     present = official_libad_present(cfg)
     splits = splits_root_from_config(cfg)
+    valid_seeds: List[int] = []
+    invalid_seeds: List[int] = []
+    if present and splits.is_dir():
+        by_id = {
+            stem: (group, label, folder)
+            for stem, group, label, folder in _iter_official_samples(
+                PROJECT_ROOT / cfg["paths"]["dataset_root"]
+            )
+        }
+        for seed in OFFICIAL_SPLIT_SEEDS:
+            split_ids = _load_official_split_ids(splits, seed)
+            if not _split_manifest_is_complete(split_ids, by_id):
+                invalid_seeds.append(seed)
+            else:
+                valid_seeds.append(seed)
+    else:
+        invalid_seeds = list(OFFICIAL_SPLIT_SEEDS)
+    protocol_complete = len(valid_seeds) == len(OFFICIAL_SPLIT_SEEDS)
+    manifest_path = PROJECT_ROOT / cfg["paths"].get(
+        "official_artifact_manifest", "data/libad/official_artifact_manifest.json"
+    )
+    dataset_tree_sha256: Optional[str] = None
+    splits_tree_sha256: Optional[str] = None
+    manifest_verified = False
+    manifest_error: Optional[str] = None
+    if protocol_complete and manifest_path.is_file():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            dataset_tree_sha256 = sha256_tree(PROJECT_ROOT / cfg["paths"]["dataset_root"])
+            splits_tree_sha256 = sha256_tree(splits)
+            manifest_verified = (
+                manifest.get("dataset_tree_sha256") == dataset_tree_sha256
+                and manifest.get("splits_tree_sha256") == splits_tree_sha256
+                and manifest.get("official_split_seeds") == list(OFFICIAL_SPLIT_SEEDS)
+            )
+            if not manifest_verified:
+                manifest_error = "Artifact manifest hashes or official seed list do not match"
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            manifest_error = f"Artifact manifest is unreadable: {exc}"
+    elif protocol_complete:
+        manifest_error = "Hash-verified official artifact manifest is missing"
+    official_protocol_complete = protocol_complete and manifest_verified
+    blockers: List[str] = []
+    if not present:
+        blockers.append("Official LIBAD dataset directory is absent or empty")
+    if not protocol_complete:
+        blockers.append("All 10 official train/val/test split seeds are not file/identity complete")
+    if not manifest_verified:
+        blockers.append(manifest_error or "Official artifact manifest is not verified")
+    blockers.append(
+        "Local runner uses numpy_patch_descriptor, not the authors' official DINOv3/DA-Core implementation"
+    )
     return {
         "official_dataset_present": present,
-        "official_splits_present": splits.is_dir() and any(splits.iterdir()) if splits.exists() else False,
-        "comparable_to_paper": present and splits.is_dir(),
+        "official_splits_present": protocol_complete,
+        "official_protocol_complete": official_protocol_complete,
+        "input_structure_complete": protocol_complete,
+        "official_artifact_manifest": str(manifest_path),
+        "official_artifact_manifest_verified": manifest_verified,
+        "official_artifact_manifest_error": manifest_error,
+        "dataset_tree_sha256": dataset_tree_sha256,
+        "splits_tree_sha256": splits_tree_sha256,
+        "valid_official_split_seeds": valid_seeds,
+        "invalid_official_split_seeds": invalid_seeds,
+        "comparable_to_paper": False,
+        "comparability_blockers": blockers,
         "dataset_root": str(PROJECT_ROOT / cfg["paths"]["dataset_root"]),
         "splits_root": str(splits),
         "official_split_seeds": list(OFFICIAL_SPLIT_SEEDS),

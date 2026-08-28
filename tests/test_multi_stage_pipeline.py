@@ -7,6 +7,7 @@ import yaml
 import numpy as np
 import os
 import sys
+import json
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC_DIR = os.path.join(PROJECT_ROOT, "src")
@@ -108,6 +109,66 @@ class TestMultiStagePipeline(unittest.TestCase):
         self.assertNotEqual(summary["root_cause_report"]["severity_level"], "NOMINAL")
         self.assertIn("HOLD", summary["root_cause_report"]["primary_root_cause"])
         self.assertIn("Raw detections present: 1", summary["root_cause_report"]["defect_signature"])
+
+    def test_reject_without_plc_signal_never_displays_pass_gate_action(self):
+        gradient = np.tile(np.arange(64, dtype=np.uint8), (64, 1))
+        optical = np.dstack((gradient, np.flipud(gradient), gradient)).copy()
+        thermal = np.full((64, 64), 30.0, dtype=np.float32)
+        height = np.zeros((64, 64), dtype=np.float32)
+
+        class RejectPredictor:
+            def predict(self, optical_image, thermal=None, height=None):
+                mask = np.zeros(optical_image.shape[:2], dtype=np.uint8)
+                mask[10:40, 10:40] = 4  # delamination: reject-any prototype policy
+                return {
+                    "segmentation_mask": mask,
+                    "detections": [{
+                        "box": [10, 10, 40, 40],
+                        "confidence": 0.9,
+                        "class_id": 3,
+                        "class_name": "delamination",
+                    }],
+                    "untrained_fallback": False,
+                    "latency_ms": 1.0,
+                    "engine": "TEST",
+                    "model_version": "test",
+                }
+
+        pipeline = MultiStageIndustrialPipeline(
+            predictor=RejectPredictor(),
+            failsafe_manager=FailSafeManager(),
+            industrial_manager=IndustrialProtocolManager({"enabled": False, "mock_mode": True}),
+            web_synchronizer=WebSynchronizer(),
+            pixel_to_mm_ratio=0.1,
+            calibration_verified=True,
+        )
+        summary = pipeline.execute_inspection(
+            sample_id="REJECT_NO_PLC",
+            optical_rgb=optical,
+            thermal_raw=thermal,
+            height_map=height,
+            enable_plc_signal=False,
+        ).to_summary_dict()
+        self.assertEqual(summary["overall_verdict"], "REJECT")
+        self.assertEqual(summary["plc_gate_action"], "REJECT")
+        self.assertFalse(summary["standards_compliant"])
+
+    def test_summary_bounds_numpy_instance_masks_as_json_metadata(self):
+        mask = np.zeros((32, 48), dtype=np.uint8)
+        mask[2:5, 3:7] = 1
+        result = self.pipeline.execute_inspection(sample_id="MASK_JSON_SUMMARY")
+        result.raw_detections = [{
+            "box": np.array([1, 2, 3, 4], dtype=np.float32),
+            "confidence": np.float32(0.75),
+            "class_id": np.int64(0),
+            "mask": mask,
+        }]
+        summary = result.to_summary_dict()
+        detection = summary["raw_detections"][0]
+        self.assertNotIn("mask", detection)
+        self.assertEqual(detection["mask_shape"], [32, 48])
+        self.assertEqual(detection["mask_foreground_pixels"], 12)
+        json.dumps(summary, allow_nan=False)
 
 
 

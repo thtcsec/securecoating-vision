@@ -13,6 +13,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SOURCE_ROOT = PROJECT_ROOT / "src"
+for import_root in (PROJECT_ROOT, SOURCE_ROOT):
+    if str(import_root) not in sys.path:
+        sys.path.insert(0, str(import_root))
+
+from libad.protocol import git_source_provenance  # noqa: E402
+
 MANIFEST_PATH = PROJECT_ROOT / "reports" / "test_manifest.json"
 MARKER_START = "<!-- TEST_MANIFEST:START -->"
 MARKER_END = "<!-- TEST_MANIFEST:END -->"
@@ -57,6 +64,22 @@ def _replace_marked_block(path: Path, body: str) -> None:
 def record_test_manifest(pytest_args: list[str] | None = None) -> dict:
     junit_path = PROJECT_ROOT / "reports" / "pytest_junit.xml"
     junit_path.parent.mkdir(parents=True, exist_ok=True)
+    source_provenance = git_source_provenance(PROJECT_ROOT)
+    # Tests verify that the checked-in evidence refers to the exact source tree
+    # under test. Refresh only those provenance fields before pytest so the
+    # validation does not depend on a stale manifest from an earlier run.
+    try:
+        preflight_manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        preflight_manifest = {}
+    preflight_manifest.update(
+        {
+            "working_tree_dirty": source_provenance["working_tree_dirty"],
+            "source_diff_sha256": source_provenance["source_diff_sha256"],
+        }
+    )
+    MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
+    MANIFEST_PATH.write_text(json.dumps(preflight_manifest, indent=2), encoding="utf-8")
     command = [sys.executable, "-m", "pytest", "-q", "--tb=line", f"--junitxml={junit_path}"]
     if pytest_args:
         command.extend(pytest_args)
@@ -88,6 +111,8 @@ def record_test_manifest(pytest_args: list[str] | None = None) -> dict:
         "release_version": identity.get("release_version", "2.0.0"),
         "release_label": identity.get("release_label", ""),
         "commit_sha": _git_sha(),
+        "working_tree_dirty": source_provenance["working_tree_dirty"],
+        "source_diff_sha256": source_provenance["source_diff_sha256"],
         "python_version": platform.python_version(),
         "collected": collected,
         "passed": passed,
@@ -103,7 +128,10 @@ def record_test_manifest(pytest_args: list[str] | None = None) -> dict:
     readme_body = (
         f"The current software validation snapshot is {passed} passing tests "
         f"with {skipped} skips and {failed} failures "
-        f"(commit `{manifest['commit_sha'][:12]}`, Python {manifest['python_version']}, "
+        f"(commit `{manifest['commit_sha'][:12]}`, working tree "
+        f"{'dirty' if manifest['working_tree_dirty'] else 'clean'}, "
+        f"source diff `{(manifest['source_diff_sha256'] or 'none')[:12]}`, "
+        f"Python {manifest['python_version']}, "
         f"{manifest['duration_seconds']}s). The authoritative record is "
         f"[reports/test_manifest.json](reports/test_manifest.json). "
         "This does not constitute evidence of factory performance, physical PLC behavior, "
@@ -118,6 +146,8 @@ def record_test_manifest(pytest_args: list[str] | None = None) -> dict:
         + f" in {manifest['duration_seconds']}s\n"
         f"python {manifest['python_version']}\n"
         f"commit {manifest['commit_sha']}\n"
+        f"working_tree_dirty {manifest['working_tree_dirty']}\n"
+        f"source_diff_sha256 {manifest['source_diff_sha256']}\n"
         f"log_sha256 {manifest['log_sha256']}\n"
         "```"
     )

@@ -20,8 +20,8 @@
       },
       "calibration_state": "VERIFIED",
       "plc_state": "SIMULATED_PASS",
-      "certificate_signature": "4d2ae3847bc8a8a344be769a21de94315cc0e2dd2664ca1739afb446312a4d74",
-      "commit_hash": "a4adb9fad8f5d5580f5333ebc45e6c011da8809c"
+      "certificate_signature": "e35c719ca852fa9a41aef4d072410c400ef2de3ea6c22a2be531f37aea03ad16",
+      "commit_hash": "69727f0200a66643928595297cf4445001e73afa"
     },
     {
       "case_id": 2,
@@ -40,8 +40,8 @@
       },
       "calibration_state": "VERIFIED",
       "plc_state": "SIMULATED_REJECT",
-      "certificate_signature": "234a205a38bc04a3420d2f9fc514c531780eab2448c38c71ba51f353fc2e2310",
-      "commit_hash": "a4adb9fad8f5d5580f5333ebc45e6c011da8809c"
+      "certificate_signature": "ad25ce5b3c35ee93f1aba815b9cd94456eccc824eb15bd080c800d8cbee3cdaa",
+      "commit_hash": "69727f0200a66643928595297cf4445001e73afa"
     },
     {
       "case_id": 3,
@@ -60,28 +60,28 @@
       },
       "calibration_state": "VERIFIED",
       "plc_state": "SIMULATED_REJECT",
-      "certificate_signature": "6a48c4f546ed31add02c17d7395dd080e29ab87b3543dc6bfdbf30834ff1eabc",
-      "commit_hash": "a4adb9fad8f5d5580f5333ebc45e6c011da8809c"
+      "certificate_signature": "3f433d2e7fe479b8a61ea015b23faf4676f76c5ef3e6cc9c33d006a48ed2969f",
+      "commit_hash": "69727f0200a66643928595297cf4445001e73afa"
     },
     {
       "case_id": 4,
-      "name": "Disagreement or missing evidence",
+      "name": "Near-threshold modality disagreement",
       "decision": "HOLD",
-      "reason": "Calibration is not verified; VIS sensor frame is stale",
+      "reason": "Modality score is inside the uncertainty band; HOLD for manual QA",
       "identity": {
         "roll_id": "ROLL_LIBAD_EXT_001",
         "batch_id": "BATCH_LIBAD_2026",
         "part_id": "PART_LIBAD_DEMO_04"
       },
       "scores": {
-        "vis": 1056.428425082669,
+        "vis": 1.1180340214424624,
         "xray_l": 1.0,
-        "fused": 1056.428425082669
+        "fused": 1.1180340214424624
       },
-      "calibration_state": "UNVERIFIED",
+      "calibration_state": "VERIFIED",
       "plc_state": "SIMULATED_HOLD",
-      "certificate_signature": "0f65d4601cffcf1d2a35074a599089d4bdb20a1b3f72cc3de3d63df82532e958",
-      "commit_hash": "a4adb9fad8f5d5580f5333ebc45e6c011da8809c"
+      "certificate_signature": "fbfff0bdd2a0ac5808e80cf0b5eeb89b39f6fc81913dc9075dbe0ddec9dd1d5c",
+      "commit_hash": "69727f0200a66643928595297cf4445001e73afa"
     }
   ],
   "closing_screen": {
@@ -90,23 +90,25 @@
     "batch_id": "BATCH_LIBAD_2026",
     "part_id": "PART_LIBAD_DEMO_04",
     "decision": "HOLD",
-    "decision_reason": "Calibration is not verified; VIS sensor frame is stale",
-    "vis_score": 1056.428425,
+    "decision_reason": "Modality score is inside the uncertainty band; HOLD for manual QA",
+    "vis_score": 1.118034,
     "xray_score": 1.0,
-    "fused_score": 1056.428425,
-    "vis_state": "ANOMALY",
+    "fused_score": 1.118034,
+    "vis_state": "UNCERTAIN",
     "xray_state": "NORMAL",
-    "calibration_state": "UNVERIFIED",
+    "calibration_state": "VERIFIED",
     "model_hash": null,
     "dataset_manifest_hash": null,
-    "commit_hash": "a4adb9fad8f5d5580f5333ebc45e6c011da8809c",
+    "commit_hash": "69727f0200a66643928595297cf4445001e73afa",
     "plc_state": "SIMULATED_HOLD",
     "detector_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
-    "issued_at": "2026-08-27T16:12:02.527775+00:00",
+    "source_tree_dirty": true,
+    "source_diff_sha256": "6946de71e46180d4bd2b41fc92965eee03b6d4d72988bafeaff2531af9ee93eb",
+    "issued_at": "2026-08-28T12:43:49.058464+00:00",
     "signature_algorithm": "HMAC-SHA256",
     "brand": "SecureCoating-Vision",
-    "payload_hash_sha256": "aec4fa0fb53fda48b0fbeaede1d1800695ca583d5a53859d10398c35816957b9",
-    "hmac_digital_signature": "0f65d4601cffcf1d2a35074a599089d4bdb20a1b3f72cc3de3d63df82532e958",
-    "canonical_payload_sha256": "aec4fa0fb53fda48b0fbeaede1d1800695ca583d5a53859d10398c35816957b9"
+    "payload_hash_sha256": "02a5bfe95d7e465036191b678a09f311b5d3ded61ed4bb2070e8a1a7a7d1738b",
+    "hmac_digital_signature": "fbfff0bdd2a0ac5808e80cf0b5eeb89b39f6fc81913dc9075dbe0ddec9dd1d5c",
+    "canonical_payload_sha256": "02a5bfe95d7e465036191b678a09f311b5d3ded61ed4bb2070e8a1a7a7d1738b"
   }
 }

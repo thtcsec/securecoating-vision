@@ -47,7 +47,7 @@ class SpatialPeriodicAnomaly:
 
 @dataclass
 class LaneSPCResult:
-    """Six Sigma Statistical Process Control capability for a single slitting lane."""
+    """Provisional per-lane density summary; Cpk/Ppk require subgroup data."""
     lane_id: int
     sample_count: int
     mean_defect_density_per_100m: float
@@ -73,7 +73,7 @@ class SlittingYieldPlan:
 class SpatialDiagnosticsEngine:
     """
     Analyzes spatial MD defect distributions using Spatial FFT and Autocorrelation to pinpoint
-    damaged line components with zero guesswork.
+    possible periodic equipment signatures for review; matches are heuristic.
     """
 
     def __init__(self, registry: Optional[EquipmentRegistry] = None):
@@ -175,8 +175,8 @@ class SpatialDiagnosticsEngine:
 
 class GigafactorySPCEngine:
     """
-    Computes Six Sigma Statistical Process Control (SPC) metrics per slitting lane
-    and optimizes jumbo roll slitting yield according to Tier-1 automotive standards.
+    Computes provisional per-lane density summaries and a rule-based slitting
+    scenario. It does not establish Six Sigma capability or standards compliance.
     """
 
     def __init__(self, target_defect_density_limit_per_100m: float = 2.0, num_lanes: int = 4):
@@ -227,8 +227,8 @@ class GigafactorySPCEngine:
         defects_list: List[Dict[str, Any]]
     ) -> SlittingYieldPlan:
         """
-        Smart Slitting Yield Optimizer:
-        Calculates usable EV/ESS area, determines optimal splice points, and maximizes total product recovery.
+        Prototype slitting scenario using configured grading heuristics. It is
+        not a proven optimizer or a production yield claim.
         """
         if roll_length_m <= 0.0:
             return SlittingYieldPlan(

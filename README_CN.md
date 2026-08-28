@@ -9,7 +9,7 @@
 - 不得把当前开发评测结果宣传为独立测试集、零漏检、ppm、六西格玛或标准认证结果；
 - 未训练模型、推理超时/异常、传感器缺失、标定未验证、数据库故障、PLC 通信失败和联锁锁存均必须输出 `HOLD`。
 
-LIBAD（VIS + 线内兼容 X-rayL）是外部多模态验证扩展，不替换现有 RGB YOLO/ONNX 路径。DA-Core 属于论文作者，本仓库的贡献是证据门控的 PASS/REJECT/HOLD。热成像与轮廓仪仍是仿真接口。注册标题与英文 README 保持一致，不另起第四个项目名。
+LIBAD（VIS + 线内兼容 X-rayL）适配器不替换现有 RGB YOLO/ONNX 路径。当前仓库未包含官方数据集和 10 个官方划分，已跟踪的 demo/benchmark 使用确定性 `protocol_fixture`，不得与论文结果比较。DA-Core 属于论文作者；本地实现使用 numpy patch descriptor，并非作者的 DINOv3/DA-Core 官方实现。本仓库的贡献是证据门控的 PASS/REJECT/HOLD。热成像与轮廓仪仍是仿真接口。注册标题与英文 README 保持一致，不另起第四个项目名。
 
 当前 `data/evaluation` 与训练验证集存在文件哈希重叠，因此其中的报告只能作为开发调试记录，不能作为泛化性能证明。英文 [README](README.md) 记录了真实的安全边界、配置、测试、训练和评测要求。
 

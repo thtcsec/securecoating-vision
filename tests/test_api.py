@@ -6,6 +6,7 @@ import unittest
 import asyncio
 import struct
 import zlib
+import base64
 import tempfile
 import atexit
 import shutil
@@ -245,6 +246,11 @@ class TestAPI(unittest.TestCase):
         body = resp.json()
         self.assertEqual(body["decision"]["action"], "HOLD")
         self.assertIn("hmac_digital_signature", body["certificate"])
+        self.assertEqual(body["evidence_class"], "protocol_fixture")
+        self.assertFalse(body["comparable_to_paper"])
+        self.assertNotIn("frames", body)
+        for encoded in body["frames_png_base64"].values():
+            self.assertTrue(base64.b64decode(encoded, validate=True).startswith(b"\x89PNG"))
 
 
 if __name__ == "__main__":

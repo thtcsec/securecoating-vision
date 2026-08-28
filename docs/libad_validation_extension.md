@@ -1,6 +1,6 @@
 # LIBAD Validation Extension
 
-This repository adds a **real multimodal evidence lane** without replacing the existing RGB YOLOv8-seg/ONNX prototype.
+This repository adds a **LIBAD-compatible multimodal evidence adapter** without replacing the existing RGB YOLOv8-seg/ONNX prototype. The official dataset is real multimodal data; the checked-in demo and benchmark artifacts are deterministic protocol fixtures.
 
 ## What changed, and what did not
 
@@ -13,11 +13,12 @@ The original software-and-safety contract remains:
 
 LIBAD is an **external validation extension**, not a topic change:
 
-> The initial prototype validated the software and safety contract using RGB inspection and simulated secondary modalities. Following preliminary qualification, we added external validation on a newly released real multimodal battery-electrode benchmark using aligned visible-light and inline-compatible X-ray data.
+> The initial prototype validated the software and safety contract using RGB inspection and simulated secondary modalities. We then added an adapter and evidence gate for a newly released real multimodal battery-electrode benchmark. Official external validation remains pending until its dataset, all 10 splits, and implementation hashes are recorded.
 
 Honest modality split:
 
-- **Real multimodal validation:** VIS + inline-compatible X-rayL (LIBAD, CC BY 4.0)
+- **Target external validation inputs:** real VIS + inline-compatible X-rayL (official LIBAD, CC BY 4.0; not checked into this repository)
+- **Checked-in LIBAD artifacts:** deterministic protocol fixtures, always `comparable_to_paper: false`
 - **Simulation-based interface validation:** thermal and profilometry adapters
 
 ## Attribution
@@ -57,7 +58,7 @@ Industrial metrics:
 - Escape Rate = (anomalies incorrectly PASS) / (total anomalies)
 - Selective Risk = (errors among automatic decisions) / (N_PASS + N_REJECT)
 
-Without the official 4.84 GB dataset the harness runs a protocol fixture and labels the report `comparable_to_paper: false`.
+Without the official 4.84 GB dataset, all 10 valid split manifests, and `data/libad/official_artifact_manifest.json` containing matching dataset/splits tree SHA-256 values, the harness runs a protocol fixture or labels structured inputs unverified. Even with verified official inputs, this local numpy patch descriptor remains `comparable_to_paper: false`; paper comparison requires the authors' official DINOv3/DA-Core implementation and recorded hashes.
 
 ```powershell
 .venv\Scripts\python.exe scripts/download_libad.py
@@ -70,6 +71,6 @@ Without the official 4.84 GB dataset the harness runs a protocol fixture and lab
 1. Normal agreement → PASS
 2. Surface-visible defect → REJECT (surface evidence)
 3. Internally visible X-ray anomaly → REJECT (complementary X-ray)
-4. Disagreement / stale / unverified calibration → HOLD
+4. Near-threshold VIS/X-rayL disagreement with valid contracts → HOLD
 
 The closing screen shows roll, batch, part, modality scores, calibration state, model/commit hashes, decision reason, certificate signature, and PLC state.

@@ -3,6 +3,8 @@
   "case_name": "Normal agreement",
   "story": "VIS normal, X-rayL normal, calibration and identity valid.",
   "expected_action": "PASS",
+  "evidence_class": "protocol_fixture",
+  "comparable_to_paper": false,
   "decision": {
     "action": "PASS",
     "reason": "Normal agreement: VIS and X-rayL are both below the release threshold",
@@ -46,15 +48,17 @@
     "calibration_state": "VERIFIED",
     "model_hash": null,
     "dataset_manifest_hash": null,
-    "commit_hash": "a4adb9fad8f5d5580f5333ebc45e6c011da8809c",
+    "commit_hash": "69727f0200a66643928595297cf4445001e73afa",
     "plc_state": "SIMULATED_PASS",
     "detector_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
-    "issued_at": "2026-08-27T16:12:02.379575+00:00",
+    "source_tree_dirty": true,
+    "source_diff_sha256": "6946de71e46180d4bd2b41fc92965eee03b6d4d72988bafeaff2531af9ee93eb",
+    "issued_at": "2026-08-28T12:43:48.655393+00:00",
     "signature_algorithm": "HMAC-SHA256",
     "brand": "SecureCoating-Vision",
-    "payload_hash_sha256": "a5799fb6b32735a09abff8f959c5ce9902a455a734fae8a52b7539beb08f1ff6",
-    "hmac_digital_signature": "4d2ae3847bc8a8a344be769a21de94315cc0e2dd2664ca1739afb446312a4d74",
-    "canonical_payload_sha256": "a5799fb6b32735a09abff8f959c5ce9902a455a734fae8a52b7539beb08f1ff6"
+    "payload_hash_sha256": "76adc25b9dea2d9dbcb29b0c10bba039f53b458c07ca8ef7f3094b42766572cf",
+    "hmac_digital_signature": "e35c719ca852fa9a41aef4d072410c400ef2de3ea6c22a2be531f37aea03ad16",
+    "canonical_payload_sha256": "76adc25b9dea2d9dbcb29b0c10bba039f53b458c07ca8ef7f3094b42766572cf"
   },
   "title": "SecureCoating Vision: A High-Throughput and Zero-Trust Edge-Cloud Pipeline for Inline Battery Electrode Defect Inspection and Traceable Quality Decisions",
   "tagline": "Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing",
@@ -79,6 +83,11 @@
         "method": "density_fps"
       }
     }
+  },
+  "source_provenance": {
+    "commit": "69727f0200a66643928595297cf4445001e73afa",
+    "working_tree_dirty": true,
+    "source_diff_sha256": "6946de71e46180d4bd2b41fc92965eee03b6d4d72988bafeaff2531af9ee93eb"
   },
   "overlay": "reports/libad_demo/case_01.png"
 }

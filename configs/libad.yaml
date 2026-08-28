@@ -20,6 +20,7 @@ benchmark:
 paths:
   dataset_root: "data/libad/LIBAD"
   splits_root: "data/libad/splits"
+  official_artifact_manifest: "data/libad/official_artifact_manifest.json"
   reports_dir: "reports/libad"
   demo_dir: "reports/libad_demo"
 

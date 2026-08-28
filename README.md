@@ -12,10 +12,10 @@ It is **not production-qualified**. The repository does not contain a factory ca
 
 The repository contains a fail-closed inspection prototype, traceability experiments, simulated industrial I/O, and reproducible software checks. Implemented behavior, test evidence, simulation boundaries, and external validation requirements are recorded in the [implementation status ledger](docs/implementation_status.md).
 
-The initial prototype validated the software and safety contract using RGB inspection and simulated secondary modalities. Following that qualification path, the repository adds an external validation lane on [LIBAD](https://arxiv.org/abs/2608.07958): aligned visible-light and inline-compatible X-ray data from real roll-to-roll electrode manufacturing. This is a validation extension, not a change of topic. Details are in [docs/libad_validation_extension.md](docs/libad_validation_extension.md).
+The initial prototype validated the software and safety contract using RGB inspection and simulated secondary modalities. The repository now contains a validation adapter and 10-seed harness for [LIBAD](https://arxiv.org/abs/2608.07958), whose official release contains aligned visible-light and inline-compatible X-ray data from real roll-to-roll electrode manufacturing. The checked-in demo and benchmark reports use deterministic protocol fixtures because the official dataset/splits are not present. This is a validation extension, not a change of topic. Details are in [docs/libad_validation_extension.md](docs/libad_validation_extension.md).
 
 <!-- TEST_MANIFEST:START -->
-The current software validation snapshot is 109 passing tests with 0 skips and 0 failures (commit `a4adb9fad8f5`, Python 3.11.9, 40.34s). The authoritative record is [reports/test_manifest.json](reports/test_manifest.json). This does not constitute evidence of factory performance, physical PLC behavior, safety-rated E-stop operation, or production qualification.
+The current software validation snapshot is 125 passing tests with 0 skips and 0 failures (commit `69727f0200a6`, working tree dirty, source diff `6946de71e461`, Python 3.11.9, 44.0s). The authoritative record is [reports/test_manifest.json](reports/test_manifest.json). This does not constitute evidence of factory performance, physical PLC behavior, safety-rated E-stop operation, or production qualification.
 <!-- TEST_MANIFEST:END -->
 
 ## Current safety contract
@@ -31,18 +31,8 @@ These properties are covered by software tests, but physical actuator behavior s
 ## Modality honesty
 
 - **RGB / YOLO-seg / ONNX:** primary inference path for known surface defects.
-- **LIBAD VIS + X-rayL:** real multimodal validation extension. PatchCore/DA-Core scores are the published baseline of Sui et al.; SecureCoating-Vision does not claim DA-Core as its own algorithm. The local contribution is the evidence gate.
+- **LIBAD VIS + X-rayL:** adapter for official real multimodal inputs; checked-in artifacts currently use protocol fixtures. PatchCore/DA-Core are attributed baselines of Sui et al.; the local numpy descriptor is not their official DINOv3 implementation and is never paper-comparable. The local contribution is the evidence gate.
 - **Thermal and profilometry:** simulated or injected interface adapters for registration, fail-closed degradation, and contract tests. They are not plant-instrument measurements in this repository.
-
-## Current safety contract
-
-- Only an `OPTIMAL` inference result from a loaded trained model may produce an automatic PASS/REJECT decision.
-- Timeout, inference error, missing model, missing sensor, unverified production calibration, traceability failure, PLC communication failure, or a latched interlock produces `HOLD`.
-- Mock OPC UA/Modbus operations are labelled `SIMULATED`; they are never reported as PLC acknowledgements.
-- Real PLC commands use exactly one configured command-owner protocol and require a unique command sequence plus a matching PLC ACK sequence. OPC UA requires `SignAndEncrypt`; plaintext Modbus is refused unless an explicitly trusted gateway is configured.
-- The dashboard reads the API as its authoritative source. Local fallback is available only when `SECURECOATING_DASHBOARD_SANDBOX=true` in development/test, and it never owns a live PLC channel.
-
-These properties are covered by software tests, but physical actuator behavior still requires vendor-specific HIL and safety validation.
 
 ## Status and Upgrade Plan
 

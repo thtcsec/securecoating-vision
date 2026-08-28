@@ -17,7 +17,7 @@ import numpy as np
 from libad.certificate import EvidenceCertificate, build_evidence_certificate
 from libad.dataset import _draw_density_blob, _draw_scratch, _electrode_canvas
 from libad.evidence_gate import EvidenceContracts, GateDecision, decide_evidence_gate
-from libad.protocol import git_commit_sha, load_libad_config, load_project_identity
+from libad.protocol import git_source_provenance, load_libad_config, load_project_identity
 from libad.scorer import MemoryAnomalyScorer, SampleScore
 
 DEMO_CASES = {
@@ -37,9 +37,9 @@ DEMO_CASES = {
         "story": "VIS near-normal, X-rayL anomaly score high; multimodal value, not a second pretty image.",
     },
     4: {
-        "name": "Disagreement or missing evidence",
+        "name": "Near-threshold modality disagreement",
         "expected_action": "HOLD",
-        "story": "Modality disagreement, stale sensor, or unverified calibration; manual QA required.",
+        "story": "VIS is inside the uncertainty band while X-rayL is normal; manual QA required.",
     },
 }
 
@@ -91,13 +91,14 @@ def _build_demo_frames(case_id: int, bank: DemoBank) -> Dict[str, np.ndarray]:
     elif case_id == 3:
         xray = _draw_density_blob(xray, rng)
     elif case_id == 4:
-        vis = _draw_scratch(vis, rng)
+        # A deterministic, minimal contrast perturbation produces a genuine
+        # near-threshold VIS/X-rayL disagreement with otherwise valid contracts.
+        # This is protocol-fixture evidence, not a plant sensor capture.
+        vis[20, 20] = np.uint8(min(255, int(vis[20, 20]) + 8))
     return {"vis_a": vis, "vis_b": vis.copy(), "xray_l": xray}
 
 
 def _demo_contracts(case_id: int) -> EvidenceContracts:
-    if case_id == 4:
-        return EvidenceContracts(calibration_verified=False, vis_stale=True)
     return EvidenceContracts()
 
 
@@ -135,6 +136,7 @@ def run_libad_demo_case(
     batch_id = cfg["identity"]["batch_id"]
     part_id = f"PART_LIBAD_DEMO_{case_id:02d}"
     plc_state = "SIMULATED_HOLD" if decision.action == "HOLD" else f"SIMULATED_{decision.action}"
+    source_provenance = git_source_provenance()
     certificate: EvidenceCertificate = build_evidence_certificate(
         roll_id=roll_id,
         batch_id=batch_id,
@@ -149,9 +151,11 @@ def run_libad_demo_case(
         calibration_state="VERIFIED" if contracts.calibration_verified else "UNVERIFIED",
         model_hash=None,
         dataset_manifest_hash=None,
-        commit_hash=git_commit_sha(),
+        commit_hash=source_provenance["commit"],
         plc_state=plc_state,
         detector_attribution=bank.scorer.provenance()["coreset_attribution"],
+        source_tree_dirty=source_provenance["working_tree_dirty"],
+        source_diff_sha256=source_provenance["source_diff_sha256"],
         secret=secret,
     )
     return {
@@ -159,6 +163,8 @@ def run_libad_demo_case(
         "case_name": spec["name"],
         "story": spec["story"],
         "expected_action": spec["expected_action"],
+        "evidence_class": "protocol_fixture",
+        "comparable_to_paper": False,
         "decision": decision.to_dict(),
         "scores": {
             "vis": score.vis_score,
@@ -181,6 +187,7 @@ def run_libad_demo_case(
         "tagline": identity["tagline"],
         "brand": identity["brand"],
         "detector_provenance": bank.scorer.provenance(),
+        "source_provenance": source_provenance,
     }
 
 

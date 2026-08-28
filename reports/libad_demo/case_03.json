@@ -3,6 +3,8 @@
   "case_name": "Internally visible anomaly",
   "story": "VIS near-normal, X-rayL anomaly score high; multimodal value, not a second pretty image.",
   "expected_action": "REJECT",
+  "evidence_class": "protocol_fixture",
+  "comparable_to_paper": false,
   "decision": {
     "action": "REJECT",
     "reason": "REJECT \u2014 complementary X-ray evidence: internal/density anomaly with near-normal VIS",
@@ -46,15 +48,17 @@
     "calibration_state": "VERIFIED",
     "model_hash": null,
     "dataset_manifest_hash": null,
-    "commit_hash": "a4adb9fad8f5d5580f5333ebc45e6c011da8809c",
+    "commit_hash": "69727f0200a66643928595297cf4445001e73afa",
     "plc_state": "SIMULATED_REJECT",
     "detector_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
-    "issued_at": "2026-08-27T16:12:02.481516+00:00",
+    "source_tree_dirty": true,
+    "source_diff_sha256": "6946de71e46180d4bd2b41fc92965eee03b6d4d72988bafeaff2531af9ee93eb",
+    "issued_at": "2026-08-28T12:43:48.925492+00:00",
     "signature_algorithm": "HMAC-SHA256",
     "brand": "SecureCoating-Vision",
-    "payload_hash_sha256": "b053527b18d51d6282426ebf43f0ba4af5499185c89614326dc9539ca15d5d1c",
-    "hmac_digital_signature": "6a48c4f546ed31add02c17d7395dd080e29ab87b3543dc6bfdbf30834ff1eabc",
-    "canonical_payload_sha256": "b053527b18d51d6282426ebf43f0ba4af5499185c89614326dc9539ca15d5d1c"
+    "payload_hash_sha256": "766fef59b26e5577111ba627965cd62127cef52fb03eea77e946f27f8c2e73a5",
+    "hmac_digital_signature": "3f433d2e7fe479b8a61ea015b23faf4676f76c5ef3e6cc9c33d006a48ed2969f",
+    "canonical_payload_sha256": "766fef59b26e5577111ba627965cd62127cef52fb03eea77e946f27f8c2e73a5"
   },
   "title": "SecureCoating Vision: A High-Throughput and Zero-Trust Edge-Cloud Pipeline for Inline Battery Electrode Defect Inspection and Traceable Quality Decisions",
   "tagline": "Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing",
@@ -79,6 +83,11 @@
         "method": "density_fps"
       }
     }
+  },
+  "source_provenance": {
+    "commit": "69727f0200a66643928595297cf4445001e73afa",
+    "working_tree_dirty": true,
+    "source_diff_sha256": "6946de71e46180d4bd2b41fc92965eee03b6d4d72988bafeaff2531af9ee93eb"
   },
   "overlay": "reports/libad_demo/case_03.png"
 }

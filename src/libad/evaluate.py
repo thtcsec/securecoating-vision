@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Sequence
 
 import numpy as np
 
-from libad.dataset import LibadSample, LibadSplit, load_official_splits
+from libad.dataset import LibadSample, LibadSplit, dataset_status, load_official_splits
 from libad.evidence_gate import EvidenceContracts, decide_evidence_gate
 from libad.metrics import academic_metrics, industrial_gate_metrics, summarize_splits
 from libad.protocol import (
@@ -15,6 +15,7 @@ from libad.protocol import (
     LIBAD_PAPER_RESULT_NOTE,
     OFFICIAL_SPLIT_SEEDS,
     git_commit_sha,
+    git_source_provenance,
     hash_existing_files,
     load_libad_config,
 )
@@ -89,6 +90,7 @@ def evaluate_split(
     if experiment not in EXPERIMENT_MODALITIES:
         raise ValueError(f"Unknown experiment: {experiment}")
     cfg = config or load_libad_config()
+    input_status = dataset_status(cfg)
     modalities = EXPERIMENT_MODALITIES[experiment]
     scorer = _scorer_from_config(split.seed, cfg)
     started = time.perf_counter()
@@ -204,7 +206,17 @@ def evaluate_official_splits(
                 item["industrial"] for item in records if "industrial" in item
             )
         summary[experiment] = payload
-    comparable = all(split.comparable_to_paper for split in splits)
+    structured_inputs = bool(splits) and all(
+        split.source == "libad_structured_inputs" for split in splits
+    )
+    official_data = structured_inputs and bool(input_status["official_protocol_complete"])
+    # This harness intentionally uses the repository's numpy patch descriptor.
+    # Official data does not make its metrics comparable to the authors'
+    # DINOv3/DA-Core implementation.
+    comparable = False
+    official_protocol_complete = (
+        official_data and tuple(int(seed) for seed in seeds) == OFFICIAL_SPLIT_SEEDS
+    )
     return {
         "benchmark": "LIBAD",
         "citation": LIBAD_CITATION,
@@ -214,8 +226,17 @@ def evaluate_official_splits(
             "It does not replace YOLO/ONNX surface localization and does not claim DA-Core."
         ),
         "official_split_seeds": list(seeds),
-        "evidence_class": "official_libad" if comparable else "protocol_fixture",
+        "evidence_class": (
+            "official_libad_local_adapter" if official_data
+            else "unverified_libad_local_adapter" if structured_inputs
+            else "protocol_fixture"
+        ),
         "comparable_to_paper": comparable,
+        "official_protocol_complete": official_protocol_complete,
+        "paper_comparability_blockers": [
+            "The local feature backbone is numpy_patch_descriptor, not the authors' official DINOv3 implementation",
+            "No official external baseline runner/weight hash is recorded by this harness",
+        ],
         "experiments": summary,
         "split_records": {
             experiment: [
@@ -227,8 +248,26 @@ def evaluate_official_splits(
         "latency_ms_total": elapsed_ms,
         "hashes": {
             "commit": git_commit_sha(),
-            "tracked_artifacts": hash_existing_files(
-                ["outputs/model.onnx", "outputs/best.pt", "reports/dataset_manifest.json"]
+            "source_provenance": git_source_provenance(),
+            "adapter_implementation": hash_existing_files(
+                [
+                    "configs/libad.yaml",
+                    "src/libad/features.py",
+                    "src/libad/memory.py",
+                    "src/libad/scorer.py",
+                    "src/libad/evidence_gate.py",
+                    "src/libad/dataset.py",
+                ]
+            ),
+            "official_dataset_tree_sha256": (
+                input_status["dataset_tree_sha256"] if official_data else None
+            ),
+            "official_splits_tree_sha256": (
+                input_status["splits_tree_sha256"] if official_data else None
+            ),
+            "protocol_fixture_definition": (
+                hash_existing_files(["src/libad/dataset.py", "configs/libad.yaml"])
+                if not official_data else None
             ),
         },
         "predictions": raw_predictions,

@@ -51,6 +51,26 @@ class TestInspectionApiClient(unittest.TestCase):
             with self.assertRaises(ValueError):
                 client.get("/health")
 
+    def test_libad_demo_uses_authoritative_api(self):
+        client = InspectionApiClient("http://api.local")
+        response = Mock(status_code=200)
+        response.json.return_value = {"case_id": 4, "decision": {"action": "HOLD"}}
+        with patch.object(client.session, "get", return_value=response) as get:
+            payload = client.libad_demo(4)
+        self.assertEqual(payload["decision"]["action"], "HOLD")
+        get.assert_called_once_with(
+            "http://api.local/api/libad/demo/4",
+            params=None,
+            headers={},
+            timeout=5.0,
+        )
+
+    def test_libad_demo_rejects_unknown_case_without_request(self):
+        client = InspectionApiClient("http://api.local")
+        with patch.object(client.session, "get") as get, self.assertRaises(ValueError):
+            client.libad_demo(5)
+        get.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

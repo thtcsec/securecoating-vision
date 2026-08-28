@@ -1,34 +1,20 @@
 {
+  "artifact_schema_version": "2.0",
+  "evidence_class": "external_dataset_model_output",
+  "comparable_to_paper": false,
   "input_image": "data/external/coatingvision/detection/images/image_1487.jpg",
+  "input_sha256": "7b0d9201124c55ad4f0f0296fc98ad253f4a755fafa9629ca03d7b6791e443ec",
   "input_source": "CoatingVision dataset, CC BY 4.0, Figshare DOI 10.6084/m9.figshare.29260121.v1",
   "input_is_real_optical_data": true,
   "secondary_sensor_data": "not supplied; model ran in RGB-only degraded mode",
-  "engine": "YOLO (Ultralytics/0)",
-  "latency_ms": 49.7,
-  "detections": [
-    {
-      "box": [
-        481.3568115234375,
-        344.6200256347656,
-        498.6141357421875,
-        376.5274658203125
-      ],
-      "confidence": 0.4310189485549927,
-      "class_id": 0,
-      "class_name": "surface_crack"
-    },
-    {
-      "box": [
-        480.8721923828125,
-        347.970947265625,
-        499.07958984375,
-        378.5080871582031
-      ],
-      "confidence": 0.3840870261192322,
-      "class_id": 0,
-      "class_name": "surface_crack"
-    }
-  ],
+  "engine": "YOLO (CUDA:0 (NVIDIA GeForce RTX 4050 Laptop GPU))",
+  "model_artifact": "outputs/best.pt",
+  "model_sha256": "9945ada0bb8319bb00aa76554f053d82861e828e4ba631ade8814ce0d0c948e6",
+  "commit_sha": "69727f0200a66643928595297cf4445001e73afa",
+  "source_tree_dirty": true,
+  "source_diff_sha256": "6946de71e46180d4bd2b41fc92965eee03b6d4d72988bafeaff2531af9ee93eb",
+  "latency_ms": 132.1,
+  "detections": [],
   "seven_stage_pipeline": {
     "sample_id": "image_1487",
     "roll_coordinate": {
@@ -38,63 +24,42 @@
       "cross_pos_mm": 325.0,
       "lane_id": 3,
       "encoder_pulse_count": 9900,
-      "capture_monotonic_s": 92086.796
+      "capture_monotonic_s": 255370.39
     },
-    "total_latency_ms": 34.71,
+    "total_latency_ms": 99.51,
     "stage_latencies_ms": {
       "stage_1_web_sync_ms": 0.02,
-      "stage_2_acquisition_ms": 8.5,
-      "stage_3_fusion_ms": 12.33,
-      "stage_4_ai_inference_ms": 13.83,
+      "stage_2_acquisition_ms": 9.3,
+      "stage_3_fusion_ms": 11.07,
+      "stage_4_ai_inference_ms": 79.09,
       "stage_5_metrology_ms": 0.0,
-      "stage_6_decision_plc_ms": 0.01,
+      "stage_6_decision_plc_ms": 0.0,
       "stage_7_root_cause_ms": 0.01
     },
-    "overall_verdict": "REJECT",
+    "overall_verdict": "HOLD",
     "quality_tier": "GRADE_B_QUARANTINE",
-    "standards_compliant": true,
+    "standards_compliant": false,
     "rejection_reasons": [
-      "RGB-only evidence mode: calibrated thermal/profilometer data unavailable -> HOLD for QA; no release decision or dimensional metrology"
+      "RGB-only or incomplete secondary evidence: calibrated thermal/profilometer data unavailable -> HOLD for QA; no release decision or dimensional metrology"
     ],
     "plc_gate_action": "HOLD",
+    "raw_detections_count": 0,
     "defects_count": 0,
     "defect_metrology": [],
+    "raw_detections": [],
+    "measurement_policy": "No dimensional metrology or release decision when inspection evidence is not safety-ready.",
     "root_cause_report": {
-      "primary_root_cause": "Process In Statistical Control",
-      "affected_equipment": "All Upstream Stations Optimal",
-      "confidence_score": 0.98,
-      "defect_signature": "Zero Critical Anomalies Detected",
-      "severity_level": "NOMINAL",
+      "primary_root_cause": "HOLD: evidence or communication contract not satisfied",
+      "affected_equipment": "No automatic process change authorized",
+      "confidence_score": null,
+      "evidence_level": "HEURISTIC_RULE_MATCH",
+      "defect_signature": "Automatic release blocked. RGB-only or incomplete secondary evidence: calibrated thermal/profilometer data unavailable -> HOLD for QA; no release decision or dimensional metrology. Raw detections present: 0; metrology objects: 0.",
+      "severity_level": "HOLD",
       "action_items": [],
-      "timestamp": "2026-08-17T16:36:38.813447"
+      "timestamp": "2026-08-28T19:45:11.653143"
     },
     "system_health": "DEGRADED",
-    "timestamp": "2026-08-17T16:36:38.813447",
-    "raw_detections": [
-      {
-        "box": [
-          481.3568115234375,
-          344.6200256347656,
-          498.6141357421875,
-          376.5274658203125
-        ],
-        "confidence": 0.4310189485549927,
-        "class_id": 0,
-        "class_name": "surface_crack"
-      },
-      {
-        "box": [
-          480.8721923828125,
-          347.970947265625,
-          499.07958984375,
-          378.5080871582031
-        ],
-        "confidence": 0.3840870261192322,
-        "class_id": 0,
-        "class_name": "surface_crack"
-      }
-    ],
-    "measurement_policy": "No dimensional metrology or release decision in RGB-only mode."
+    "timestamp": "2026-08-28T19:45:11.653143"
   },
   "output_overlay": "reports/coatingvision_gallery/image_1487/coatingvision_model_output.png"
 }

@@ -1,21 +1,121 @@
 {
+  "artifact_schema_version": "2.0",
+  "evidence_class": "external_dataset_model_output",
+  "comparable_to_paper": false,
   "input_image": "data/external/coatingvision/detection/images/image_1548.jpg",
+  "input_sha256": "88db1995244c387af1538e9f948836c7bd3f4fbcc9da49bcce3349b8b4f15a12",
   "input_source": "CoatingVision dataset, CC BY 4.0, Figshare DOI 10.6084/m9.figshare.29260121.v1",
   "input_is_real_optical_data": true,
   "secondary_sensor_data": "not supplied; model ran in RGB-only degraded mode",
-  "engine": "YOLO (Ultralytics/0)",
-  "latency_ms": 50.3,
+  "engine": "YOLO (CUDA:0 (NVIDIA GeForce RTX 4050 Laptop GPU))",
+  "model_artifact": "outputs/best.pt",
+  "model_sha256": "9945ada0bb8319bb00aa76554f053d82861e828e4ba631ade8814ce0d0c948e6",
+  "commit_sha": "69727f0200a66643928595297cf4445001e73afa",
+  "source_tree_dirty": true,
+  "source_diff_sha256": "6946de71e46180d4bd2b41fc92965eee03b6d4d72988bafeaff2531af9ee93eb",
+  "latency_ms": 147.6,
   "detections": [
     {
       "box": [
-        341.1580505371094,
-        434.29364013671875,
-        357.5815124511719,
-        453.511962890625
+        558.2080078125,
+        0.1633472442626953,
+        638.282958984375,
+        20.851951599121094
       ],
-      "confidence": 0.7756270170211792,
+      "box_format": "xyxy",
+      "confidence": 0.6973310708999634,
+      "class_id": 2,
+      "class_name": "blister",
+      "mask_shape": [
+        480,
+        640
+      ],
+      "mask_foreground_pixels": 868
+    },
+    {
+      "box": [
+        612.111572265625,
+        127.72499084472656,
+        639.7105712890625,
+        165.1501922607422
+      ],
+      "box_format": "xyxy",
+      "confidence": 0.6151923537254333,
+      "class_id": 2,
+      "class_name": "blister",
+      "mask_shape": [
+        480,
+        640
+      ],
+      "mask_foreground_pixels": 721
+    },
+    {
+      "box": [
+        271.66143798828125,
+        0.15353965759277344,
+        319.72100830078125,
+        17.90464973449707
+      ],
+      "box_format": "xyxy",
+      "confidence": 0.5632050633430481,
+      "class_id": 2,
+      "class_name": "blister",
+      "mask_shape": [
+        480,
+        640
+      ],
+      "mask_foreground_pixels": 598
+    },
+    {
+      "box": [
+        281.16546630859375,
+        317.5185852050781,
+        520.4511108398438,
+        362.3737487792969
+      ],
+      "box_format": "xyxy",
+      "confidence": 0.49263185262680054,
       "class_id": 0,
-      "class_name": "surface_crack"
+      "class_name": "scratch",
+      "mask_shape": [
+        480,
+        640
+      ],
+      "mask_foreground_pixels": 676
+    },
+    {
+      "box": [
+        437.22979736328125,
+        226.96343994140625,
+        636.0636596679688,
+        278.304443359375
+      ],
+      "box_format": "xyxy",
+      "confidence": 0.35599833726882935,
+      "class_id": 0,
+      "class_name": "scratch",
+      "mask_shape": [
+        480,
+        640
+      ],
+      "mask_foreground_pixels": 280
+    },
+    {
+      "box": [
+        441.015625,
+        68.96086120605469,
+        637.3892822265625,
+        131.14244079589844
+      ],
+      "box_format": "xyxy",
+      "confidence": 0.3501974046230316,
+      "class_id": 0,
+      "class_name": "scratch",
+      "mask_shape": [
+        480,
+        640
+      ],
+      "mask_foreground_pixels": 566
     }
   ],
   "seven_stage_pipeline": {
@@ -27,52 +127,145 @@
       "cross_pos_mm": 325.0,
       "lane_id": 3,
       "encoder_pulse_count": 9900,
-      "capture_monotonic_s": 92104.578
+      "capture_monotonic_s": 255378.39
     },
-    "total_latency_ms": 34.08,
+    "total_latency_ms": 105.32,
     "stage_latencies_ms": {
       "stage_1_web_sync_ms": 0.02,
-      "stage_2_acquisition_ms": 7.66,
-      "stage_3_fusion_ms": 11.61,
-      "stage_4_ai_inference_ms": 14.76,
+      "stage_2_acquisition_ms": 9.34,
+      "stage_3_fusion_ms": 13.17,
+      "stage_4_ai_inference_ms": 82.77,
       "stage_5_metrology_ms": 0.0,
-      "stage_6_decision_plc_ms": 0.01,
-      "stage_7_root_cause_ms": 0.01
+      "stage_6_decision_plc_ms": 0.0,
+      "stage_7_root_cause_ms": 0.02
     },
-    "overall_verdict": "REJECT",
+    "overall_verdict": "HOLD",
     "quality_tier": "GRADE_B_QUARANTINE",
-    "standards_compliant": true,
+    "standards_compliant": false,
     "rejection_reasons": [
-      "RGB-only evidence mode: calibrated thermal/profilometer data unavailable -> HOLD for QA; no release decision or dimensional metrology"
+      "RGB-only or incomplete secondary evidence: calibrated thermal/profilometer data unavailable -> HOLD for QA; no release decision or dimensional metrology"
     ],
     "plc_gate_action": "HOLD",
+    "raw_detections_count": 6,
     "defects_count": 0,
     "defect_metrology": [],
-    "root_cause_report": {
-      "primary_root_cause": "Process In Statistical Control",
-      "affected_equipment": "All Upstream Stations Optimal",
-      "confidence_score": 0.98,
-      "defect_signature": "Zero Critical Anomalies Detected",
-      "severity_level": "NOMINAL",
-      "action_items": [],
-      "timestamp": "2026-08-17T16:36:56.605021"
-    },
-    "system_health": "DEGRADED",
-    "timestamp": "2026-08-17T16:36:56.605021",
     "raw_detections": [
       {
         "box": [
-          341.1580505371094,
-          434.29364013671875,
-          357.5815124511719,
-          453.511962890625
+          558.2080078125,
+          0.1633472442626953,
+          638.282958984375,
+          20.851951599121094
         ],
-        "confidence": 0.7756270170211792,
+        "box_format": "xyxy",
+        "confidence": 0.6973310708999634,
+        "class_id": 2,
+        "class_name": "blister",
+        "mask_shape": [
+          480,
+          640
+        ],
+        "mask_foreground_pixels": 868
+      },
+      {
+        "box": [
+          612.111572265625,
+          127.72499084472656,
+          639.7105712890625,
+          165.1501922607422
+        ],
+        "box_format": "xyxy",
+        "confidence": 0.6151923537254333,
+        "class_id": 2,
+        "class_name": "blister",
+        "mask_shape": [
+          480,
+          640
+        ],
+        "mask_foreground_pixels": 721
+      },
+      {
+        "box": [
+          271.66143798828125,
+          0.15353965759277344,
+          319.72100830078125,
+          17.90464973449707
+        ],
+        "box_format": "xyxy",
+        "confidence": 0.5632050633430481,
+        "class_id": 2,
+        "class_name": "blister",
+        "mask_shape": [
+          480,
+          640
+        ],
+        "mask_foreground_pixels": 598
+      },
+      {
+        "box": [
+          281.16546630859375,
+          317.5185852050781,
+          520.4511108398438,
+          362.3737487792969
+        ],
+        "box_format": "xyxy",
+        "confidence": 0.49263185262680054,
         "class_id": 0,
-        "class_name": "surface_crack"
+        "class_name": "scratch",
+        "mask_shape": [
+          480,
+          640
+        ],
+        "mask_foreground_pixels": 676
+      },
+      {
+        "box": [
+          437.22979736328125,
+          226.96343994140625,
+          636.0636596679688,
+          278.304443359375
+        ],
+        "box_format": "xyxy",
+        "confidence": 0.35599833726882935,
+        "class_id": 0,
+        "class_name": "scratch",
+        "mask_shape": [
+          480,
+          640
+        ],
+        "mask_foreground_pixels": 280
+      },
+      {
+        "box": [
+          441.015625,
+          68.96086120605469,
+          637.3892822265625,
+          131.14244079589844
+        ],
+        "box_format": "xyxy",
+        "confidence": 0.3501974046230316,
+        "class_id": 0,
+        "class_name": "scratch",
+        "mask_shape": [
+          480,
+          640
+        ],
+        "mask_foreground_pixels": 566
       }
     ],
-    "measurement_policy": "No dimensional metrology or release decision in RGB-only mode."
+    "measurement_policy": "No dimensional metrology or release decision when inspection evidence is not safety-ready.",
+    "root_cause_report": {
+      "primary_root_cause": "HOLD: evidence or communication contract not satisfied",
+      "affected_equipment": "No automatic process change authorized",
+      "confidence_score": null,
+      "evidence_level": "HEURISTIC_RULE_MATCH",
+      "defect_signature": "Automatic release blocked. RGB-only or incomplete secondary evidence: calibrated thermal/profilometer data unavailable -> HOLD for QA; no release decision or dimensional metrology. Raw detections present: 6; metrology objects: 0.",
+      "severity_level": "HOLD",
+      "action_items": [],
+      "timestamp": "2026-08-28T19:45:19.649577"
+    },
+    "system_health": "DEGRADED",
+    "timestamp": "2026-08-28T19:45:19.649577"
   },
   "output_overlay": "reports/coatingvision_gallery/image_1548/coatingvision_model_output.png"
 }

@@ -70,7 +70,7 @@ This document is the project status ledger. A feature is marked **verified** onl
 - [x] Evaluation requires a hash-verified manifest with non-overlapping train/val/test roll IDs.
 - [ ] Supply a real independent roll-disjoint manifest and publish metrics from it.
 - [x] LIBAD adapter, evidence gate, four industrial metrics, and 10 official-seed harness exist in repository tests.
-- [ ] Download the official LIBAD 4.84 GB release and publish paper-comparable 10-split metrics with DINOv3/DA-Core hashes.
+- [ ] Download the official LIBAD 4.84 GB release, validate all 10 splits against a tree-hash artifact manifest, and run the authors' DINOv3/DA-Core implementation before publishing any paper-comparable metrics.
 - [ ] Run clean-surface false-positive, hard-negative, and defect false-negative suites.
 - [ ] Measure POD, escape rate, confidence intervals, and performance on independent factory data.
 - [ ] Add ONNX-vs-source-model parity and multi-resolution calibration tests.
@@ -101,10 +101,12 @@ The latest repository validation is recorded by `scripts/record_test_manifest.py
 <!-- TEST_MANIFEST:START -->
 ```text
 D:\tu_projects\securecoating-vision\.venv\Scripts\python.exe -m pytest -q
-109 passed in 40.34s
+125 passed in 44.0s
 python 3.11.9
-commit a4adb9fad8f5d5580f5333ebc45e6c011da8809c
-log_sha256 23826306296c3c3650019f9ac3126ab93f29b48abb5e37e4dd82e7e7b2b8a850
+commit 69727f0200a66643928595297cf4445001e73afa
+working_tree_dirty True
+source_diff_sha256 6946de71e46180d4bd2b41fc92965eee03b6d4d72988bafeaff2531af9ee93eb
+log_sha256 de6cae3a2f5401f110ad10e114df1832a32bf10afa5115910c1a77f1f2ceaaef
 ```
 <!-- TEST_MANIFEST:END -->
 
