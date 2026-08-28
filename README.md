@@ -15,7 +15,7 @@ The repository contains a fail-closed inspection prototype, traceability experim
 The initial prototype validated the software and safety contract using RGB inspection and simulated secondary modalities. The repository now contains a validation adapter and 10-seed harness for [LIBAD](https://arxiv.org/abs/2608.07958), whose official release contains aligned visible-light and inline-compatible X-ray data from real roll-to-roll electrode manufacturing. The checked-in demo and benchmark reports use deterministic protocol fixtures because the official dataset/splits are not present. This is a validation extension, not a change of topic. Details are in [docs/libad_validation_extension.md](docs/libad_validation_extension.md).
 
 <!-- TEST_MANIFEST:START -->
-The current software validation snapshot is 125 passing tests with 0 skips and 0 failures (commit `69727f0200a6`, working tree dirty, source diff `6946de71e461`, Python 3.11.9, 44.0s). The authoritative record is [reports/test_manifest.json](reports/test_manifest.json). This does not constitute evidence of factory performance, physical PLC behavior, safety-rated E-stop operation, or production qualification.
+The current software validation snapshot is 132 passing tests with 0 skips and 0 failures (commit `12e1ed55728f`, working tree dirty, source diff `1cc052f39d7e`, Python 3.11.9, 48.59s). The authoritative record is [reports/test_manifest.json](reports/test_manifest.json). This does not constitute evidence of factory performance, physical PLC behavior, safety-rated E-stop operation, or production qualification.
 <!-- TEST_MANIFEST:END -->
 
 ## Current safety contract
@@ -83,6 +83,7 @@ Never expose that mode outside a trusted developer workstation.
 .venv\Scripts\python.exe -m pytest -q
 .venv\Scripts\python.exe scripts/record_test_manifest.py
 .venv\Scripts\python.exe scripts/run_libad_demo.py
+.venv\Scripts\python.exe scripts/verify_coatingvision_dataset.py
 .venv\Scripts\python.exe -m compileall -q src dashboard scripts tests
 .venv\Scripts\python.exe -m pip check
 docker compose config
@@ -119,7 +120,7 @@ The manifest must contain non-empty `train`, `val`, and `test` lists. Each entry
 
 The supplied Compose file runs one API worker because PLC, inference and active-roll ownership are stateful. Scaling requires an external transactional state/event service and a single PLC-command owner. Containers run as a non-root user with dropped capabilities and bind only to loopback by default.
 
-`requirements-lock.txt` pins direct runtime requirements, but it is not a hash-locked, fully resolved cross-platform lock. A release build still requires a CI-generated lock with hashes and a successful container build/SBOM scan for the target platform.
+`requirements-lock.txt` pins the local runtime while `requirements-docker-lock.txt` pins CPU-only PyTorch variants for the container. They are direct-version locks, not hash-locked fully resolved environments. A release still requires CI-generated locks with hashes plus a container build/SBOM scan for the target platform.
 
 ## License
 

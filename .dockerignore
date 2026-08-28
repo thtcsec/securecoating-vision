@@ -15,6 +15,12 @@ notebooks/
 *.ipynb
 *.zip
 *.tar.gz
-data/coating_defects/images/
-data/coating_defects/labels/
-outputs/yolo_training/
+# Runtime data/models are mounted explicitly by docker-compose. Keeping them in
+# the build context duplicated hundreds of MB and made the image stale.
+data/**
+outputs/**
+logs/**
+runs/**
+.codex-*/**
+SecureCoating-Vision_Final_Defense_*/**
+/*.pt

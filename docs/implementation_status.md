@@ -88,9 +88,10 @@ This document is the project status ledger. A feature is marked **verified** onl
 - [x] Dashboard AppTest renders without exceptions in the explicit sandbox.
 - [x] Dependency resolver dry-run succeeds; Pillow/GitPython/Torch pins were advanced to audited fixed versions.
 - [x] GPU development environment verified Torch 2.13.0+cu130 with the RTX 4050.
-- [ ] Build and run the image with Docker Desktop or CI; local Docker daemon was unavailable during the 2026-08-27 review.
+- [x] Docker Desktop build and runtime smoke passed on 2026-08-28 with Python 3.11.16, CPU inference, non-root/read-only containers, and loopback-only published ports.
 - [ ] Add CI for tests, compile, dependency checks, Docker build, and release artifact checks.
-- [ ] Add browser/Compose smoke coverage against the built target image.
+- [x] Manual browser/Compose smoke verified the authoritative read-only dashboard and a real CoatingVision image through the built API image.
+- [ ] Docker Scout still reports 2 Critical and 2 High findings in Debian's essential `perl-base` 5.40.1-6, with no fixed version reported; production release remains blocked pending a fixed/minimal base or documented security acceptance.
 - [x] API inspection endpoints have bounded in-flight concurrency and reject excess work instead of building an unbounded queue.
 - [ ] Add target-hardware operational metrics and alerting.
 
@@ -101,16 +102,18 @@ The latest repository validation is recorded by `scripts/record_test_manifest.py
 <!-- TEST_MANIFEST:START -->
 ```text
 D:\tu_projects\securecoating-vision\.venv\Scripts\python.exe -m pytest -q
-125 passed in 44.0s
+132 passed in 48.59s
 python 3.11.9
-commit 69727f0200a66643928595297cf4445001e73afa
+commit 12e1ed55728f09f8e4d485c76e4d5a6230af0f7b
 working_tree_dirty True
-source_diff_sha256 6946de71e46180d4bd2b41fc92965eee03b6d4d72988bafeaff2531af9ee93eb
-log_sha256 de6cae3a2f5401f110ad10e114df1832a32bf10afa5115910c1a77f1f2ceaaef
+source_diff_sha256 1cc052f39d7e949e13e7556b99843e9a069d06a54bf40b74854eef813566ceae
+log_sha256 e623e779ff9cabab7fd1d897a317c34910efda59d7a2071c3f98943e0e09d0cb
 ```
 <!-- TEST_MANIFEST:END -->
 
 The local live Uvicorn smoke run on port 8011 verified API liveness/readiness, clean PASS, real-image REJECT, degraded-sensor HOLD, duplicate-part HOLD, E-stop latch, simulated reset, and upload inspection. PLC statuses were `SIMULATED`, never physical ACK. The observed timings are smoke diagnostics, not benchmarks.
+
+The Docker production-mode smoke used an isolated temporary database and real CoatingVision test image. It verified authenticated readiness returned 503 while sensors/PLC/calibration were unavailable, inference completed on CPU, the final action stayed `HOLD`, and PLC signal history recorded `acknowledged=false`. Docker Scout reduced from 5 Critical/43 High on the old base to 2 Critical/2 High on the current image; the remaining no-fix `perl-base` findings are an open release blocker, not a clean security result.
 
 The default evaluation command was also run and correctly refused to publish metrics because all 50 evaluation images overlap the development validation set by SHA-256.
 
@@ -128,7 +131,7 @@ A release may be called **research/demo-ready** only when automated tests and ev
 ## Next Execution Plan
 
 1. **Next evidence slice**: download official LIBAD, run the 10 official splits, and publish only hash-recorded metrics; keep fixture runs labelled non-comparable.
-2. **Next engineering slice**: verify API-backed dashboard telemetry against a running Compose stack and add browser smoke coverage.
+2. **Next engineering slice**: automate the verified API-backed dashboard and Compose browser smoke in CI.
 3. **Next integration slice**: run a PLC simulator/HIL matrix for OPC UA/Modbus readback and failure modes.
-4. **Next deployment slice**: restore Docker daemon, build the locked image, run liveness/readiness checks as non-root, and document rollback.
+4. **Next deployment slice**: replace or refresh the base when the remaining `perl-base` findings are fixable, generate an SBOM, and exercise rollback/backup on the target host.
 5. **Release decision**: keep the classification at research prototype until every external gate above has attached evidence.

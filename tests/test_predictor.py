@@ -3,6 +3,7 @@
 import os
 import sys
 import unittest
+from unittest.mock import patch
 
 import cv2
 import numpy as np
@@ -24,6 +25,20 @@ def _load_config():
 
 
 class TestPredictor(unittest.TestCase):
+    def test_container_device_override_forces_cpu(self):
+        cfg = _load_config()
+        cfg["inference"]["device"] = "cuda"
+        with patch.dict(os.environ, {"SECURECOATING_INFERENCE_DEVICE": "cpu"}), patch.object(
+            CoatingPredictor, "_init_yolo_engine", return_value=None
+        ), patch.object(CoatingPredictor, "_init_onnx_engine", return_value=None):
+            predictor = CoatingPredictor(cfg)
+        self.assertEqual(predictor.device.type, "cpu")
+
+    def test_invalid_container_device_override_is_rejected(self):
+        with patch.dict(os.environ, {"SECURECOATING_INFERENCE_DEVICE": "gpu-magic"}):
+            with self.assertRaises(ValueError):
+                CoatingPredictor(_load_config())
+
     def test_sensor_fallback_flag_in_result(self):
         cfg = _load_config()
         cfg["inference"]["device"] = "cpu"

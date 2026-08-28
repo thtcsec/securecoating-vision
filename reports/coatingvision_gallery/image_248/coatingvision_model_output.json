@@ -10,10 +10,10 @@
   "engine": "YOLO (CUDA:0 (NVIDIA GeForce RTX 4050 Laptop GPU))",
   "model_artifact": "outputs/best.pt",
   "model_sha256": "9945ada0bb8319bb00aa76554f053d82861e828e4ba631ade8814ce0d0c948e6",
-  "commit_sha": "69727f0200a66643928595297cf4445001e73afa",
+  "commit_sha": "12e1ed55728f09f8e4d485c76e4d5a6230af0f7b",
   "source_tree_dirty": true,
-  "source_diff_sha256": "6946de71e46180d4bd2b41fc92965eee03b6d4d72988bafeaff2531af9ee93eb",
-  "latency_ms": 171.25,
+  "source_diff_sha256": "1cc052f39d7e949e13e7556b99843e9a069d06a54bf40b74854eef813566ceae",
+  "latency_ms": 115.52,
   "detections": [
     {
       "box": [
@@ -42,14 +42,14 @@
       "cross_pos_mm": 325.0,
       "lane_id": 3,
       "encoder_pulse_count": 9900,
-      "capture_monotonic_s": 255426.953
+      "capture_monotonic_s": 262783.0
     },
-    "total_latency_ms": 106.14,
+    "total_latency_ms": 92.11,
     "stage_latencies_ms": {
       "stage_1_web_sync_ms": 0.03,
-      "stage_2_acquisition_ms": 8.14,
-      "stage_3_fusion_ms": 11.86,
-      "stage_4_ai_inference_ms": 86.09,
+      "stage_2_acquisition_ms": 8.77,
+      "stage_3_fusion_ms": 13.99,
+      "stage_4_ai_inference_ms": 69.31,
       "stage_5_metrology_ms": 0.0,
       "stage_6_decision_plc_ms": 0.0,
       "stage_7_root_cause_ms": 0.02
@@ -92,10 +92,10 @@
       "defect_signature": "Automatic release blocked. RGB-only or incomplete secondary evidence: calibrated thermal/profilometer data unavailable -> HOLD for QA; no release decision or dimensional metrology. Raw detections present: 1; metrology objects: 0.",
       "severity_level": "HOLD",
       "action_items": [],
-      "timestamp": "2026-08-28T19:46:08.226134"
+      "timestamp": "2026-08-28T21:48:44.256707"
     },
     "system_health": "DEGRADED",
-    "timestamp": "2026-08-28T19:46:08.226134"
+    "timestamp": "2026-08-28T21:48:44.256707"
   },
   "output_overlay": "reports/coatingvision_gallery/image_248/coatingvision_model_output.png"
 }

@@ -48,17 +48,17 @@
     "calibration_state": "VERIFIED",
     "model_hash": null,
     "dataset_manifest_hash": null,
-    "commit_hash": "69727f0200a66643928595297cf4445001e73afa",
+    "commit_hash": "12e1ed55728f09f8e4d485c76e4d5a6230af0f7b",
     "plc_state": "SIMULATED_REJECT",
     "detector_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
     "source_tree_dirty": true,
-    "source_diff_sha256": "6946de71e46180d4bd2b41fc92965eee03b6d4d72988bafeaff2531af9ee93eb",
-    "issued_at": "2026-08-28T12:43:48.925492+00:00",
+    "source_diff_sha256": "1cc052f39d7e949e13e7556b99843e9a069d06a54bf40b74854eef813566ceae",
+    "issued_at": "2026-08-28T14:46:50.169694+00:00",
     "signature_algorithm": "HMAC-SHA256",
     "brand": "SecureCoating-Vision",
-    "payload_hash_sha256": "766fef59b26e5577111ba627965cd62127cef52fb03eea77e946f27f8c2e73a5",
-    "hmac_digital_signature": "3f433d2e7fe479b8a61ea015b23faf4676f76c5ef3e6cc9c33d006a48ed2969f",
-    "canonical_payload_sha256": "766fef59b26e5577111ba627965cd62127cef52fb03eea77e946f27f8c2e73a5"
+    "payload_hash_sha256": "3640f8675d81c69304b0b14350aa3cc96f166d14ad9ab43cb8a58d5952346c2b",
+    "hmac_digital_signature": "3e8fe635e1ecd9335ccaf1542f82e5bfd8b4babd522c7ff891f47414fce386c7",
+    "canonical_payload_sha256": "3640f8675d81c69304b0b14350aa3cc96f166d14ad9ab43cb8a58d5952346c2b"
   },
   "title": "SecureCoating Vision: A High-Throughput and Zero-Trust Edge-Cloud Pipeline for Inline Battery Electrode Defect Inspection and Traceable Quality Decisions",
   "tagline": "Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing",
@@ -85,9 +85,9 @@
     }
   },
   "source_provenance": {
-    "commit": "69727f0200a66643928595297cf4445001e73afa",
+    "commit": "12e1ed55728f09f8e4d485c76e4d5a6230af0f7b",
     "working_tree_dirty": true,
-    "source_diff_sha256": "6946de71e46180d4bd2b41fc92965eee03b6d4d72988bafeaff2531af9ee93eb"
+    "source_diff_sha256": "1cc052f39d7e949e13e7556b99843e9a069d06a54bf40b74854eef813566ceae"
   },
   "overlay": "reports/libad_demo/case_03.png"
 }

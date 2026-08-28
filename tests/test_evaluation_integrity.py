@@ -13,10 +13,66 @@ sys.path.insert(0, str(ROOT))
 import numpy as np
 
 from scripts.run_evaluation import assert_no_dataset_overlap, evaluate_sample_predictions
-from src.evaluation.dataset_manifest import validate_roll_disjoint_manifest
+from src.evaluation.dataset_manifest import (
+    validate_detection_dataset_manifest,
+    validate_roll_disjoint_manifest,
+)
 
 
 class TestEvaluationIntegrity(unittest.TestCase):
+    @staticmethod
+    def _write_detection_fixture(root: Path, *, invalid_coordinate=False):
+        splits = {"train": ["train.jpg"], "val": ["val.jpg"], "test": ["test.jpg"]}
+        for split, names in splits.items():
+            (root / "images" / split).mkdir(parents=True)
+            (root / "labels" / split).mkdir(parents=True)
+            for name in names:
+                (root / "images" / split / name).write_bytes(f"image-{split}".encode())
+                coordinate = "1.2" if invalid_coordinate and split == "test" else "0.5"
+                (root / "labels" / split / f"{Path(name).stem}.txt").write_text(
+                    f"0 {coordinate} 0.5 0.2 0.2\n", encoding="utf-8"
+                )
+        manifest = root / "manifest.json"
+        manifest.write_text(
+            json.dumps(
+                {
+                    "source": "test fixture",
+                    "seed": 71,
+                    "classes": {"0": "defect"},
+                    "splits": splits,
+                }
+            ),
+            encoding="utf-8",
+        )
+        return manifest
+
+    def test_detection_manifest_validates_complete_disjoint_tree(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = self._write_detection_fixture(root)
+            result = validate_detection_dataset_manifest(str(manifest), str(root))
+            self.assertEqual(result["splits"], {"train": 1, "val": 1, "test": 1})
+            self.assertEqual(result["image_count"], 3)
+            self.assertEqual(result["label_object_count"], 3)
+            self.assertEqual(len(result["dataset_tree_sha256"]), 64)
+
+    def test_detection_manifest_rejects_split_overlap(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = self._write_detection_fixture(root)
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+            payload["splits"]["test"] = ["train.jpg"]
+            manifest.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaises(ValueError):
+                validate_detection_dataset_manifest(str(manifest), str(root))
+
+    def test_detection_manifest_rejects_invalid_yolo_coordinate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = self._write_detection_fixture(root, invalid_coordinate=True)
+            with self.assertRaises(ValueError):
+                validate_detection_dataset_manifest(str(manifest), str(root))
+
     def test_hash_overlap_is_rejected_even_when_filename_changes(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

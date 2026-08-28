@@ -56,7 +56,12 @@ class CoatingPredictor:
     def __init__(self, model_config):
         self.config = model_config
 
-        requested_device = self.config.get("inference", {}).get("device", "cpu")
+        requested_device = os.environ.get(
+            "SECURECOATING_INFERENCE_DEVICE",
+            self.config.get("inference", {}).get("device", "cpu"),
+        ).lower()
+        if requested_device not in {"cpu", "cuda"}:
+            raise ValueError("SECURECOATING_INFERENCE_DEVICE must be 'cpu' or 'cuda'")
         if requested_device == "cuda" and not torch.cuda.is_available():
             logger.warning("CUDA requested but not available. Falling back to CPU.")
             self.device = torch.device("cpu")

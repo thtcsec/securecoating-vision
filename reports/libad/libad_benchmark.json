@@ -212,7 +212,7 @@
           "fpr95": 0.8333333333333334
         },
         "operating_threshold": 3.338830663335031,
-        "latency_ms_split": 324.6631000074558,
+        "latency_ms_split": 346.02140000788495,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -244,7 +244,7 @@
           "fpr95": 0.8333333333333334
         },
         "operating_threshold": 2.229845897436275,
-        "latency_ms_split": 315.03160001011565,
+        "latency_ms_split": 338.7448000139557,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -276,7 +276,7 @@
           "fpr95": 0.6666666666666666
         },
         "operating_threshold": 2.9480838695269767,
-        "latency_ms_split": 617.2004000109155,
+        "latency_ms_split": 323.22520000161603,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -308,7 +308,7 @@
           "fpr95": 0.8333333333333334
         },
         "operating_threshold": 3.141640707719777,
-        "latency_ms_split": 521.5629000158515,
+        "latency_ms_split": 322.4502000375651,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -340,7 +340,7 @@
           "fpr95": 1.0
         },
         "operating_threshold": 3.8373468794430687,
-        "latency_ms_split": 519.8406999988947,
+        "latency_ms_split": 326.67809998383746,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -372,7 +372,7 @@
           "fpr95": 0.8333333333333334
         },
         "operating_threshold": 3.123368935900796,
-        "latency_ms_split": 490.3233000077307,
+        "latency_ms_split": 316.18630001321435,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -404,7 +404,7 @@
           "fpr95": 0.8333333333333334
         },
         "operating_threshold": 2.8873112202701834,
-        "latency_ms_split": 491.45500001031905,
+        "latency_ms_split": 331.6795999999158,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -436,7 +436,7 @@
           "fpr95": 0.8333333333333334
         },
         "operating_threshold": 4.692883672053509,
-        "latency_ms_split": 550.7519000093453,
+        "latency_ms_split": 328.2253000070341,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -468,7 +468,7 @@
           "fpr95": 1.0
         },
         "operating_threshold": 2.0960984464538854,
-        "latency_ms_split": 538.4180000110064,
+        "latency_ms_split": 324.82829998480156,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -500,7 +500,7 @@
           "fpr95": 1.0
         },
         "operating_threshold": 3.2368011938788794,
-        "latency_ms_split": 543.2436999981292,
+        "latency_ms_split": 326.3818999985233,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -534,7 +534,7 @@
           "fpr95": 0.8333333333333334
         },
         "operating_threshold": 2.100219832505563,
-        "latency_ms_split": 144.97219998156652,
+        "latency_ms_split": 154.1904000332579,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -566,7 +566,7 @@
           "fpr95": 1.0
         },
         "operating_threshold": 1.788227275826859,
-        "latency_ms_split": 142.87109998986125,
+        "latency_ms_split": 145.3594000195153,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -598,7 +598,7 @@
           "fpr95": 0.3333333333333333
         },
         "operating_threshold": 1.7544003628675133,
-        "latency_ms_split": 253.90140002127737,
+        "latency_ms_split": 146.97080000769347,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -630,7 +630,7 @@
           "fpr95": 0.6666666666666666
         },
         "operating_threshold": 2.0596028292763067,
-        "latency_ms_split": 277.62139998958446,
+        "latency_ms_split": 147.71099999779835,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -662,7 +662,7 @@
           "fpr95": 1.0
         },
         "operating_threshold": 1.8089158962152383,
-        "latency_ms_split": 235.61090001021512,
+        "latency_ms_split": 151.18400001665577,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -694,7 +694,7 @@
           "fpr95": 0.6666666666666666
         },
         "operating_threshold": 2.01721446122974,
-        "latency_ms_split": 232.0293000084348,
+        "latency_ms_split": 144.006599963177,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -726,7 +726,7 @@
           "fpr95": 0.5
         },
         "operating_threshold": 1.3296846430500777,
-        "latency_ms_split": 230.7720000098925,
+        "latency_ms_split": 146.60519995959476,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -758,7 +758,7 @@
           "fpr95": 1.0
         },
         "operating_threshold": 1.9836666758316048,
-        "latency_ms_split": 241.47560002165847,
+        "latency_ms_split": 146.3649999932386,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -790,7 +790,7 @@
           "fpr95": 1.0
         },
         "operating_threshold": 2.1518504617940586,
-        "latency_ms_split": 224.52770001837052,
+        "latency_ms_split": 155.3008999908343,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -822,7 +822,7 @@
           "fpr95": 0.3333333333333333
         },
         "operating_threshold": 1.4020017055986949,
-        "latency_ms_split": 181.03029998019338,
+        "latency_ms_split": 146.15719998255372,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -856,7 +856,7 @@
           "fpr95": 0.0
         },
         "operating_threshold": 3.338830663335031,
-        "latency_ms_split": 472.45339999790303,
+        "latency_ms_split": 485.6413999805227,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -894,7 +894,7 @@
           "fpr95": 0.0
         },
         "operating_threshold": 2.229845897436275,
-        "latency_ms_split": 636.925800004974,
+        "latency_ms_split": 465.2957000071183,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -932,7 +932,7 @@
           "fpr95": 0.0
         },
         "operating_threshold": 2.9480838695269767,
-        "latency_ms_split": 710.049200017238,
+        "latency_ms_split": 469.327200029511,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -970,7 +970,7 @@
           "fpr95": 0.0
         },
         "operating_threshold": 3.141640707719777,
-        "latency_ms_split": 788.8556999969296,
+        "latency_ms_split": 468.31220004241914,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1008,7 +1008,7 @@
           "fpr95": 0.0
         },
         "operating_threshold": 3.8373468794430687,
-        "latency_ms_split": 732.0248000032734,
+        "latency_ms_split": 482.61980002280325,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1046,7 +1046,7 @@
           "fpr95": 0.0
         },
         "operating_threshold": 3.123368935900796,
-        "latency_ms_split": 721.5722000109963,
+        "latency_ms_split": 468.97960000205785,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1084,7 +1084,7 @@
           "fpr95": 0.0
         },
         "operating_threshold": 2.8873112202701834,
-        "latency_ms_split": 701.1800000036601,
+        "latency_ms_split": 467.03689999412745,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1122,7 +1122,7 @@
           "fpr95": 0.0
         },
         "operating_threshold": 4.692883672053509,
-        "latency_ms_split": 733.6309000093024,
+        "latency_ms_split": 477.289300004486,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1160,7 +1160,7 @@
           "fpr95": 0.0
         },
         "operating_threshold": 2.6377191553983654,
-        "latency_ms_split": 738.0024000012781,
+        "latency_ms_split": 470.4724000184797,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1198,7 +1198,7 @@
           "fpr95": 0.0
         },
         "operating_threshold": 3.2368011938788794,
-        "latency_ms_split": 811.8901000125334,
+        "latency_ms_split": 469.0301999798976,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1238,7 +1238,7 @@
           "fpr95": 0.0
         },
         "operating_threshold": 3.338830663335031,
-        "latency_ms_split": 464.66649998910725,
+        "latency_ms_split": 478.24450000189245,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1288,7 +1288,7 @@
           "fpr95": 0.0
         },
         "operating_threshold": 2.229845897436275,
-        "latency_ms_split": 735.6309000169858,
+        "latency_ms_split": 482.59499995037913,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1338,7 +1338,7 @@
           "fpr95": 0.0
         },
         "operating_threshold": 2.9480838695269767,
-        "latency_ms_split": 759.856500022579,
+        "latency_ms_split": 466.8280999758281,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1388,7 +1388,7 @@
           "fpr95": 0.0
         },
         "operating_threshold": 3.141640707719777,
-        "latency_ms_split": 663.0642999953125,
+        "latency_ms_split": 478.4322999767028,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1438,7 +1438,7 @@
           "fpr95": 0.0
         },
         "operating_threshold": 3.8373468794430687,
-        "latency_ms_split": 731.2623999896459,
+        "latency_ms_split": 480.2473000017926,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1488,7 +1488,7 @@
           "fpr95": 0.0
         },
         "operating_threshold": 3.123368935900796,
-        "latency_ms_split": 713.1688999943435,
+        "latency_ms_split": 475.0388999818824,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1538,7 +1538,7 @@
           "fpr95": 0.0
         },
         "operating_threshold": 2.8873112202701834,
-        "latency_ms_split": 796.107000001939,
+        "latency_ms_split": 483.2555000321008,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1588,7 +1588,7 @@
           "fpr95": 0.0
         },
         "operating_threshold": 4.692883672053509,
-        "latency_ms_split": 785.6579999788664,
+        "latency_ms_split": 470.7139999954961,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1638,7 +1638,7 @@
           "fpr95": 0.0
         },
         "operating_threshold": 2.6377191553983654,
-        "latency_ms_split": 759.8408999911044,
+        "latency_ms_split": 468.5388000216335,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1688,7 +1688,7 @@
           "fpr95": 0.0
         },
         "operating_threshold": 3.2368011938788794,
-        "latency_ms_split": 719.9166999780573,
+        "latency_ms_split": 479.1024999576621,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1725,13 +1725,13 @@
       }
     ]
   },
-  "latency_ms_total": 21273.790000006557,
+  "latency_ms_total": 14272.223900014069,
   "hashes": {
-    "commit": "69727f0200a66643928595297cf4445001e73afa",
+    "commit": "12e1ed55728f09f8e4d485c76e4d5a6230af0f7b",
     "source_provenance": {
-      "commit": "69727f0200a66643928595297cf4445001e73afa",
+      "commit": "12e1ed55728f09f8e4d485c76e4d5a6230af0f7b",
       "working_tree_dirty": true,
-      "source_diff_sha256": "6946de71e46180d4bd2b41fc92965eee03b6d4d72988bafeaff2531af9ee93eb"
+      "source_diff_sha256": "1cc052f39d7e949e13e7556b99843e9a069d06a54bf40b74854eef813566ceae"
     },
     "adapter_implementation": {
       "configs/libad.yaml": "e0e8987fc82cd8e17c36fa3ce9588294cc563adb3022bd4c97d6f98c4e272edd",

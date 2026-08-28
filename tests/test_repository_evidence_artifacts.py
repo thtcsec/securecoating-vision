@@ -29,6 +29,28 @@ def _docx_text(path: Path) -> str:
 
 
 class TestRepositoryEvidenceArtifacts(unittest.TestCase):
+    def test_container_build_uses_cpu_lock_and_excludes_runtime_mounts(self):
+        dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+        docker_lock = (ROOT / "requirements-docker-lock.txt").read_text(encoding="utf-8")
+        dockerignore = (ROOT / ".dockerignore").read_text(encoding="utf-8")
+        compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+        self.assertIn("COPY requirements-docker-lock.txt", dockerfile)
+        self.assertIn("--mount=from=builder,source=/wheels,target=/wheels", dockerfile)
+        self.assertNotIn("COPY --from=builder /wheels /wheels", dockerfile)
+        self.assertIn("libgl1 libglib2.0-0t64", dockerfile)
+        self.assertIn("torch==2.13.0+cpu", docker_lock)
+        self.assertIn("torchvision==0.28.0+cpu", docker_lock)
+        self.assertNotIn("cuda-toolkit", docker_lock.lower())
+        self.assertIn("data/**", dockerignore)
+        self.assertIn("outputs/**", dockerignore)
+        self.assertIn("./data:/app/data", compose)
+        self.assertIn("./outputs:/app/outputs", compose)
+        self.assertIn('SECURECOATING_INFERENCE_DEVICE: "cpu"', compose)
+        self.assertNotIn('["CMD", "curl"', compose)
+        dashboard_source = (ROOT / "dashboard/app.py").read_text(encoding="utf-8")
+        self.assertNotIn("predictor = get_predictor()", dashboard_source)
+        self.assertIn("if DASHBOARD_SANDBOX_ENABLED:", dashboard_source)
+
     def test_external_demo_accepts_output_paths_outside_repository(self):
         external_path = Path("C:/securecoating-manual/output.png")
         self.assertEqual(

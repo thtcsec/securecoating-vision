@@ -15,6 +15,11 @@ services:
       SECURECOATING_ENV: ${SECURECOATING_ENV:-production}
       SECURECOATING_API_KEY: ${SECURECOATING_API_KEY:-}
       SECURECOATING_FACTORY_SECRET: ${SECURECOATING_FACTORY_SECRET:-}
+      SECURECOATING_DB_PATH: ${SECURECOATING_DB_PATH:-/app/data/quality_history.db}
+      SECURECOATING_INFERENCE_DEVICE: "cpu"
+      XDG_CONFIG_HOME: /tmp/.config
+      YOLO_CONFIG_DIR: /tmp/Ultralytics
+      MPLCONFIGDIR: /tmp/matplotlib
       SECURECOATING_DASHBOARD_SANDBOX: "false"
       SECURECOATING_ENABLE_SENSOR_SIMULATION: "false"
       SECURECOATING_INDUSTRIAL_MOCK_MODE: "false"
@@ -33,7 +38,7 @@ services:
     security_opt: ["no-new-privileges:true"]
     pids_limit: 256
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/live"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/live', timeout=5).read()"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -58,6 +63,12 @@ services:
       SECURECOATING_API_URL: http://api:8000
       SECURECOATING_API_KEY: ${SECURECOATING_API_KEY:-}
       SECURECOATING_FACTORY_SECRET: ${SECURECOATING_FACTORY_SECRET:-}
+      SECURECOATING_INFERENCE_DEVICE: "cpu"
+      STREAMLIT_BROWSER_GATHER_USAGE_STATS: "false"
+      STREAMLIT_SERVER_FILE_WATCHER_TYPE: "none"
+      XDG_CONFIG_HOME: /tmp/.config
+      YOLO_CONFIG_DIR: /tmp/Ultralytics
+      MPLCONFIGDIR: /tmp/matplotlib
     volumes:
       - ./outputs:/app/outputs
       - ./data:/app/data
@@ -74,7 +85,7 @@ services:
     security_opt: ["no-new-privileges:true"]
     pids_limit: 256
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health', timeout=5).read()"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -93,16 +93,26 @@ if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 os.chdir(PROJECT_ROOT)
 
-from inference.predictor import CoatingPredictor
-from inference.sensor_fusion import SensorFusionManager
-from inference.failsafe import FailSafeManager
-from inference.electrode_metrology import ElectrodeMetrologyEngine
-from inference.multi_stage_pipeline import MultiStageIndustrialPipeline
-from industrial.protocol_manager import IndustrialProtocolManager
-from industrial.web_synchronizer import WebSynchronizer, RollMetadata
-from traceability.quality_memory import QualityMemory
-from traceability.root_cause_engine import RootCauseDiagnosticEngine
-from traceability.roll_certificate import RollCertificateGenerator
+DASHBOARD_SANDBOX_ENABLED = (
+    os.environ.get("SECURECOATING_ENV", "production").lower() in {"development", "test"}
+    and os.environ.get("SECURECOATING_DASHBOARD_SANDBOX", "false").lower()
+    in {"1", "true", "yes"}
+)
+
+from industrial.optical_budget import OpticalThroughputBudgetEngine
+from industrial.latency_budget import LatencyBudgetEngine
+
+if DASHBOARD_SANDBOX_ENABLED:
+    from inference.predictor import CoatingPredictor
+    from inference.sensor_fusion import SensorFusionManager
+    from inference.failsafe import FailSafeManager
+    from inference.electrode_metrology import ElectrodeMetrologyEngine
+    from inference.multi_stage_pipeline import MultiStageIndustrialPipeline
+    from industrial.protocol_manager import IndustrialProtocolManager
+    from industrial.web_synchronizer import WebSynchronizer
+    from traceability.quality_memory import QualityMemory
+    from traceability.root_cause_engine import RootCauseDiagnosticEngine
+    from traceability.roll_certificate import RollCertificateGenerator
 
 # Load Configuration
 with open("configs/model.yaml", "r") as f:
@@ -110,62 +120,44 @@ with open("configs/model.yaml", "r") as f:
 with open("configs/app.yaml", "r") as f:
     app_config = yaml.safe_load(f)
 
-DASHBOARD_SANDBOX_ENABLED = (
-    os.environ.get("SECURECOATING_ENV", "production").lower() in {"development", "test"}
-    and os.environ.get("SECURECOATING_DASHBOARD_SANDBOX", "false").lower()
-    in {"1", "true", "yes"}
-)
+# Stateful local resources exist only in the explicitly isolated sandbox.
+predictor = fusion_mgr = failsafe = industrial_mgr = web_sync = None
+metrology_engine = root_cause_engine = pipeline = quality_mem = None
+if DASHBOARD_SANDBOX_ENABLED:
+    @st.cache_resource
+    def get_sandbox_resources():
+        local_predictor = CoatingPredictor(model_config)
+        local_fusion = SensorFusionManager(target_size=(1024, 1024), enable_mock=True)
+        local_failsafe = FailSafeManager()
+        local_industrial = IndustrialProtocolManager({"enabled": False, "mock_mode": True})
+        local_web_sync = WebSynchronizer()
+        local_metrology = ElectrodeMetrologyEngine(pixel_to_mm_ratio=0.1)
+        local_root_cause = RootCauseDiagnosticEngine()
+        local_pipeline = MultiStageIndustrialPipeline(
+            predictor=local_predictor,
+            fusion_manager=local_fusion,
+            failsafe_manager=local_failsafe,
+            industrial_manager=local_industrial,
+            web_synchronizer=local_web_sync,
+            pixel_to_mm_ratio=0.1,
+        )
+        db_path = os.environ.get(
+            "SECURECOATING_DB_PATH",
+            app_config.get("paths", {}).get("db_path", "data/quality_history.db"),
+        )
+        return (
+            local_predictor, local_fusion, local_failsafe, local_industrial,
+            local_web_sync, local_metrology, local_root_cause, local_pipeline,
+            QualityMemory(db_path),
+        )
 
-# Singleton Resource Initializers
-@st.cache_resource
-def get_predictor():
-    return CoatingPredictor(model_config)
+    (
+        predictor, fusion_mgr, failsafe, industrial_mgr, web_sync,
+        metrology_engine, root_cause_engine, pipeline, quality_mem,
+    ) = get_sandbox_resources()
 
-@st.cache_resource
-def get_fusion_mgr():
-    return SensorFusionManager(target_size=(1024, 1024), enable_mock=True)
-
-@st.cache_resource
-def get_failsafe_mgr():
-    return FailSafeManager()
-
-@st.cache_resource
-def get_industrial_mgr():
-    # Dashboard is a read-only visualization sandbox. PLC ownership belongs to
-    # the API process; never create a second live PLC command channel here.
-    return IndustrialProtocolManager({"enabled": False, "mock_mode": True})
-
-@st.cache_resource
-def get_web_sync():
-    return WebSynchronizer()
-
-@st.cache_resource
-def get_metrology_engine():
-    return ElectrodeMetrologyEngine(pixel_to_mm_ratio=0.1)
-
-@st.cache_resource
-def get_root_cause_engine():
-    return RootCauseDiagnosticEngine()
-
-predictor = get_predictor()
-fusion_mgr = get_fusion_mgr()
-failsafe = get_failsafe_mgr()
-industrial_mgr = get_industrial_mgr()
-web_sync = get_web_sync()
-metrology_engine = get_metrology_engine()
-root_cause_engine = get_root_cause_engine()
-
-pipeline = MultiStageIndustrialPipeline(
-    predictor=predictor,
-    fusion_manager=fusion_mgr,
-    failsafe_manager=failsafe,
-    industrial_manager=industrial_mgr,
-    web_synchronizer=web_sync,
-    pixel_to_mm_ratio=0.1
-)
-
-db_path = app_config.get("paths", {}).get("db_path", "data/quality_history.db")
-quality_mem = QualityMemory(db_path)
+optical_budget = OpticalThroughputBudgetEngine()
+latency_budget = LatencyBudgetEngine(optical_engine=optical_budget)
 
 api_client = InspectionApiClient(
     base_url=os.environ.get("SECURECOATING_API_URL", "http://127.0.0.1:8000"),
@@ -283,7 +275,8 @@ with m5:
         <div class="metric-val {spc_color}">{spc_st}</div>
     </div>""", unsafe_allow_html=True)
 with m6:
-    sys_st = api_health.get("system_state", failsafe.system_state.value)
+    sandbox_state = failsafe.system_state.value if failsafe is not None else "UNKNOWN"
+    sys_st = api_health.get("system_state", sandbox_state)
     sys_col = "status-optimal" if sys_st == "OPTIMAL" else "status-warning"
     st.markdown(f"""<div class="scada-metric-card" style="border-left-color:#00E5FF;">
         <div class="metric-label">Fail-Safe Health</div>
@@ -729,8 +722,8 @@ with tabs[6]:
     st.markdown("<h4 style='color:#FFF;'>Industrial Hardware, Optical Budget & P99.9 Latency Determinism</h4>", unsafe_allow_html=True)
     plc_state = api_plc_state
     displayed_line_speed = float(roll_summary.get("line_speed_m_s", 0.0))
-    opt_budget = pipeline.optical_budget.compute_budget(line_speed_m_s=displayed_line_speed)
-    lat_budget = pipeline.latency_budget.compute_budget(line_speed_m_s=displayed_line_speed)
+    opt_budget = optical_budget.compute_budget(line_speed_m_s=displayed_line_speed)
+    lat_budget = latency_budget.compute_budget(line_speed_m_s=displayed_line_speed)
     
     col_p1, col_p2 = st.columns(2)
     with col_p1:
