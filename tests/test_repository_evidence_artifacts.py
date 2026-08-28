@@ -181,6 +181,7 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn("reports/libad_demo/demo_manifest.json", string_items)
         self.assertIn("SecureCoating-Vision_Final_Defense_6min.pptx", string_items)
         self.assertIn("dashboard/production_console.py", string_items)
+        self.assertIn("scripts/check_ci_junit.py", string_items)
 
     def test_test_manifest_discloses_dirty_source_provenance(self):
         manifest = json.loads(

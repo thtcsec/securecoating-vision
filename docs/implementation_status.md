@@ -1,6 +1,6 @@
 # Implementation Status and Upgrade Plan
 
-Last reviewed: 2026-08-27
+Last reviewed: 2026-08-28
 
 This document is the project status ledger. A feature is marked **verified** only when its behavior is covered by a reproducible repository test or a recorded manual command. Simulation is never evidence of physical PLC or factory qualification.
 
@@ -90,7 +90,8 @@ This document is the project status ledger. A feature is marked **verified** onl
 - [x] Dependency resolver dry-run succeeds; Pillow/GitPython/Torch pins were advanced to audited fixed versions.
 - [x] GPU development environment verified Torch 2.13.0+cu130 with the RTX 4050.
 - [x] Docker Desktop build and runtime smoke passed on 2026-08-28 with Python 3.11.16, CPU inference, non-root/read-only containers, and loopback-only published ports.
-- [ ] Add CI for tests, compile, dependency checks, Docker build, and release artifact checks.
+- [x] GitHub Actions compiles sources, checks dependencies, and runs pytest; artifact-gated ONNX skips are allowed, unexplained skips are not.
+- [ ] Add CI Docker image build and release artifact checks.
 - [x] Manual browser/Compose smoke verified the API-backed dashboard and a real CoatingVision image through the built API image.
 - [ ] Docker Scout still reports 2 Critical and 2 High findings in Debian's essential `perl-base` 5.40.1-6, with no fixed version reported; production release remains blocked pending a fixed/minimal base or documented security acceptance.
 - [x] API inspection endpoints have bounded in-flight concurrency and reject excess work instead of building an unbounded queue.
@@ -132,7 +133,7 @@ A release may be called **research/demo-ready** only when automated tests and ev
 ## Next Execution Plan
 
 1. **Next evidence slice**: download official LIBAD, run the 10 official splits, and publish only hash-recorded metrics; keep fixture runs labelled non-comparable.
-2. **Next engineering slice**: automate the verified API-backed dashboard and Compose browser smoke in CI.
+2. **Next engineering slice**: keep GitHub Actions green; add Compose/browser smoke only when the runner has enough RAM.
 3. **Next integration slice**: run a PLC simulator/HIL matrix for OPC UA/Modbus readback and failure modes.
 4. **Next deployment slice**: replace or refresh the base when the remaining `perl-base` findings are fixable, generate an SBOM, and exercise rollback/backup on the target host.
 5. **Release decision**: keep the classification at research prototype until every external gate above has attached evidence.

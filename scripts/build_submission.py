@@ -88,6 +88,7 @@ WHITELIST = [
     "tests/test_libad_evaluate.py",
     "tests/test_repository_evidence_artifacts.py",
     "tests/test_production_startup.py",
+    "tests/test_ci_junit.py",
     # Configs
     "configs/app.yaml",
     "configs/model.yaml",
@@ -114,6 +115,7 @@ WHITELIST = [
     "scripts/run_libad_benchmark.py",
     "scripts/run_libad_demo.py",
     "scripts/record_test_manifest.py",
+    "scripts/check_ci_junit.py",
     "scripts/evaluate_coatingvision_real.py" if os.path.exists("scripts/evaluate_coatingvision_real.py") else None,
     "scripts/generate_coatingvision_evidence_views.py" if os.path.exists("scripts/generate_coatingvision_evidence_views.py") else None,
     "scripts/prepare_coatingvision_detection_dataset.py" if os.path.exists("scripts/prepare_coatingvision_detection_dataset.py") else None,

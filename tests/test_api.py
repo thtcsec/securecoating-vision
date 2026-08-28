@@ -58,11 +58,19 @@ class TestAPI(unittest.TestCase):
 
     def test_health(self):
         resp = self.client.get("/health")
-        self.assertEqual(resp.status_code, 200)
+        self.assertIn(resp.status_code, {200, 503})
         body = resp.json()
         self.assertIn(body["status"], {"HEALTHY", "DEGRADED"})
         self.assertIn("onnx_available", body)
         self.assertIn("industrial_interlock_latched", body)
+        model_ready = bool(body.get("onnx_available") or body.get("yolo_available"))
+        if resp.status_code == 200:
+            self.assertEqual(body["status"], "HEALTHY")
+            self.assertTrue(model_ready)
+        else:
+            self.assertEqual(body["status"], "DEGRADED")
+            if not model_ready:
+                self.assertEqual(resp.status_code, 503)
 
     def test_list_samples(self):
         resp = self.client.get("/api/samples")

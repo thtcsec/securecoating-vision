@@ -13,6 +13,11 @@ jobs:
   quality-gates:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      SECURECOATING_ENV: test
+      SECURECOATING_ALLOW_UNAUTHENTICATED_DEMO: "true"
+      SECURECOATING_ENABLE_SENSOR_SIMULATION: "true"
+      SECURECOATING_INDUSTRIAL_MOCK_MODE: "true"
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -33,10 +38,11 @@ jobs:
       - name: Check installed dependencies
         run: python -m pip check
 
-      - name: Run tests and reject skipped tests
-        run: |
-          python -m pytest -q -ra --junitxml=test-results.xml
-          python -c "import xml.etree.ElementTree as ET; r=ET.parse('test-results.xml').getroot(); s=int(r.attrib.get('skipped', '0')); assert s == 0, f'{s} tests skipped'"
+      - name: Run tests
+        run: python -m pytest -q -ra --junitxml=test-results.xml
+
+      - name: Reject failures and unexplained skips
+        run: python scripts/check_ci_junit.py test-results.xml
 
       - name: Validate Compose configuration
         run: docker compose config
