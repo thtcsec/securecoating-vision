@@ -1,0 +1,112 @@
+{
+  "brand": "SecureCoating-Vision",
+  "title": "SecureCoating Vision: A High-Throughput and Zero-Trust Edge-Cloud Pipeline for Inline Battery Electrode Defect Inspection and Traceable Quality Decisions",
+  "tagline": "Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing",
+  "cases": [
+    {
+      "case_id": 1,
+      "name": "Normal agreement",
+      "decision": "PASS",
+      "reason": "Normal agreement: VIS and X-rayL are both below the release threshold",
+      "identity": {
+        "roll_id": "ROLL_LIBAD_EXT_001",
+        "batch_id": "BATCH_LIBAD_2026",
+        "part_id": "PART_LIBAD_DEMO_01"
+      },
+      "scores": {
+        "vis": 0.8660254501220278,
+        "xray_l": 1.0,
+        "fused": 1.0
+      },
+      "calibration_state": "VERIFIED",
+      "plc_state": "SIMULATED_PASS",
+      "certificate_signature": "4d2ae3847bc8a8a344be769a21de94315cc0e2dd2664ca1739afb446312a4d74",
+      "commit_hash": "a4adb9fad8f5d5580f5333ebc45e6c011da8809c"
+    },
+    {
+      "case_id": 2,
+      "name": "Surface-visible defect",
+      "decision": "REJECT",
+      "reason": "REJECT \u2014 surface evidence: VIS anomaly with complementary or weaker X-rayL",
+      "identity": {
+        "roll_id": "ROLL_LIBAD_EXT_001",
+        "batch_id": "BATCH_LIBAD_2026",
+        "part_id": "PART_LIBAD_DEMO_02"
+      },
+      "scores": {
+        "vis": 1056.428425082669,
+        "xray_l": 1.0,
+        "fused": 1056.428425082669
+      },
+      "calibration_state": "VERIFIED",
+      "plc_state": "SIMULATED_REJECT",
+      "certificate_signature": "234a205a38bc04a3420d2f9fc514c531780eab2448c38c71ba51f353fc2e2310",
+      "commit_hash": "a4adb9fad8f5d5580f5333ebc45e6c011da8809c"
+    },
+    {
+      "case_id": 3,
+      "name": "Internally visible anomaly",
+      "decision": "REJECT",
+      "reason": "REJECT \u2014 complementary X-ray evidence: internal/density anomaly with near-normal VIS",
+      "identity": {
+        "roll_id": "ROLL_LIBAD_EXT_001",
+        "batch_id": "BATCH_LIBAD_2026",
+        "part_id": "PART_LIBAD_DEMO_03"
+      },
+      "scores": {
+        "vis": 0.8660254501220278,
+        "xray_l": 1049.1144552511976,
+        "fused": 1049.1144552511976
+      },
+      "calibration_state": "VERIFIED",
+      "plc_state": "SIMULATED_REJECT",
+      "certificate_signature": "6a48c4f546ed31add02c17d7395dd080e29ab87b3543dc6bfdbf30834ff1eabc",
+      "commit_hash": "a4adb9fad8f5d5580f5333ebc45e6c011da8809c"
+    },
+    {
+      "case_id": 4,
+      "name": "Disagreement or missing evidence",
+      "decision": "HOLD",
+      "reason": "Calibration is not verified; VIS sensor frame is stale",
+      "identity": {
+        "roll_id": "ROLL_LIBAD_EXT_001",
+        "batch_id": "BATCH_LIBAD_2026",
+        "part_id": "PART_LIBAD_DEMO_04"
+      },
+      "scores": {
+        "vis": 1056.428425082669,
+        "xray_l": 1.0,
+        "fused": 1056.428425082669
+      },
+      "calibration_state": "UNVERIFIED",
+      "plc_state": "SIMULATED_HOLD",
+      "certificate_signature": "0f65d4601cffcf1d2a35074a599089d4bdb20a1b3f72cc3de3d63df82532e958",
+      "commit_hash": "a4adb9fad8f5d5580f5333ebc45e6c011da8809c"
+    }
+  ],
+  "closing_screen": {
+    "certificate_id": "EVD_PART_LIBAD_DEMO_04",
+    "roll_id": "ROLL_LIBAD_EXT_001",
+    "batch_id": "BATCH_LIBAD_2026",
+    "part_id": "PART_LIBAD_DEMO_04",
+    "decision": "HOLD",
+    "decision_reason": "Calibration is not verified; VIS sensor frame is stale",
+    "vis_score": 1056.428425,
+    "xray_score": 1.0,
+    "fused_score": 1056.428425,
+    "vis_state": "ANOMALY",
+    "xray_state": "NORMAL",
+    "calibration_state": "UNVERIFIED",
+    "model_hash": null,
+    "dataset_manifest_hash": null,
+    "commit_hash": "a4adb9fad8f5d5580f5333ebc45e6c011da8809c",
+    "plc_state": "SIMULATED_HOLD",
+    "detector_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+    "issued_at": "2026-08-27T16:12:02.527775+00:00",
+    "signature_algorithm": "HMAC-SHA256",
+    "brand": "SecureCoating-Vision",
+    "payload_hash_sha256": "aec4fa0fb53fda48b0fbeaede1d1800695ca583d5a53859d10398c35816957b9",
+    "hmac_digital_signature": "0f65d4601cffcf1d2a35074a599089d4bdb20a1b3f72cc3de3d63df82532e958",
+    "canonical_payload_sha256": "aec4fa0fb53fda48b0fbeaede1d1800695ca583d5a53859d10398c35816957b9"
+  }
+}

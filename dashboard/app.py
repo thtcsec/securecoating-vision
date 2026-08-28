@@ -210,6 +210,8 @@ if "inspection_history" not in st.session_state:
     st.session_state.inspection_history = []
 if "last_pipeline_result" not in st.session_state:
     st.session_state.last_pipeline_result = None
+if "libad_demo" not in st.session_state:
+    st.session_state.libad_demo = None
 
 # =========================================================================
 # HEADER & SCADA TELEMETRY BAR
@@ -226,7 +228,7 @@ st.markdown(f"""
 <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #222C3E; padding-bottom:12px; margin-bottom:15px;">
     <div>
         <h2 style="color:#FFFFFF; margin:0; font-weight:800; font-size:24px;">⚡ SecureCoating-Vision | SCADA Industrial Inspection Terminal</h2>
-        <span style="color:#8C9BAE; font-size:12px;">Research inspection telemetry &middot; no regulatory conformity claim</span>
+        <span style="color:#8C9BAE; font-size:12px;">Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing</span>
     </div>
     <div>
         {dashboard_badges}
@@ -335,10 +337,30 @@ if st.sidebar.button(
     
     st.rerun()
 
+st.sidebar.markdown("---")
+st.sidebar.markdown("<h3 style='color:#FFF;'>🎯 90s LIBAD Evidence Demo</h3>", unsafe_allow_html=True)
+st.sidebar.caption("Real VIS + inline X-rayL lane. Thermal and profilometry remain simulated adapters.")
+libad_case = st.sidebar.radio(
+    "Demo case",
+    [1, 2, 3, 4],
+    format_func=lambda value: {
+        1: "1 · Normal agreement → PASS",
+        2: "2 · Surface defect → REJECT",
+        3: "3 · Internal X-ray → REJECT",
+        4: "4 · Disagreement → HOLD",
+    }[value],
+)
+if st.sidebar.button("▶ RUN 90s EVIDENCE CASE", use_container_width=True):
+    from libad.demo_cases import run_libad_demo_case
+
+    st.session_state.libad_demo = run_libad_demo_case(int(libad_case))
+    st.rerun()
+
 # =========================================================================
 # MAIN SCADA TABS
 # =========================================================================
 tabs = st.tabs([
+    "🎯 90s Evidence Lane",
     "📺 Live Multi-Stage Station",
     "🏔️ 3D Defect Topography",
     "📜 1,200m Roll Digital Twin",
@@ -350,11 +372,67 @@ tabs = st.tabs([
 ])
 
 res = st.session_state.last_pipeline_result
+demo = st.session_state.libad_demo
+
+# -------------------------------------------------------------------------
+# TAB 0: 90-SECOND LIBAD EVIDENCE LANE
+# -------------------------------------------------------------------------
+with tabs[0]:
+    st.markdown(
+        "<h4 style='color:#FFF;'>Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing</h4>",
+        unsafe_allow_html=True,
+    )
+    st.caption(
+        "Validation extension on LIBAD VIS + inline-compatible X-rayL. "
+        "DA-Core/PatchCore scores are the authors' detection baseline; "
+        "SecureCoating-Vision decides when those scores are safe enough to act on. "
+        "Thermal and 3D profilometry remain simulated interface adapters."
+    )
+    if demo is None:
+        st.info("Use **RUN 90s EVIDENCE CASE** in the sidebar. Only four situations are staged.")
+    else:
+        vis = demo["frames"]["vis_bgr"]
+        xray = demo["frames"]["xray_bgr"]
+        action = demo["decision"]["action"]
+        vis_col, xray_col = st.columns(2)
+        with vis_col:
+            st.caption("VIS (visible-light surface)")
+            st.image(cv2.cvtColor(vis, cv2.COLOR_BGR2RGB), use_container_width=True)
+        with xray_col:
+            st.caption("X-rayL (inline-compatible density)")
+            xray_gray = cv2.cvtColor(xray, cv2.COLOR_BGR2GRAY)
+            st.image(cv2.cvtColor(cv2.applyColorMap(xray_gray, cv2.COLORMAP_BONE), cv2.COLOR_BGR2RGB), use_container_width=True)
+        if action == "PASS":
+            st.success(f"Case {demo['case_id']} — {demo['case_name']}: **PASS**")
+        elif action == "HOLD":
+            st.warning(f"Case {demo['case_id']} — {demo['case_name']}: **HOLD** — manual QA required")
+        else:
+            st.error(f"Case {demo['case_id']} — {demo['case_name']}: **REJECT**")
+        st.write(demo["decision"]["reason"])
+        cert = demo["certificate"]
+        st.markdown("#### Closing identity / certificate / PLC screen")
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Roll ID", cert["roll_id"])
+        m2.metric("Batch ID", cert["batch_id"])
+        m3.metric("Part ID", cert["part_id"])
+        m4.metric("Decision", cert["decision"])
+        s1, s2, s3 = st.columns(3)
+        s1.metric("VIS score", f"{cert['vis_score']:.3f}" if cert["vis_score"] is not None else "n/a")
+        s2.metric("X-rayL score", f"{cert['xray_score']:.3f}" if cert["xray_score"] is not None else "n/a")
+        s3.metric("Calibration", cert["calibration_state"])
+        st.code(
+            f"model_hash: {cert['model_hash']}\n"
+            f"commit: {cert['commit_hash']}\n"
+            f"reason: {cert['decision_reason']}\n"
+            f"certificate: {cert['hmac_digital_signature']}\n"
+            f"PLC: {cert['plc_state']}",
+            language="text",
+        )
 
 # -------------------------------------------------------------------------
 # TAB 1: LIVE MULTI-STAGE INSPECTION STATION
 # -------------------------------------------------------------------------
-with tabs[0]:
+with tabs[1]:
     if res is None:
         st.info("👈 Click **'TRIGGER 7-STAGE INSPECTION'** in the sidebar to run the multi-modal inline inspection workflow.")
     else:
@@ -376,7 +454,9 @@ with tabs[0]:
 
         # Verdict Header
         if res.overall_verdict == "PASS":
-            st.success(f"✅ **PASS** | Quality Grade: **{res.quality_tier}** | Plant QA Spec & GB 38031-2025 Baseline | Roll Location: **X = {res.roll_coordinate['linear_pos_m']}m**, Lane: **{res.roll_coordinate['lane_id']}**")
+            st.success(f"✅ **PASS** | Quality Grade: **{res.quality_tier}** | Roll Location: **X = {res.roll_coordinate['linear_pos_m']}m**, Lane: **{res.roll_coordinate['lane_id']}**")
+        elif res.overall_verdict == "HOLD":
+            st.warning(f"⏸ **HOLD** | Quality Grade: **{res.quality_tier}** | PLC Gate Action: **{res.plc_gate_action}** | {', '.join(res.rejection_reasons)}")
         else:
             st.error(f"🚨 **REJECT** | Quality Grade: **{res.quality_tier}** | PLC Gate Action: **{res.plc_gate_action}** | Violations: {', '.join(res.rejection_reasons)}")
 
@@ -412,13 +492,18 @@ with tabs[0]:
             df_defects = pd.DataFrame(res.defect_metrology)
             cols_to_show = ["defect_id", "class_name", "length_mm", "width_mm", "area_mm2", "peak_height_um", "micro_short_hazard_index", "battery_failure_mode", "quality_tier"]
             st.dataframe(df_defects[cols_to_show], use_container_width=True)
+        elif res.raw_detections:
+            st.warning(
+                f"{len(res.raw_detections)} raw detector proposals are present, but metrology/"
+                "release is blocked. This is not a zero-anomaly claim."
+            )
         else:
-            st.info("Zero defects detected in this zone. Surface within nominal production tolerances.")
+            st.info("No metrology objects in this zone. Absence of metrology is not a production PASS.")
 
 # -------------------------------------------------------------------------
 # TAB 2: INTERACTIVE 3D DEFECT TOPOGRAPHY
 # -------------------------------------------------------------------------
-with tabs[1]:
+with tabs[2]:
     st.markdown("<h4 style='color:#FFF;'>Interactive 3D Defect Topography Surface Reconstruction</h4>", unsafe_allow_html=True)
     if res is None:
         st.info("Trigger an inspection to view 3D topography.")
@@ -482,7 +567,7 @@ with tabs[1]:
 # -------------------------------------------------------------------------
 # TAB 3: 1,200m JUMBO ROLL DIGITAL TWIN (WATERFALL VIEW)
 # -------------------------------------------------------------------------
-with tabs[2]:
+with tabs[3]:
     st.markdown("<h4 style='color:#FFF;'>Continuous 1,200m Roll Defect Map (Digital Twin Waterfall View)</h4>", unsafe_allow_html=True)
     roll_defects = api_roll.get("defect_records", []) if api_online else web_sync.roll_defect_map
     
@@ -530,7 +615,7 @@ with tabs[2]:
 # -------------------------------------------------------------------------
 # TAB 4: PROTOTYPE BATTERY METROLOGY POLICY
 # -------------------------------------------------------------------------
-with tabs[3]:
+with tabs[4]:
     st.markdown("<h4 style='color:#FFF;'>Prototype Battery Metrology (unqualified engineering thresholds)</h4>", unsafe_allow_html=True)
     if res is None:
         st.info("Trigger an inspection to evaluate electrochemical safety metrics.")
@@ -579,7 +664,7 @@ with tabs[3]:
 # -------------------------------------------------------------------------
 # TAB 5: AI CLOSED-LOOP DIAGNOSTICS & EQUIPMENT FEEDBACK
 # -------------------------------------------------------------------------
-with tabs[4]:
+with tabs[5]:
     st.markdown("<h4 style='color:#FFF;'>AI Closed-Loop Root-Cause Diagnostics & Upstream Tuning Feedback</h4>", unsafe_allow_html=True)
     if res is None:
         st.info("Trigger an inspection to view equipment diagnostic feedback.")
@@ -607,7 +692,7 @@ with tabs[4]:
 # -------------------------------------------------------------------------
 # TAB 6: INDUSTRIAL HARDWARE & REAL-TIME BUDGET TELEMETRY
 # -------------------------------------------------------------------------
-with tabs[5]:
+with tabs[6]:
     st.markdown("<h4 style='color:#FFF;'>Industrial Hardware, Optical Budget & P99.9 Latency Determinism</h4>", unsafe_allow_html=True)
     plc_state = api_plc_state
     displayed_line_speed = float(roll_summary.get("line_speed_m_s", 0.0))
@@ -658,7 +743,7 @@ with tabs[5]:
 # -------------------------------------------------------------------------
 # TAB 7: GIGAFACTORY SPC, SPATIAL FFT & SLITTING YIELD OPTIMIZER
 # -------------------------------------------------------------------------
-with tabs[6]:
+with tabs[7]:
     st.markdown("<h4 style='color:#FFF;'>Experimental Defect Density, Spatial Periodicity & Slitting Model</h4>", unsafe_allow_html=True)
     passport_data = api_passport
     
@@ -715,7 +800,7 @@ with tabs[6]:
 # -------------------------------------------------------------------------
 # TAB 8: QUALITY LOGS & DIGITAL ROLL CERTIFICATE
 # -------------------------------------------------------------------------
-with tabs[7]:
+with tabs[8]:
     st.markdown("<h4 style='color:#FFF;'>Provisional Tamper-Evident Quality Manifest (HMAC-SHA256)</h4>", unsafe_allow_html=True)
     if api_online:
         cert_payload = api_client.certificate(api_roll_id, api_batch_id)

@@ -1,0 +1,22 @@
+{
+  "release_version": "2.0.0",
+  "release_label": "libad-validation-extension",
+  "commit_sha": "a4adb9fad8f5d5580f5333ebc45e6c011da8809c",
+  "python_version": "3.11.9",
+  "collected": 109,
+  "passed": 109,
+  "skipped": 0,
+  "failed": 0,
+  "duration_seconds": 40.34,
+  "log_sha256": "23826306296c3c3650019f9ac3126ab93f29b48abb5e37e4dd82e7e7b2b8a850",
+  "recorded_at": "2026-08-27T16:14:01.164726+00:00",
+  "pytest_returncode": 0,
+  "command": [
+    "D:\\tu_projects\\securecoating-vision\\.venv\\Scripts\\python.exe",
+    "-m",
+    "pytest",
+    "-q",
+    "--tb=line",
+    "--junitxml=D:\\tu_projects\\securecoating-vision\\reports\\pytest_junit.xml"
+  ]
+}

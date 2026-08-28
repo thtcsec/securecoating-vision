@@ -1,0 +1,53 @@
+# LIBAD validation-extension adapter.
+# DA-Core and the official splits belong to Sui et al. (2026). This repository
+# does not claim those algorithms as original work. The local contribution is
+# the evidence-gated PASS/REJECT/HOLD industrial decision layer.
+
+benchmark:
+  name: "LIBAD"
+  paper_title: "LIBAD: A Multimodal Anomaly Detection Benchmark for Li-Ion Battery Electrode Manufacturing"
+  paper_arxiv: "2608.07958"
+  paper_url: "https://arxiv.org/abs/2608.07958"
+  dataset_url: "https://huggingface.co/datasets/Evenrose/LIBAD"
+  code_url: "https://github.com/evenrose/LIBAD"
+  license: "CC BY 4.0"
+  official_split_seeds: [347, 725, 1245, 4012, 4589, 5021, 5678, 6234, 6789, 7345]
+  modalities:
+    benchmark: ["vis", "xray_l"]
+    reserved_offline: ["xray_h"]
+  inline_setting: "VIS + X-rayL"
+
+paths:
+  dataset_root: "data/libad/LIBAD"
+  splits_root: "data/libad/splits"
+  reports_dir: "reports/libad"
+  demo_dir: "reports/libad_demo"
+
+features:
+  patch_size: 16
+  stride: 8
+  image_size: [64, 64]
+  backbone: "numpy_patch_descriptor"
+  backbone_note: "Default adapter uses a local numpy patch descriptor so tests and demos run without DINOv3. Official paper numbers require the authors' DINOv3 + DA-Core implementation and the 4.84 GB dataset."
+
+coreset:
+  method: "density_fps"   # fps = PatchCore; density_fps = DA-Core (Sui et al.)
+  ratio: 0.25
+  density_weight: 0.7
+  knn: 8
+  attribution: "DA-Core density-aware FPS is the LIBAD authors' baseline, not a SecureCoating-Vision algorithm."
+
+scoring:
+  late_fusion: "max"
+  vis_scale: 1.0
+  xray_scale: 1.0
+
+gate:
+  uncertainty_band: 0.12
+  strong_margin: 0.18
+  # Image-level scores are divided by the training-normal reference before gating.
+  normal_reference: "median"
+
+identity:
+  roll_id: "ROLL_LIBAD_EXT_001"
+  batch_id: "BATCH_LIBAD_2026"

@@ -39,6 +39,17 @@ WHITELIST = [
     "src/traceability/roll_certificate.py",
     "src/training/train_yolo.py",
     "src/training/train_baseline.py",
+    "src/libad/__init__.py",
+    "src/libad/protocol.py",
+    "src/libad/features.py",
+    "src/libad/memory.py",
+    "src/libad/scorer.py",
+    "src/libad/metrics.py",
+    "src/libad/evidence_gate.py",
+    "src/libad/dataset.py",
+    "src/libad/certificate.py",
+    "src/libad/demo_cases.py",
+    "src/libad/evaluate.py",
     "src/evaluation/evaluate.py",
     "src/evaluation/dataset_manifest.py",
     "src/utils/__init__.py",
@@ -66,6 +77,11 @@ WHITELIST = [
     "tests/test_evaluation_integrity.py",
     "tests/test_dashboard_api_client.py",
     "tests/test_dashboard_app.py",
+    "tests/test_libad_evidence_gate.py",
+    "tests/test_libad_metrics.py",
+    "tests/test_libad_memory.py",
+    "tests/test_libad_demo_cases.py",
+    "tests/test_libad_evaluate.py",
     "tests/test_production_startup.py",
     # Configs
     "configs/app.yaml",
@@ -73,6 +89,8 @@ WHITELIST = [
     "configs/dataset.yaml",
     "configs/evaluation.yaml",
     "configs/coatingvision_real_detect.yaml" if os.path.exists("configs/coatingvision_real_detect.yaml") else None,
+    "configs/project_identity.yaml",
+    "configs/libad.yaml",
     "configs/calibration.yaml",
     # Scripts
     "scripts/run_evaluation.py",
@@ -87,6 +105,10 @@ WHITELIST = [
     "scripts/backup_quality_db.py",
     "scripts/run_api.ps1",
     "scripts/run_dashboard.ps1",
+    "scripts/download_libad.py",
+    "scripts/run_libad_benchmark.py",
+    "scripts/run_libad_demo.py",
+    "scripts/record_test_manifest.py",
     "scripts/evaluate_coatingvision_real.py" if os.path.exists("scripts/evaluate_coatingvision_real.py") else None,
     "scripts/generate_coatingvision_evidence_views.py" if os.path.exists("scripts/generate_coatingvision_evidence_views.py") else None,
     "scripts/prepare_coatingvision_detection_dataset.py" if os.path.exists("scripts/prepare_coatingvision_detection_dataset.py") else None,
@@ -107,6 +129,7 @@ WHITELIST = [
     "docs/inspection_workflow.md",
     "docs/scoring_rubric_mapping.md",
     "docs/presentation_pitch.md",
+    "docs/libad_validation_extension.md",
     "docs/implementation_status.md",
     "Al + Materials Competition Application Form.docx",
     # Deployment
@@ -121,6 +144,10 @@ WHITELIST = [
     ".env.example",
     # Data (images ONLY, no labels)
     "data/README.md",
+    "reports/libad/libad_benchmark.json",
+    "reports/libad/libad_predictions.json",
+    "reports/libad_demo/demo_manifest.json",
+    "reports/libad_demo/final_screen.json",
     "reports/evaluation_results.json" if os.path.exists("reports/evaluation_results.json") else None,
     "reports/evaluation_results.csv" if os.path.exists("reports/evaluation_results.csv") else None,
     "reports/ultralytics_validation_results.json" if os.path.exists("reports/ultralytics_validation_results.json") else None,
@@ -137,6 +164,7 @@ IMAGE_DIRS = [
     ("data/test_set/images", "data/test_set/images"),
     ("data/evaluation/images", "data/evaluation/images"),
     ("data/evaluation/labels", "data/evaluation/labels"),
+    ("reports/libad_demo", "reports/libad_demo"),
 ]
 
 # Explicitly EXCLUDED (safety check)
@@ -198,17 +226,17 @@ def build_zip():
         sys.exit(1)
     print("  Required artifacts present: outputs/model.onnx, outputs/best.pt, test_set images")
 
-    # Run unit tests before building
+    # Run unit tests and freeze a single test-count manifest
     print("  RUNNING UNIT TESTS:")
     import subprocess
-    result = subprocess.run(
-        [sys.executable, "-m", "pytest", "tests", "-q", "--tb=line"],
+    manifest_run = subprocess.run(
+        [sys.executable, "scripts/record_test_manifest.py"],
         cwd=PROJECT_ROOT,
     )
-    if result.returncode != 0:
+    if manifest_run.returncode != 0:
         print("\n  [ERROR] Unit tests failed! Submission build aborted.")
         sys.exit(1)
-    print("  All unit tests PASSED.\n")
+    print("  All unit tests PASSED. Test manifest written to reports/test_manifest.json\n")
 
     # Live inject verification if API is up (non-fatal if down)
     print("  RUNNING LIVE INJECT CHECK (optional if API offline):")

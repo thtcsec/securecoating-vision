@@ -7,9 +7,9 @@ SecureCoating-Vision is a single-process research prototype. The default Compose
 ```text
 HTTP image/demo input
   -> bounded image validation
-  -> simulated or unavailable secondary-sensor fusion
-  -> trained YOLO/ONNX inference (otherwise HOLD)
-  -> mask post-processing and prototype metrology
+  -> RGB YOLOv8-seg/ONNX path, with simulated thermal/profilometry adapters
+  -> optional LIBAD VIS + X-rayL evidence lane (PatchCore/DA-Core scores, authors' baseline)
+  -> evidence gate: PASS / REJECT / HOLD
   -> SQLite PENDING trace record
   -> one configured PLC command owner
   -> explicit command-sequence / ACK-sequence check
@@ -18,9 +18,13 @@ HTTP image/demo input
 
 The dashboard is read-only with respect to the PLC. In normal mode it obtains health, active-roll, batch, SPC, PLC, passport, and certificate data from the API. An isolated local simulation fallback exists only when explicitly enabled in development/test.
 
+A 90-second LIBAD evidence tab shows four staged cases only: normal PASS, surface REJECT, complementary X-ray REJECT, and disagreement/missing-evidence HOLD.
+
 ## Not implemented or not verified
 
-- No GigE Vision/LWIR/profilometer acquisition adapter or authoritative sensor timestamp/freshness source exists.
+- No GigE Vision/LWIR/profilometer acquisition adapter or authoritative sensor timestamp/freshness source exists. Thermal and profilometry remain simulated interface adapters.
+- LIBAD VIS + X-rayL is an external validation adapter. Paper-comparable metrics require the official 4.84 GB dataset and 10 split files; fixture runs are labelled `comparable_to_paper: false`.
+- DA-Core is not claimed as a SecureCoating-Vision algorithm.
 - No hardware encoder or deterministic multi-camera trigger integration is present.
 - The tracked calibration artifact is explicitly unverified and simulation-only.
 - TensorRT execution is not established by the current repository evidence.

@@ -59,7 +59,7 @@ class MultiStageInspectionResult:
     defect_metrology: List[Dict[str, Any]]
     
     # Quality & Hardware Decision
-    overall_verdict: str                # 'PASS' or 'REJECT'
+    overall_verdict: str                # 'PASS', 'REJECT', or 'HOLD'
     quality_tier: str                   # 'GRADE_A', 'GRADE_B_QUARANTINE', 'GRADE_C_REJECT'
     rejection_reasons: List[str]
     standards_compliant: bool
@@ -70,6 +70,7 @@ class MultiStageInspectionResult:
     
     # Execution Metadata
     system_health: str                  # 'OPTIMAL', 'DEGRADED', 'OFFLINE'
+    measurement_policy: str = ""
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
 
     def to_summary_dict(self) -> Dict[str, Any]:
@@ -84,8 +85,11 @@ class MultiStageInspectionResult:
             "standards_compliant": self.standards_compliant,
             "rejection_reasons": self.rejection_reasons,
             "plc_gate_action": self.plc_gate_action,
+            "raw_detections_count": len(self.raw_detections),
             "defects_count": len(self.defect_metrology),
             "defect_metrology": self.defect_metrology,
+            "raw_detections": self.raw_detections,
+            "measurement_policy": self.measurement_policy,
             "root_cause_report": self.root_cause_report,
             "system_health": self.system_health,
             "timestamp": self.timestamp,
@@ -291,10 +295,18 @@ class MultiStageIndustrialPipeline:
 
         if not inspection_valid:
             overall_tier = "GRADE_B_QUARANTINE"
-            all_rejection_reasons.append(
-                "Inspection evidence is not safety-ready -> HOLD for QA; "
-                "no release decision or dimensional metrology"
-            )
+            std_compliant = False
+            if not thermal_available or not height_available:
+                all_rejection_reasons.append(
+                    "RGB-only or incomplete secondary evidence: calibrated thermal/"
+                    "profilometer data unavailable -> HOLD for QA; no release decision "
+                    "or dimensional metrology"
+                )
+            else:
+                all_rejection_reasons.append(
+                    "Inspection evidence is not safety-ready -> HOLD for QA; "
+                    "no release decision or dimensional metrology"
+                )
 
         for m_obj in metrology_objects:
             if not m_obj.guard_band_pass:
@@ -329,12 +341,23 @@ class MultiStageIndustrialPipeline:
             plc_action = plc_res.get("gate_action", overall_verdict)
 
         timings["stage_6_decision_plc_ms"] = (time.perf_counter() - t0) * 1000.0
+        measurement_policy = (
+            "No dimensional metrology or release decision when inspection evidence is not safety-ready."
+            if not inspection_valid else
+            "Prototype metrology policy only; not a standards certification."
+        )
 
         # =========================================================================
         # STAGE 7: AI Closed-Loop Diagnostics & Equipment Tuning Feedback
         # =========================================================================
         t0 = time.perf_counter()
-        root_cause_report = self.root_cause.diagnose_batch(metrology_dicts)
+        root_cause_report = self.root_cause.diagnose_batch(
+            metrology_dicts,
+            inspection_valid=inspection_valid,
+            gate_action=plc_action,
+            raw_detections=raw_detections,
+            hold_reasons=all_rejection_reasons,
+        )
         timings["stage_7_root_cause_ms"] = (time.perf_counter() - t0) * 1000.0
 
         total_latency = (time.perf_counter() - t_start_total) * 1000.0
@@ -357,7 +380,8 @@ class MultiStageIndustrialPipeline:
             standards_compliant=std_compliant,
             plc_gate_action=plc_action,
             root_cause_report=root_cause_report.to_dict(),
-            system_health=self.failsafe.system_state.value
+            system_health=self.failsafe.system_state.value,
+            measurement_policy=measurement_policy,
         )
 
     def get_gigafactory_spc_summary(self) -> Dict[str, Any]:

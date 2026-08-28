@@ -15,9 +15,11 @@ data/quality_history.db
 data/coating_defects/
 data/coatingvision_real_detect/
 data/external/
+data/libad/
 outputs/
 runs/
 logs/
+reports/pytest_junit.xml
 .codex-presentation-build/
 SecureCoating-Vision_Final_Defense_6min_Real_Evidence/
 *.pptx.inspect.ndjson
@@ -45,6 +47,7 @@ deck_montage.png
 *.zip
 *.pdf
 docs/final/
+reports/submission_sha256.txt
 
 # Docker volumes
 docker-data/

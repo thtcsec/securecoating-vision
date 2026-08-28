@@ -1,0 +1,1736 @@
+{
+  "benchmark": "LIBAD",
+  "citation": {
+    "title": "LIBAD: A Multimodal Anomaly Detection Benchmark for Li-Ion Battery Electrode Manufacturing",
+    "authors": [
+      "Wenbo Sui",
+      "Daniel Lichau",
+      "Harold Phelippeau",
+      "Zhao Liu"
+    ],
+    "year": 2026,
+    "arxiv": "2608.07958",
+    "url": "https://arxiv.org/abs/2608.07958",
+    "dataset_url": "https://huggingface.co/datasets/Evenrose/LIBAD",
+    "code_url": "https://github.com/evenrose/LIBAD",
+    "license": "CC BY 4.0",
+    "da_core_attribution": "DA-Core is the density-aware coreset baseline published by the LIBAD authors. SecureCoating-Vision does not claim DA-Core as an original algorithm."
+  },
+  "paper_result_note": "Sui et al. report that the best LIBAD setting still has FPR95 of 54.3% at AUROC 86.7%, AUPR 95.7%, and F1-max 90.6%. The authors conclude that this false-positive rate is too high for direct deployment and call out modality disagreement and closed-loop process control as open problems. LIBAD addresses how to detect; SecureCoating-Vision addresses when a detection is safe enough to act on.",
+  "local_contribution": "SecureCoating-Vision adds an evidence-gated industrial decision layer. It does not replace YOLO/ONNX surface localization and does not claim DA-Core.",
+  "official_split_seeds": [
+    347,
+    725,
+    1245,
+    4012,
+    4589,
+    5021,
+    5678,
+    6234,
+    6789,
+    7345
+  ],
+  "evidence_class": "protocol_fixture",
+  "comparable_to_paper": false,
+  "experiments": {
+    "unimodal_vis": {
+      "academic": {
+        "auroc": {
+          "mean": 0.7805555555555556,
+          "std": 0.06573421981221797,
+          "n": 10
+        },
+        "aupr": {
+          "mean": 0.8716582491582491,
+          "std": 0.03558742311904147,
+          "n": 10
+        },
+        "f1_max": {
+          "mean": 0.8284848484848485,
+          "std": 0.044609427482361255,
+          "n": 10
+        },
+        "fpr95": {
+          "mean": 0.8666666666666668,
+          "std": 0.10540925533894598,
+          "n": 10
+        }
+      },
+      "n_splits": 10,
+      "purpose": "Baseline surface inspection"
+    },
+    "unimodal_xray_l": {
+      "academic": {
+        "auroc": {
+          "mean": 0.7875,
+          "std": 0.0955656935477619,
+          "n": 10
+        },
+        "aupr": {
+          "mean": 0.8709259259259261,
+          "std": 0.04673854679299694,
+          "n": 10
+        },
+        "f1_max": {
+          "mean": 0.81995670995671,
+          "std": 0.03696025035521059,
+          "n": 10
+        },
+        "fpr95": {
+          "mean": 0.7333333333333333,
+          "std": 0.2744242007828549,
+          "n": 10
+        }
+      },
+      "n_splits": 10,
+      "purpose": "Baseline internal/density inspection"
+    },
+    "multimodal": {
+      "academic": {
+        "auroc": {
+          "mean": 1.0,
+          "std": 0.0,
+          "n": 10
+        },
+        "aupr": {
+          "mean": 1.0,
+          "std": 0.0,
+          "n": 10
+        },
+        "f1_max": {
+          "mean": 1.0,
+          "std": 0.0,
+          "n": 10
+        },
+        "fpr95": {
+          "mean": 0.0,
+          "std": 0.0,
+          "n": 10
+        }
+      },
+      "n_splits": 10,
+      "purpose": "Complementary fusion value"
+    },
+    "securecoating_gate": {
+      "academic": {
+        "auroc": {
+          "mean": 1.0,
+          "std": 0.0,
+          "n": 10
+        },
+        "aupr": {
+          "mean": 1.0,
+          "std": 0.0,
+          "n": 10
+        },
+        "f1_max": {
+          "mean": 1.0,
+          "std": 0.0,
+          "n": 10
+        },
+        "fpr95": {
+          "mean": 0.0,
+          "std": 0.0,
+          "n": 10
+        }
+      },
+      "n_splits": 10,
+      "purpose": "PASS/REJECT/HOLD safety of acting on the scores",
+      "industrial": {
+        "n": {
+          "mean": 12.0,
+          "std": 0.0,
+          "n": 10
+        },
+        "n_pass": {
+          "mean": 3.5,
+          "std": 2.068278940998476,
+          "n": 10
+        },
+        "n_reject": {
+          "mean": 8.3,
+          "std": 1.8287822299126937,
+          "n": 10
+        },
+        "n_hold": {
+          "mean": 0.2,
+          "std": 0.42163702135578396,
+          "n": 10
+        },
+        "automatic_decision_coverage": {
+          "mean": 0.9833333333333332,
+          "std": 0.03513641844631534,
+          "n": 10
+        },
+        "hold_rate": {
+          "mean": 0.016666666666666666,
+          "std": 0.03513641844631533,
+          "n": 10
+        },
+        "escape_rate": {
+          "mean": 0.0,
+          "std": 0.0,
+          "n": 10
+        },
+        "selective_risk": {
+          "mean": 0.2068181818181818,
+          "std": 0.17168188882914728,
+          "n": 10
+        },
+        "n_escape": {
+          "mean": 0.0,
+          "std": 0.0,
+          "n": 10
+        },
+        "n_auto_errors": {
+          "mean": 2.4,
+          "std": 1.9550504398153574,
+          "n": 10
+        }
+      }
+    }
+  },
+  "split_records": {
+    "unimodal_vis": [
+      {
+        "seed": 347,
+        "experiment": "unimodal_vis",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 0.7777777777777778,
+          "aupr": 0.8617424242424243,
+          "f1_max": 0.8,
+          "fpr95": 0.8333333333333334
+        },
+        "operating_threshold": 3.338830663335031,
+        "latency_ms_split": 353.10090001439676,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0007720404537394643,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 725,
+        "experiment": "unimodal_vis",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 0.8333333333333334,
+          "aupr": 0.8964646464646464,
+          "f1_max": 0.8333333333333334,
+          "fpr95": 0.8333333333333334
+        },
+        "operating_threshold": 2.229845897436275,
+        "latency_ms_split": 376.3407999940682,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0007312872039619833,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 1245,
+        "experiment": "unimodal_vis",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 0.9027777777777778,
+          "aupr": 0.9333333333333333,
+          "f1_max": 0.9090909090909091,
+          "fpr95": 0.6666666666666666
+        },
+        "operating_threshold": 2.9480838695269767,
+        "latency_ms_split": 452.3499000060838,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0007720404537394643,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 4012,
+        "experiment": "unimodal_vis",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 0.7777777777777778,
+          "aupr": 0.8617424242424243,
+          "f1_max": 0.8,
+          "fpr95": 0.8333333333333334
+        },
+        "operating_threshold": 3.141640707719777,
+        "latency_ms_split": 432.22690001130104,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0006905339541845024,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 4589,
+        "experiment": "unimodal_vis",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 0.8055555555555556,
+          "aupr": 0.8888888888888888,
+          "f1_max": 0.8333333333333334,
+          "fpr95": 1.0
+        },
+        "operating_threshold": 3.8373468794430687,
+        "latency_ms_split": 455.82260002265684,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0006905339541845024,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 5021,
+        "experiment": "unimodal_vis",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 0.7222222222222222,
+          "aupr": 0.8409090909090908,
+          "f1_max": 0.8,
+          "fpr95": 0.8333333333333334
+        },
+        "operating_threshold": 3.123368935900796,
+        "latency_ms_split": 423.4147999959532,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0006905339541845024,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 5678,
+        "experiment": "unimodal_vis",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 0.7222222222222222,
+          "aupr": 0.8409090909090908,
+          "f1_max": 0.8,
+          "fpr95": 0.8333333333333334
+        },
+        "operating_threshold": 2.8873112202701834,
+        "latency_ms_split": 420.60750001110137,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0007312872039619833,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 6234,
+        "experiment": "unimodal_vis",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 0.75,
+          "aupr": 0.8501683501683501,
+          "f1_max": 0.8,
+          "fpr95": 0.8333333333333334
+        },
+        "operating_threshold": 4.692883672053509,
+        "latency_ms_split": 416.6914999950677,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0007720404537394643,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 6789,
+        "experiment": "unimodal_vis",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 0.6805555555555556,
+          "aupr": 0.8257575757575757,
+          "f1_max": 0.8,
+          "fpr95": 1.0
+        },
+        "operating_threshold": 2.0960984464538854,
+        "latency_ms_split": 421.715900010895,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0007312872039619833,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 7345,
+        "experiment": "unimodal_vis",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 0.8333333333333334,
+          "aupr": 0.9166666666666667,
+          "f1_max": 0.9090909090909091,
+          "fpr95": 1.0
+        },
+        "operating_threshold": 3.2368011938788794,
+        "latency_ms_split": 431.36049999156967,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0007312872039619833,
+              "method": "density_fps"
+            }
+          }
+        }
+      }
+    ],
+    "unimodal_xray_l": [
+      {
+        "seed": 347,
+        "experiment": "unimodal_xray_l",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 0.75,
+          "aupr": 0.8501683501683501,
+          "f1_max": 0.8,
+          "fpr95": 0.8333333333333334
+        },
+        "operating_threshold": 2.100219832505563,
+        "latency_ms_split": 161.32650000508875,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.001291870721615851,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 725,
+        "experiment": "unimodal_xray_l",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 0.6944444444444444,
+          "aupr": 0.8333333333333333,
+          "f1_max": 0.8,
+          "fpr95": 1.0
+        },
+        "operating_threshold": 1.788227275826859,
+        "latency_ms_split": 193.0710000160616,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013145420234650373,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 1245,
+        "experiment": "unimodal_xray_l",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 0.9166666666666666,
+          "aupr": 0.9305555555555556,
+          "f1_max": 0.8571428571428571,
+          "fpr95": 0.3333333333333333
+        },
+        "operating_threshold": 1.7544003628675133,
+        "latency_ms_split": 202.42229997529648,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013810679083690047,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 4012,
+        "experiment": "unimodal_xray_l",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 0.7777777777777778,
+          "aupr": 0.8592592592592593,
+          "f1_max": 0.8,
+          "fpr95": 0.6666666666666666
+        },
+        "operating_threshold": 2.0596028292763067,
+        "latency_ms_split": 197.3549999820534,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013591406168416142,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 4589,
+        "experiment": "unimodal_xray_l",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 0.7361111111111112,
+          "aupr": 0.8425925925925926,
+          "f1_max": 0.8,
+          "fpr95": 1.0
+        },
+        "operating_threshold": 1.8089158962152383,
+        "latency_ms_split": 194.8837999952957,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013810679083690047,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 5021,
+        "experiment": "unimodal_xray_l",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 0.7777777777777778,
+          "aupr": 0.8592592592592593,
+          "f1_max": 0.8,
+          "fpr95": 0.6666666666666666
+        },
+        "operating_threshold": 2.01721446122974,
+        "latency_ms_split": 191.755000007106,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013372133253142238,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 5678,
+        "experiment": "unimodal_xray_l",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 0.8888888888888888,
+          "aupr": 0.9166666666666666,
+          "f1_max": 0.8333333333333334,
+          "fpr95": 0.5
+        },
+        "operating_threshold": 1.3296846430500777,
+        "latency_ms_split": 190.48079999629408,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013591406168416142,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 6234,
+        "experiment": "unimodal_xray_l",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 0.7083333333333334,
+          "aupr": 0.8333333333333333,
+          "f1_max": 0.8,
+          "fpr95": 1.0
+        },
+        "operating_threshold": 1.9836666758316048,
+        "latency_ms_split": 189.64680001954548,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013591406168416142,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 6789,
+        "experiment": "unimodal_xray_l",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 0.6805555555555556,
+          "aupr": 0.8257575757575757,
+          "f1_max": 0.8,
+          "fpr95": 1.0
+        },
+        "operating_threshold": 2.1518504617940586,
+        "latency_ms_split": 195.59339998522773,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013145420234650373,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 7345,
+        "experiment": "unimodal_xray_l",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 0.9444444444444444,
+          "aupr": 0.9583333333333334,
+          "f1_max": 0.9090909090909091,
+          "fpr95": 0.3333333333333333
+        },
+        "operating_threshold": 1.4020017055986949,
+        "latency_ms_split": 198.13639999483712,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013810679083690047,
+              "method": "density_fps"
+            }
+          }
+        }
+      }
+    ],
+    "multimodal": [
+      {
+        "seed": 347,
+        "experiment": "multimodal",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 1.0,
+          "aupr": 1.0,
+          "f1_max": 1.0,
+          "fpr95": 0.0
+        },
+        "operating_threshold": 3.338830663335031,
+        "latency_ms_split": 551.3078999938443,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0007720404537394643,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.001291870721615851,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 725,
+        "experiment": "multimodal",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 1.0,
+          "aupr": 1.0,
+          "f1_max": 1.0,
+          "fpr95": 0.0
+        },
+        "operating_threshold": 2.229845897436275,
+        "latency_ms_split": 659.7904000082053,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0007312872039619833,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013145420234650373,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 1245,
+        "experiment": "multimodal",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 1.0,
+          "aupr": 1.0,
+          "f1_max": 1.0,
+          "fpr95": 0.0
+        },
+        "operating_threshold": 2.9480838695269767,
+        "latency_ms_split": 664.4054000207689,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0007720404537394643,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013810679083690047,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 4012,
+        "experiment": "multimodal",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 1.0,
+          "aupr": 1.0,
+          "f1_max": 1.0,
+          "fpr95": 0.0
+        },
+        "operating_threshold": 3.141640707719777,
+        "latency_ms_split": 624.0271000133362,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0006905339541845024,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013591406168416142,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 4589,
+        "experiment": "multimodal",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 1.0,
+          "aupr": 1.0,
+          "f1_max": 1.0,
+          "fpr95": 0.0
+        },
+        "operating_threshold": 3.8373468794430687,
+        "latency_ms_split": 617.626699997345,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0006905339541845024,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013810679083690047,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 5021,
+        "experiment": "multimodal",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 1.0,
+          "aupr": 1.0,
+          "f1_max": 1.0,
+          "fpr95": 0.0
+        },
+        "operating_threshold": 3.123368935900796,
+        "latency_ms_split": 614.0384000027552,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0006905339541845024,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013372133253142238,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 5678,
+        "experiment": "multimodal",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 1.0,
+          "aupr": 1.0,
+          "f1_max": 1.0,
+          "fpr95": 0.0
+        },
+        "operating_threshold": 2.8873112202701834,
+        "latency_ms_split": 617.914699978428,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0007312872039619833,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013591406168416142,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 6234,
+        "experiment": "multimodal",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 1.0,
+          "aupr": 1.0,
+          "f1_max": 1.0,
+          "fpr95": 0.0
+        },
+        "operating_threshold": 4.692883672053509,
+        "latency_ms_split": 618.6387999914587,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0007720404537394643,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013591406168416142,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 6789,
+        "experiment": "multimodal",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 1.0,
+          "aupr": 1.0,
+          "f1_max": 1.0,
+          "fpr95": 0.0
+        },
+        "operating_threshold": 2.6377191553983654,
+        "latency_ms_split": 627.0856000191998,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0007312872039619833,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013145420234650373,
+              "method": "density_fps"
+            }
+          }
+        }
+      },
+      {
+        "seed": 7345,
+        "experiment": "multimodal",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 1.0,
+          "aupr": 1.0,
+          "f1_max": 1.0,
+          "fpr95": 0.0
+        },
+        "operating_threshold": 3.2368011938788794,
+        "latency_ms_split": 628.9714000013191,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0007312872039619833,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013810679083690047,
+              "method": "density_fps"
+            }
+          }
+        }
+      }
+    ],
+    "securecoating_gate": [
+      {
+        "seed": 347,
+        "experiment": "securecoating_gate",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 1.0,
+          "aupr": 1.0,
+          "f1_max": 1.0,
+          "fpr95": 0.0
+        },
+        "operating_threshold": 3.338830663335031,
+        "latency_ms_split": 628.9404999988619,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0007720404537394643,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.001291870721615851,
+              "method": "density_fps"
+            }
+          }
+        },
+        "industrial": {
+          "n": 12,
+          "n_pass": 2,
+          "n_reject": 10,
+          "n_hold": 0,
+          "automatic_decision_coverage": 1.0,
+          "hold_rate": 0.0,
+          "escape_rate": 0.0,
+          "selective_risk": 0.3333333333333333,
+          "n_escape": 0,
+          "n_auto_errors": 4
+        }
+      },
+      {
+        "seed": 725,
+        "experiment": "securecoating_gate",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 1.0,
+          "aupr": 1.0,
+          "f1_max": 1.0,
+          "fpr95": 0.0
+        },
+        "operating_threshold": 2.229845897436275,
+        "latency_ms_split": 659.3173999863211,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0007312872039619833,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013145420234650373,
+              "method": "density_fps"
+            }
+          }
+        },
+        "industrial": {
+          "n": 12,
+          "n_pass": 1,
+          "n_reject": 10,
+          "n_hold": 1,
+          "automatic_decision_coverage": 0.9166666666666666,
+          "hold_rate": 0.08333333333333333,
+          "escape_rate": 0.0,
+          "selective_risk": 0.36363636363636365,
+          "n_escape": 0,
+          "n_auto_errors": 4
+        }
+      },
+      {
+        "seed": 1245,
+        "experiment": "securecoating_gate",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 1.0,
+          "aupr": 1.0,
+          "f1_max": 1.0,
+          "fpr95": 0.0
+        },
+        "operating_threshold": 2.9480838695269767,
+        "latency_ms_split": 643.7550999980886,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0007720404537394643,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013810679083690047,
+              "method": "density_fps"
+            }
+          }
+        },
+        "industrial": {
+          "n": 12,
+          "n_pass": 5,
+          "n_reject": 7,
+          "n_hold": 0,
+          "automatic_decision_coverage": 1.0,
+          "hold_rate": 0.0,
+          "escape_rate": 0.0,
+          "selective_risk": 0.08333333333333333,
+          "n_escape": 0,
+          "n_auto_errors": 1
+        }
+      },
+      {
+        "seed": 4012,
+        "experiment": "securecoating_gate",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 1.0,
+          "aupr": 1.0,
+          "f1_max": 1.0,
+          "fpr95": 0.0
+        },
+        "operating_threshold": 3.141640707719777,
+        "latency_ms_split": 657.303599989973,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0006905339541845024,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013591406168416142,
+              "method": "density_fps"
+            }
+          }
+        },
+        "industrial": {
+          "n": 12,
+          "n_pass": 4,
+          "n_reject": 8,
+          "n_hold": 0,
+          "automatic_decision_coverage": 1.0,
+          "hold_rate": 0.0,
+          "escape_rate": 0.0,
+          "selective_risk": 0.16666666666666666,
+          "n_escape": 0,
+          "n_auto_errors": 2
+        }
+      },
+      {
+        "seed": 4589,
+        "experiment": "securecoating_gate",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 1.0,
+          "aupr": 1.0,
+          "f1_max": 1.0,
+          "fpr95": 0.0
+        },
+        "operating_threshold": 3.8373468794430687,
+        "latency_ms_split": 616.3461000251118,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0006905339541845024,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013810679083690047,
+              "method": "density_fps"
+            }
+          }
+        },
+        "industrial": {
+          "n": 12,
+          "n_pass": 5,
+          "n_reject": 7,
+          "n_hold": 0,
+          "automatic_decision_coverage": 1.0,
+          "hold_rate": 0.0,
+          "escape_rate": 0.0,
+          "selective_risk": 0.08333333333333333,
+          "n_escape": 0,
+          "n_auto_errors": 1
+        }
+      },
+      {
+        "seed": 5021,
+        "experiment": "securecoating_gate",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 1.0,
+          "aupr": 1.0,
+          "f1_max": 1.0,
+          "fpr95": 0.0
+        },
+        "operating_threshold": 3.123368935900796,
+        "latency_ms_split": 610.5130000214558,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0006905339541845024,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013372133253142238,
+              "method": "density_fps"
+            }
+          }
+        },
+        "industrial": {
+          "n": 12,
+          "n_pass": 1,
+          "n_reject": 10,
+          "n_hold": 1,
+          "automatic_decision_coverage": 0.9166666666666666,
+          "hold_rate": 0.08333333333333333,
+          "escape_rate": 0.0,
+          "selective_risk": 0.45454545454545453,
+          "n_escape": 0,
+          "n_auto_errors": 5
+        }
+      },
+      {
+        "seed": 5678,
+        "experiment": "securecoating_gate",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 1.0,
+          "aupr": 1.0,
+          "f1_max": 1.0,
+          "fpr95": 0.0
+        },
+        "operating_threshold": 2.8873112202701834,
+        "latency_ms_split": 619.534500001464,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0007312872039619833,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013591406168416142,
+              "method": "density_fps"
+            }
+          }
+        },
+        "industrial": {
+          "n": 12,
+          "n_pass": 4,
+          "n_reject": 8,
+          "n_hold": 0,
+          "automatic_decision_coverage": 1.0,
+          "hold_rate": 0.0,
+          "escape_rate": 0.0,
+          "selective_risk": 0.16666666666666666,
+          "n_escape": 0,
+          "n_auto_errors": 2
+        }
+      },
+      {
+        "seed": 6234,
+        "experiment": "securecoating_gate",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 1.0,
+          "aupr": 1.0,
+          "f1_max": 1.0,
+          "fpr95": 0.0
+        },
+        "operating_threshold": 4.692883672053509,
+        "latency_ms_split": 622.254600020824,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0007720404537394643,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013591406168416142,
+              "method": "density_fps"
+            }
+          }
+        },
+        "industrial": {
+          "n": 12,
+          "n_pass": 6,
+          "n_reject": 6,
+          "n_hold": 0,
+          "automatic_decision_coverage": 1.0,
+          "hold_rate": 0.0,
+          "escape_rate": 0.0,
+          "selective_risk": 0.0,
+          "n_escape": 0,
+          "n_auto_errors": 0
+        }
+      },
+      {
+        "seed": 6789,
+        "experiment": "securecoating_gate",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 1.0,
+          "aupr": 1.0,
+          "f1_max": 1.0,
+          "fpr95": 0.0
+        },
+        "operating_threshold": 2.6377191553983654,
+        "latency_ms_split": 631.0988999903202,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0007312872039619833,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013145420234650373,
+              "method": "density_fps"
+            }
+          }
+        },
+        "industrial": {
+          "n": 12,
+          "n_pass": 1,
+          "n_reject": 11,
+          "n_hold": 0,
+          "automatic_decision_coverage": 1.0,
+          "hold_rate": 0.0,
+          "escape_rate": 0.0,
+          "selective_risk": 0.4166666666666667,
+          "n_escape": 0,
+          "n_auto_errors": 5
+        }
+      },
+      {
+        "seed": 7345,
+        "experiment": "securecoating_gate",
+        "split_source": "protocol_fixture",
+        "comparable_to_paper": false,
+        "n_train": 12,
+        "n_val": 4,
+        "n_test": 12,
+        "academic": {
+          "auroc": 1.0,
+          "aupr": 1.0,
+          "f1_max": 1.0,
+          "fpr95": 0.0
+        },
+        "operating_threshold": 3.2368011938788794,
+        "latency_ms_split": 637.3576000041794,
+        "scorer_provenance": {
+          "algorithm_family": "memory-bank nearest-neighbor",
+          "coreset_method": "density_fps",
+          "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
+          "feature_backbone": "numpy_patch_descriptor",
+          "late_fusion": "max of modality-normalized image scores",
+          "memories": {
+            "vis": {
+              "n_memory": 294,
+              "n_train_patches": 1176,
+              "reference_score": 0.0007312872039619833,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 147,
+              "n_train_patches": 588,
+              "reference_score": 0.0013810679083690047,
+              "method": "density_fps"
+            }
+          }
+        },
+        "industrial": {
+          "n": 12,
+          "n_pass": 6,
+          "n_reject": 6,
+          "n_hold": 0,
+          "automatic_decision_coverage": 1.0,
+          "hold_rate": 0.0,
+          "escape_rate": 0.0,
+          "selective_risk": 0.0,
+          "n_escape": 0,
+          "n_auto_errors": 0
+        }
+      }
+    ]
+  },
+  "latency_ms_total": 18660.899499984225,
+  "hashes": {
+    "commit": "a4adb9fad8f5d5580f5333ebc45e6c011da8809c",
+    "tracked_artifacts": {
+      "outputs/model.onnx": "0a89dad2bf0d5801a58266c37119d484727e085c03ee14ce5a94e05f3285c32f",
+      "outputs/best.pt": "9945ada0bb8319bb00aa76554f053d82861e828e4ba631ade8814ce0d0c948e6",
+      "reports/dataset_manifest.json": "92c2875b506ae925984960c66cbcc782372d0be4b3afb30e999a83899fec0f45"
+    }
+  },
+  "predictions": "480 rows written to predictions file",
+  "feature_backbone": "numpy_patch_descriptor",
+  "feature_backbone_note": "Default adapter uses a local numpy patch descriptor so tests and demos run without DINOv3. Official paper numbers require the authors' DINOv3 + DA-Core implementation and the 4.84 GB dataset.",
+  "predictions_path": "reports/libad/libad_predictions.json"
+}

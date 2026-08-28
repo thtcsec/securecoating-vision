@@ -86,11 +86,7 @@ def main() -> int:
         "engine": result["engine"],
         "latency_ms": round(float(result["latency_ms"]), 2),
         "detections": result["detections"],
-        "seven_stage_pipeline": {
-            **pipeline_result.to_summary_dict(),
-            "raw_detections": pipeline_result.raw_detections,
-            "measurement_policy": "No dimensional metrology or release decision in RGB-only mode.",
-        },
+        "seven_stage_pipeline": pipeline_result.to_summary_dict(),
         "output_overlay": str(output_image.relative_to(PROJECT_ROOT)).replace("\\", "/"),
     }
     with open(out_dir / "coatingvision_model_output.json", "w", encoding="utf-8") as f:

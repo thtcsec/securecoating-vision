@@ -1,63 +1,75 @@
 # 6-Minute Final Defense Pitch Script & Q&A Preparation Guide
 **Competition:** 2026 Global AI + Materials Innovation Application Competition (全球AI+材料创新应用大赛)  
 **Track:** Track 4 — AI + Materials Testing and Characterization (AI + 材料检测与表征)  
-**Project:** SecureCoating-Vision — Multi-Sensor Fusion AI Platform for Inline Battery Electrode Inspection  
+**Registered title:** SecureCoating Vision: A High-Throughput and Zero-Trust Edge-Cloud Pipeline for Inline Battery Electrode Defect Inspection and Traceable Quality Decisions  
+**Tagline:** Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing  
+**Brand:** SecureCoating-Vision  
 **Format:** 6-Minute Presentation + 2-Minute Q&A  
+
+Do not introduce a fourth title. Slide 1 uses the registered finalist-list title exactly, then the tagline.
 
 ---
 
 ## 1. 6-Minute Presentation Deck & Timing Structure
 
 ```
-+-------------------------------------------------------------------------------+
-|  Minute 1: Problem & Industry Pain Point (Electrode Scrap & Defect Escapes)  |
-|  Minute 2: Architectural Solution (Multi-Source Fusion RGB + Thermal + 3D)   |
-|  Minute 3: Edge-to-Cloud Pipeline & ONNX Optimization                         |
-|  Minute 4: Traceability Memory & OPC UA Industrial Integration                |
-|  Minute 5: Quantitative Baseline & Failure Analysis                           |
-|  Minute 6: Market Potential & Implementation Roadmap                           |
-+-------------------------------------------------------------------------------+
++-------------------------------------------------------------------------------------+
+|  Minute 1: Problem — electrode scrap, escapes, and unsafe automatic release        |
+|  Minute 2: Architecture — RGB contract first, then real VIS + X-rayL evidence lane |
+|  Minute 3: Evidence gate — HOLD turns uncertainty into a controlled industrial state|
+|  Minute 4: Traceability, certificate, OPC UA/Modbus contracts                      |
+|  Minute 5: LIBAD numbers vs SecureCoating operational metrics                      |
+|  Minute 6: Four-case demo close and honest roadmap                                 |
++-------------------------------------------------------------------------------------+
 ```
 
 ### Minute 1: The Industrial Pain Point
-*   **Opening:** "Good morning honorable judges and professors. I am Trịnh Hoàng Tú representing SecureCoating-Vision."
-*   **Core Challenge:** In EV battery fabrication, electrode coating & drying account for over 20% of scrap costs. Sub-surface adhesion voids and micro-scratches propagate into severe thermal runaway risks during cell assembly.
-*   **The Gap:** Traditional inspection uses single optical cameras with zero sub-surface visibility, treating defect detection as an isolated offline demo rather than an inline traceable quality decision system.
+*   **Opening:** "Honorable judges, I am Trịnh Hoàng Tú. The registered title is High-Throughput and Zero-Trust Edge-Cloud Pipeline for inline battery electrode inspection. The tagline is Evidence-Gated Multimodal Inspection."
+*   **Core Challenge:** Electrode coating defects drive scrap and can escape into cells. A detector that ranks anomalies well can still be unsafe to act on if false positives are high or modalities disagree.
+*   **The Gap:** Academic detection answers *how to detect*. A factory needs *when a detection is safe enough to act on*.
 
-### Minute 2: Multi-Sensor Fusion Architecture
-*   **Solution:** SecureCoating-Vision introduces a multi-modal inspection pipeline:
-    1. **High-Res RGB Optical:** Captures surface cracks & contamination.
-    2. **LWIR Thermal Camera:** Detects sub-surface thermal dissipation variations (voids & wet spots).
-    3. **3D Laser Profilometer:** Gauges absolute coating thickness profiles.
-*   **Alignment:** Digital homography alignment aligns spatial coordinates across modalities before feature fusion.
+### Minute 2: Two Evidence Lanes, One Safety Contract
+*   **Lane A, already built:** YOLOv8-seg/ONNX on RGB, FastAPI, dashboard, PASS/REJECT/HOLD, OPC UA/Modbus, HMAC certificates. Thermal and profilometry are **simulated interface adapters**.
+*   **Lane B, validation extension:** On 8 August 2026 LIBAD released 744 real electrode patches with aligned VIS and inline-compatible X-rayL, 11 real defect groups, and 10 official splits.
+*   **One sentence of progress:** "The initial prototype validated the software and safety contract using RGB inspection and simulated secondary modalities. We then added external validation on a newly released real multimodal battery-electrode benchmark."
+*   **Not a topic change.** YOLO stays. DA-Core stays attributed to Sui et al.
 
-### Minute 3: Edge Computing & Low Latency Optimization
-*   **Model Pipeline:** Powered by YOLOv8n-seg compiled into ONNX Runtime engine.
-*   **Latency Positioning:** The repository contains modeled budgets and historical development artifacts, but no currently accepted hardware benchmark manifest. Do not quote GPU, end-to-end, or camera-to-ejector latency until the target-hardware run is hash-recorded.
+### Minute 3: The Evidence Gate
+*   Model output cannot self-release production.
+*   Modality disagreement, stale sensor, invalid calibration, failed traceability write, or mismatched/stale PLC ACK → **HOLD**.
+*   **PASS** only when evidence and the communication contract both pass.
+*   This is industrial AI: uncertainty becomes an operationally controlled state, not a hidden false-positive rate.
 
-### Minute 4: Industrial Traceability & Fail-Safe Integration
-*   **Quality Memory:** Converts raw pixel masks into actionable industrial decisions. Every frame is tagged with `Batch_ID`, `Roll_ID`, and spatial offsets stored in a relational Quality Memory DB.
-*   **Fail-Safe Behavior:** A required sensor, model, inference, database, calibration, or PLC fault latches/requests `HOLD`; the prototype does not claim uninterrupted production throughput.
-*   **PLC Signaling:** Local demonstrations simulate command sequences. Physical action and ACK timing remain pending vendor PLC HIL.
+### Minute 4: Traceability and Control-Plane
+*   Every decision carries roll, batch, and part identity.
+*   Trace rows stay PENDING until PLC finalization.
+*   Certificates HMAC-sign the canonical payload, including modality scores and the decision reason.
 
-### Minute 5: Quantitative Baseline & Failure Analysis
-*   **Evidence Status:** "The tracked 50-image demonstration result is invalid as independent performance evidence because its images overlap a development validation split. Its JSON artifact reports box precision 50.0%, recall 66.67%, and F1 57.14% at IoU 0.50; these values must not be presented as factory generalization metrics."
-*   **Next Gate:** Publish metrics only from an immutable roll-disjoint test manifest with model/dataset/commit hashes and confidence intervals.
+### Minute 5: Why LIBAD Does Not End the Story
+*   Sui et al. report that even the best LIBAD setting still has **FPR95 54.3%** with AUROC 86.7%, AUPR 95.7%, F1-max 90.6%. They say this false-positive rate is too high for direct deployment.
+*   We keep those academic metrics on the 10 official splits, then add four SecureCoating metrics: Automatic Decision Coverage, HOLD Rate, Escape Rate, and Selective Risk.
+*   We do not hide a high FPR. We measure how much of it is converted into HOLD.
 
-### Minute 6: Market Impact & Business Strategy
-*   **Deployment Strategy:** High-probability "Private Pilot" model—integrating as a software-overlay on existing industrial camera gateways.
-*   **Commercial Model:** Implementation fee + annual site license for drift detection and quality memory analytics.
-*   **Conclusion:** "SecureCoating-Vision bridges deep learning vision models with real-world factory control. Thank you, and I look forward to your questions."
+### Minute 6: Four Cases, One Closing Screen
+1. Normal agreement → PASS
+2. Surface-visible defect → REJECT, surface evidence
+3. Internally visible X-ray anomaly → REJECT, complementary X-ray evidence
+4. Disagreement or missing evidence → HOLD, manual QA
+*   Closing screen: Roll ID, Batch ID, Part ID, modality scores, calibration state, model hash, decision reason, certificate signature, PLC state.
+*   **Close:** "LIBAD detects. SecureCoating-Vision decides when detection is safe enough to act on."
 
 ---
 
 ## 2. Anticipated 2-Minute Q&A Defense Script
 
-### Q1: "Are your LWIR Thermal and 3D Profilometer inputs based on real physical sensors or synthetic data?"
-*   **Answer:** "For this competition prototype, the 2D optical pipeline runs on synthetic defect images generated procedurally with seed 42, while the secondary thermal and depth streams are simulated metadata feeds designed to validate our homography alignment and fail-safe degradation algorithms. In production, these will connect directly to GigE Vision LWIR and USB 3.0 Laser Profilometer hardware."
+### Q1: "Are thermal and 3D sensors real?"
+*   **Answer:** "No. Thermal and profilometry are simulated or injected adapters used to validate registration and fail-closed behavior. The real multimodal validation lane is LIBAD visible-light plus inline-compatible X-rayL. We do not present those two facts as the same thing."
 
-### Q2: "Why does Delamination currently have low recall on your demonstration evaluation subset?"
-*   **Answer:** "Delamination patches in our procedural synthetic dataset exhibit high texture contrast variation, causing the model to misclassify them as large voids or blisters. This establishes an honest baseline and highlights the exact fine-tuning target needed when collecting live factory delamination samples."
+### Q2: "Did you invent DA-Core?"
+*   **Answer:** "No. DA-Core is the LIBAD authors' memory-bank baseline. Our contribution is the evidence-gated PASS/REJECT/HOLD layer that sits on top of those modality scores."
 
-### Q3: "How does the system ensure data privacy for sensitive manufacturing recipes?"
-*   **Answer:** "All heavy raw image processing remains strictly within local edge gateway boundaries. Only aggregated defect metadata (counts, sizes, batch summaries) is transmitted to cloud registries over TLS-encrypted channels."
+### Q3: "Your FPR is still high. Are you hiding it?"
+*   **Answer:** "We publish FPR95. The industrial claim is not that FPR vanished. It is that uncertain or disagreed evidence cannot become an automatic PASS or REJECT. HOLD is the controlled state."
+
+### Q4: "Why not rebuild the model?"
+*   **Answer:** "The bottleneck the paper itself names is not another detector. It is modality disagreement and closed-loop control. That is already the safety contract of this repository."

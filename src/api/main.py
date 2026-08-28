@@ -79,8 +79,8 @@ EXPOSE_API_DOCS = (
 app = FastAPI(
     title="SecureCoating-Vision API",
     description=(
-        "Multi-sensor fusion coating inspection system with ONNX Runtime inference, "
-        "sensor fusion, fail-safe degradation, and industrial PLC signaling."
+        "Fail-closed coating inspection API with RGB YOLO/ONNX, simulated "
+        "thermal/profilometry adapters, and an optional LIBAD VIS+X-rayL evidence lane."
     ),
     version="2.0.0",
     docs_url="/docs" if EXPOSE_API_DOCS else None,
@@ -903,6 +903,41 @@ def run_multi_stage_pipeline(
     except Exception as e:
         logger.error(f"Multi-stage inspection failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/libad/protocol")
+def libad_protocol():
+    """Disclose the LIBAD validation-extension contract without replacing RGB inference."""
+    from libad.dataset import dataset_status
+    from libad.protocol import LIBAD_CITATION, LIBAD_PAPER_RESULT_NOTE, load_project_identity
+
+    identity = load_project_identity()
+    return {
+        "brand": identity["brand"],
+        "registered_title": identity["registered_title"],
+        "tagline": identity["tagline"],
+        "citation": LIBAD_CITATION,
+        "paper_result_note": LIBAD_PAPER_RESULT_NOTE,
+        "dataset": dataset_status(),
+        "local_contribution": (
+            "Evidence-gated PASS/REJECT/HOLD. DA-Core is the LIBAD authors' baseline, "
+            "not a SecureCoating-Vision algorithm."
+        ),
+        "existing_rgb_path": "unchanged YOLOv8-seg/ONNX surface localization",
+        "simulated_adapters": ["thermal", "profilometry"],
+        "real_multimodal_lane": ["vis", "xray_l"],
+    }
+
+
+@app.get("/api/libad/demo/{case_id}")
+def libad_demo(case_id: int):
+    """Four staged industrial cases for the VIS/X-rayL evidence lane."""
+    if case_id not in {1, 2, 3, 4}:
+        raise HTTPException(status_code=422, detail="Demo case must be 1, 2, 3, or 4")
+    from libad.demo_cases import run_libad_demo_case
+
+    result = run_libad_demo_case(case_id)
+    return {key: value for key, value in result.items() if key != "frames"}
 
 
 

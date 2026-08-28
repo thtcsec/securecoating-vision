@@ -228,6 +228,24 @@ class TestAPI(unittest.TestCase):
         body_slit = resp_slit.json()
         self.assertIn("slitting_optimization", body_slit)
 
+    def test_libad_protocol_discloses_validation_extension(self):
+        resp = self.client.get("/api/libad/protocol")
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertIn("High-Throughput and Zero-Trust Edge-Cloud Pipeline", body["registered_title"])
+        self.assertEqual(
+            body["tagline"],
+            "Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing",
+        )
+        self.assertIn("does not claim DA-Core", body["citation"]["da_core_attribution"])
+
+    def test_libad_demo_case_four_is_hold(self):
+        resp = self.client.get("/api/libad/demo/4")
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["decision"]["action"], "HOLD")
+        self.assertIn("hmac_digital_signature", body["certificate"])
+
 
 if __name__ == "__main__":
     unittest.main()

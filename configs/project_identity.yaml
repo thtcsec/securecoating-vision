@@ -1,0 +1,9 @@
+# Single source of truth for public naming.
+# Do not invent a fourth title. The registered finalist-list title is the only
+# competition title; the tagline may change; the brand name does not.
+
+brand: "SecureCoating-Vision"
+registered_title: "SecureCoating Vision: A High-Throughput and Zero-Trust Edge-Cloud Pipeline for Inline Battery Electrode Defect Inspection and Traceable Quality Decisions"
+tagline: "Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing"
+release_version: "2.0.0"
+release_label: "libad-validation-extension"

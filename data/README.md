@@ -19,7 +19,17 @@ data/
     └── masks/          # Defect ground truth segmentation masks (.png)
 ```
 
-## Metadata Schema
+## LIBAD external validation set
+
+The official LIBAD release is **not** stored in git (~4.84 GB, CC BY 4.0). After accepting the dataset terms, extract it to:
+
+```
+data/libad/LIBAD/
+data/libad/splits/
+```
+
+See `scripts/download_libad.py` and [docs/libad_validation_extension.md](../docs/libad_validation_extension.md). Fixture protocol tests do not require this download and must not be reported as paper-comparable LIBAD numbers.
+
 
 The primary metadata spreadsheet is `sample_metadata.csv`. It bridges multi-source files together and registers their inspection labels.
 

@@ -69,6 +69,8 @@ This document is the project status ledger. A feature is marked **verified** onl
 - [x] Box and mask evaluation metrics use one shared prediction-to-ground-truth instance match.
 - [x] Evaluation requires a hash-verified manifest with non-overlapping train/val/test roll IDs.
 - [ ] Supply a real independent roll-disjoint manifest and publish metrics from it.
+- [x] LIBAD adapter, evidence gate, four industrial metrics, and 10 official-seed harness exist in repository tests.
+- [ ] Download the official LIBAD 4.84 GB release and publish paper-comparable 10-split metrics with DINOv3/DA-Core hashes.
 - [ ] Run clean-surface false-positive, hard-negative, and defect false-negative suites.
 - [ ] Measure POD, escape rate, confidence intervals, and performance on independent factory data.
 - [ ] Add ONNX-vs-source-model parity and multi-resolution calibration tests.
@@ -94,30 +96,17 @@ This document is the project status ledger. A feature is marked **verified** onl
 
 ## Test Evidence Recorded
 
-The latest repository validation completed on 2026-08-27:
+The latest repository validation is recorded by `scripts/record_test_manifest.py` and must not be typed by hand in multiple documents.
 
+<!-- TEST_MANIFEST:START -->
 ```text
-.venv\Scripts\python.exe -m pytest -q
-82 passed in 30.84s
-
-.venv\Scripts\python.exe -m compileall -q src dashboard scripts tests
-OK
-
-.venv\Scripts\python.exe -m pip check
-No broken requirements found
-
-.venv\Scripts\python.exe -m pip_audit -r requirements-lock.txt
-No known vulnerabilities found
-
-.venv\Scripts\python.exe -m pip install --dry-run -r requirements-lock.txt
-Resolved successfully
-
-docker compose config
-OK
-
-git diff --check
-OK (line-ending conversion notices only)
+D:\tu_projects\securecoating-vision\.venv\Scripts\python.exe -m pytest -q
+109 passed in 40.34s
+python 3.11.9
+commit a4adb9fad8f5d5580f5333ebc45e6c011da8809c
+log_sha256 23826306296c3c3650019f9ac3126ab93f29b48abb5e37e4dd82e7e7b2b8a850
 ```
+<!-- TEST_MANIFEST:END -->
 
 The local live Uvicorn smoke run on port 8011 verified API liveness/readiness, clean PASS, real-image REJECT, degraded-sensor HOLD, duplicate-part HOLD, E-stop latch, simulated reset, and upload inspection. PLC statuses were `SIMULATED`, never physical ACK. The observed timings are smoke diagnostics, not benchmarks.
 
@@ -136,8 +125,8 @@ A release may be called **research/demo-ready** only when automated tests and ev
 
 ## Next Execution Plan
 
-1. **Next engineering slice**: verify API-backed dashboard telemetry against a running Compose stack and add browser smoke coverage.
-2. **Next integration slice**: run a PLC simulator/HIL matrix for OPC UA/Modbus readback and failure modes.
-3. **Next evidence slice**: create an immutable roll-disjoint manifest and rerun evaluation; publish only metrics produced by that manifest.
+1. **Next evidence slice**: download official LIBAD, run the 10 official splits, and publish only hash-recorded metrics; keep fixture runs labelled non-comparable.
+2. **Next engineering slice**: verify API-backed dashboard telemetry against a running Compose stack and add browser smoke coverage.
+3. **Next integration slice**: run a PLC simulator/HIL matrix for OPC UA/Modbus readback and failure modes.
 4. **Next deployment slice**: restore Docker daemon, build the locked image, run liveness/readiness checks as non-root, and document rollback.
 5. **Release decision**: keep the classification at research prototype until every external gate above has attached evidence.

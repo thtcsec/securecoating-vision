@@ -25,6 +25,20 @@ class TestRootCauseEngine(unittest.TestCase):
         self.assertIsNone(report.confidence_score)
         self.assertEqual(len(report.action_items), 0)
 
+    def test_hold_does_not_claim_process_in_control(self):
+        report = self.engine.diagnose_batch(
+            defects_metrology=[],
+            inspection_valid=False,
+            gate_action="HOLD",
+            raw_detections=[{"class_name": "scratch"}],
+            hold_reasons=["RGB-only evidence mode"],
+        )
+        self.assertEqual(report.severity_level, "HOLD")
+        self.assertIn("HOLD", report.primary_root_cause)
+        self.assertIn("Raw detections present: 1", report.defect_signature)
+        self.assertNotIn("Process In Statistical Control", report.primary_root_cause)
+
+
     def test_scratch_equipment_attribution(self):
         defects = [
             {"class_name": "scratch", "length_mm": 6.0, "area_mm2": 2.0},

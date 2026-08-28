@@ -74,11 +74,31 @@ class RootCauseDiagnosticEngine:
     def diagnose_batch(
         self,
         defects_metrology: List[Dict[str, Any]],
-        historical_stats: Optional[Dict[str, Any]] = None
+        historical_stats: Optional[Dict[str, Any]] = None,
+        inspection_valid: bool = True,
+        gate_action: Optional[str] = None,
+        raw_detections: Optional[List[Dict[str, Any]]] = None,
+        hold_reasons: Optional[List[str]] = None,
     ) -> RootCauseReport:
         """
         Diagnose the primary root cause based on current frame and historical batch trends.
         """
+        if not inspection_valid or str(gate_action or "").upper() == "HOLD":
+            raw_n = len(raw_detections or [])
+            metro_n = len(defects_metrology or [])
+            reasons = "; ".join(hold_reasons or ["Inspection evidence is not safety-ready"])
+            return RootCauseReport(
+                primary_root_cause="HOLD: evidence or communication contract not satisfied",
+                affected_equipment="No automatic process change authorized",
+                confidence_score=None,
+                defect_signature=(
+                    f"Automatic release blocked. {reasons}. "
+                    f"Raw detections present: {raw_n}; metrology objects: {metro_n}."
+                ),
+                severity_level="HOLD",
+                action_items=[],
+            )
+
         if not defects_metrology:
             return RootCauseReport(
                 primary_root_cause="No defect evidence supplied",

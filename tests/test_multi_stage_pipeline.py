@@ -62,6 +62,54 @@ class TestMultiStagePipeline(unittest.TestCase):
         self.assertEqual(result.thermal_diffusivity_phase.shape, (1024, 1024))
         self.assertEqual(result.height_topography_map.shape, (1024, 1024))
 
+    def test_rgb_only_hold_does_not_claim_zero_anomaly(self):
+        optical = np.zeros((64, 64, 3), dtype=np.uint8)
+        optical[::2] = 120
+        detections = [{
+            "box": [1, 1, 10, 10],
+            "confidence": 0.8,
+            "class_id": 0,
+            "class_name": "scratch",
+        }]
+
+        class DetectionPredictor:
+            def predict(self, optical_image, thermal=None, height=None):
+                return {
+                    "segmentation_mask": np.zeros(optical_image.shape[:2], dtype=np.uint8),
+                    "detections": detections,
+                    "untrained_fallback": False,
+                    "latency_ms": 1.0,
+                    "engine": "TEST",
+                    "model_version": "test",
+                }
+
+        pipeline = MultiStageIndustrialPipeline(
+            predictor=DetectionPredictor(),
+            fusion_manager=self.fusion,
+            failsafe_manager=FailSafeManager(),
+            industrial_manager=IndustrialProtocolManager({"enabled": True, "mock_mode": True}),
+            web_synchronizer=WebSynchronizer(),
+            pixel_to_mm_ratio=0.1,
+            calibration_verified=True,
+        )
+        result = pipeline.execute_inspection(
+            sample_id="RGB_ONLY_HOLD",
+            optical_rgb=optical,
+            thermal_raw=None,
+            height_map=None,
+            enable_plc_signal=False,
+        )
+        summary = result.to_summary_dict()
+        self.assertEqual(summary["overall_verdict"], "HOLD")
+        self.assertEqual(summary["plc_gate_action"], "HOLD")
+        self.assertFalse(summary["standards_compliant"])
+        self.assertEqual(summary["raw_detections_count"], 1)
+        self.assertEqual(summary["defects_count"], 0)
+        self.assertNotEqual(summary["root_cause_report"]["severity_level"], "NOMINAL")
+        self.assertIn("HOLD", summary["root_cause_report"]["primary_root_cause"])
+        self.assertIn("Raw detections present: 1", summary["root_cause_report"]["defect_signature"])
+
+
 
 if __name__ == "__main__":
     unittest.main()
