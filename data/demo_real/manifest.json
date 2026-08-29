@@ -1,0 +1,57 @@
+{
+  "schema_version": "1.0",
+  "dataset_name": "CoatingVision real optical demo subset",
+  "source": "CoatingVision, Figshare DOI 10.6084/m9.figshare.29260121.v1",
+  "license": "CC BY 4.0",
+  "purpose": "attributed real-input demonstration; not an independent metric set",
+  "samples": [
+    {
+      "filename": "image_1090.jpg",
+      "source_id": "CoatingVision/image_1090",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "license": "CC BY 4.0",
+      "sha256": "acc2c7a4c50a64156ca2d9a6882ddf23078eec97624ec73dbfdbf27b71c3c821"
+    },
+    {
+      "filename": "image_1256.jpg",
+      "source_id": "CoatingVision/image_1256",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "license": "CC BY 4.0",
+      "sha256": "ad57200ddb104a2bfb8da0313012259e1555a7fa80e41d6b172b139334c056fe"
+    },
+    {
+      "filename": "image_1435.jpg",
+      "source_id": "CoatingVision/image_1435",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "license": "CC BY 4.0",
+      "sha256": "2de1dbea456e60de524784e2a4d8fd2579d9060dd70a462fb5ca13ef18ca445c"
+    },
+    {
+      "filename": "image_1548.jpg",
+      "source_id": "CoatingVision/image_1548",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "license": "CC BY 4.0",
+      "sha256": "88db1995244c387af1538e9f948836c7bd3f4fbcc9da49bcce3349b8b4f15a12"
+    },
+    {
+      "filename": "image_1847.jpg",
+      "source_id": "CoatingVision/image_1847",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "license": "CC BY 4.0",
+      "sha256": "919049bd57466ad10eac8349231de59342e70e19781a103a18a4f3ca5236e2c9"
+    },
+    {
+      "filename": "image_565.jpg",
+      "source_id": "CoatingVision/image_565",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "license": "CC BY 4.0",
+      "sha256": "959de9ffa94d17d58dc2b27857937cc44a06599a6ab51be55d8d86cf83e26c62"
+    }
+  ]
+}

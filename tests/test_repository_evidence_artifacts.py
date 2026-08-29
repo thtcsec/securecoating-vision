@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import unittest
 import xml.etree.ElementTree as ET
 import zipfile
@@ -44,6 +45,29 @@ def _pptx_text(path: Path) -> str:
 
 
 class TestRepositoryEvidenceArtifacts(unittest.TestCase):
+    def test_portfolio_png_files_have_real_png_signatures(self):
+        paths = sorted((ROOT / "docs/portfolio").glob("*.png"))
+        self.assertGreaterEqual(len(paths), 1)
+        for path in paths:
+            self.assertTrue(
+                path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"),
+                f"{path.name} has a PNG extension but non-PNG content",
+            )
+
+    def test_real_demo_manifest_hashes_every_checked_in_sample(self):
+        demo_root = ROOT / "data/demo_real"
+        manifest = json.loads((demo_root / "manifest.json").read_text(encoding="utf-8"))
+        records = {record["filename"]: record for record in manifest["samples"]}
+        images = sorted((demo_root / "images").glob("*.jpg"))
+        self.assertEqual(set(records), {path.name for path in images})
+        for path in images:
+            self.assertEqual(records[path.name]["source_type"], "REAL_OPTICAL")
+            self.assertEqual(records[path.name]["license"], "CC BY 4.0")
+            self.assertEqual(
+                records[path.name]["sha256"],
+                hashlib.sha256(path.read_bytes()).hexdigest(),
+            )
+
     def test_container_build_uses_cpu_lock_and_excludes_runtime_mounts(self):
         dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
         docker_lock = (ROOT / "requirements-docker-lock.txt").read_text(encoding="utf-8")

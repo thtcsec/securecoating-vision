@@ -174,6 +174,7 @@ WHITELIST = [
 # Directories to include (test_set and evaluation dataset with labels)
 IMAGE_DIRS = [
     ("data/test_set/images", "data/test_set/images"),
+    ("data/demo_real", "data/demo_real"),
     ("data/evaluation/images", "data/evaluation/images"),
     ("data/evaluation/labels", "data/evaluation/labels"),
     ("reports/libad_demo", "reports/libad_demo"),

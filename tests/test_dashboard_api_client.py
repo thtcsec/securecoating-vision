@@ -121,13 +121,18 @@ class TestInspectionApiClient(unittest.TestCase):
         response.headers = {"content-type": "image/jpeg"}
         response.content = b"jpeg-bytes"
         with patch.object(client.session, "get", return_value=response) as get:
-            payload = client.inspection_image("RUN_0123456789AB")
+            payload = client.inspection_image("RUN_0123456789AB", "raw")
         self.assertEqual(payload, b"jpeg-bytes")
         get.assert_called_once_with(
-            "http://api.local/api/inspections/RUN_0123456789AB/image",
+            "http://api.local/api/inspections/RUN_0123456789AB/image?view=raw",
             headers={"x-api-key": "secret"},
             timeout=5.0,
         )
+
+    def test_inspection_image_rejects_unknown_view(self):
+        client = InspectionApiClient("http://api.local")
+        with self.assertRaises(ValueError):
+            client.inspection_image("RUN_0123456789AB", "ground_truth")
 
     def test_inspection_image_rejects_oversized_response(self):
         client = InspectionApiClient("http://api.local")

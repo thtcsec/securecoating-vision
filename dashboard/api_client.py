@@ -100,10 +100,12 @@ class InspectionApiClient:
             raise ValueError("signal_limit must be between 1 and 100")
         return self.get("/api/operations/snapshot", signal_limit=signal_limit)
 
-    def inspection_image(self, run_id: str) -> bytes:
+    def inspection_image(self, run_id: str, view: str = "overlay") -> bytes:
         if not run_id.startswith("RUN_") or len(run_id) != 16:
             raise ValueError("Invalid inspection run identifier")
-        return self.get_bytes(f"/api/inspections/{run_id}/image")
+        if view not in {"raw", "input", "overlay"}:
+            raise ValueError("Invalid inspection artifact view")
+        return self.get_bytes(f"/api/inspections/{run_id}/image?view={view}")
 
     def dataset_catalog(self, offset: int = 0, limit: int = 24) -> Dict[str, Any]:
         if not 0 <= offset <= 10_000:

@@ -10,6 +10,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--api-url", default=os.environ.get("SECURECOATING_API_URL", "http://127.0.0.1:8000"))
     parser.add_argument("--api-key", default=os.environ.get("SECURECOATING_API_KEY", ""))
+    parser.add_argument(
+        "--image",
+        default="data/demo_real/images/image_1548.jpg",
+        help="Attributed real optical image to upload.",
+    )
     args = parser.parse_args()
     headers = {"x-api-key": args.api_key} if args.api_key else {}
     c = httpx.Client(base_url=args.api_url, timeout=120.0, headers=headers)
@@ -23,48 +28,53 @@ def main():
     active.raise_for_status()
     active_batch = active.json()["summary"]["batch_id"]
 
-    samples_response = c.get("/api/samples")
-    samples_response.raise_for_status()
-    samples = samples_response.json()["samples"][:2]
-    latencies = []
-    for i, name in enumerate(samples):
-        t0 = time.time()
-        r = c.post(
+    catalog_response = c.get("/api/dataset/catalog", params={"offset": 0, "limit": 24})
+    catalog_response.raise_for_status()
+    catalog = catalog_response.json()
+    if not catalog.get("provenance_verified"):
+        raise RuntimeError("Demo dataset provenance/hash verification failed")
+    print(
+        "DATASET",
+        catalog.get("dataset_name"),
+        catalog.get("dataset_license"),
+        f"samples={catalog.get('total')}",
+    )
+
+    t0 = time.time()
+    with open(args.image, "rb") as f:
+        up = c.post(
             "/api/inspect",
             data={
                 "batch_id": active_batch,
-                "part_id": f"SMOKE_{i}_{uuid.uuid4().hex[:10]}",
-                "sample_name": name,
-                "thermal_online": "true",
-                "profiler_online": "false",
+                "part_id": f"SMOKE_REAL_{uuid.uuid4().hex[:10]}",
             },
-        )
-        r.raise_for_status()
-        b = r.json()
-        http_ms = (time.time() - t0) * 1000
-        latencies.append(b["latency_ms"])
-        dets = len(b["defects_found"])
-        print(
-            f"{name}: {r.status_code} {b['engine']} "
-            f"infer={b['latency_ms']:.1f}ms dets={dets} "
-            f"pass={b['passed']} fallback={b['fallback_active']} http={http_ms:.0f}ms"
-        )
-    if latencies:
-        latencies.sort()
-        p50 = latencies[len(latencies) // 2]
-        print(f"observed_samples={len(samples)} p50_infer_ms={p50:.1f} (not a benchmark)")
-    print("spc", c.get(f"/api/batch/{active_batch}/spc").json()["status"])
-    print("estop", c.post("/api/industrial/estop", data={"reason": "smoke"}).json())
-    print("reset", c.post("/api/industrial/reset").json())
-    # upload path
-    with open("data/test_set/images/defect_val_00000.jpg", "rb") as f:
-        up = c.post(
-            "/api/inspect",
-            data={"batch_id": active_batch, "part_id": f"SMOKE_UPLOAD_{uuid.uuid4().hex[:10]}"},
-            files={"image": ("x.jpg", f, "image/jpeg")},
+            files={"image": (os.path.basename(args.image), f, "image/jpeg")},
         )
     up.raise_for_status()
-    print("upload", up.status_code, up.json()["engine"], len(up.json()["defects_found"]))
+    result = up.json()
+    http_ms = (time.time() - t0) * 1000
+    print(
+        "INSPECTION",
+        result["run_id"],
+        result["engine"],
+        f"infer={result['latency_ms']:.1f}ms",
+        f"detections={len(result['defects_found'])}",
+        f"gate={result['gate_action']}",
+        f"passed={result['passed']}",
+        f"http={http_ms:.0f}ms",
+    )
+    for view in ("raw", "input", "overlay"):
+        artifact = c.get(
+            f"/api/inspections/{result['run_id']}/image",
+            params={"view": view},
+        )
+        artifact.raise_for_status()
+        if artifact.headers.get("content-type", "").split(";", 1)[0] != "image/jpeg":
+            raise RuntimeError(f"{view} artifact has an unexpected content type")
+        if not artifact.content.startswith(b"\xff\xd8\xff"):
+            raise RuntimeError(f"{view} artifact is not a valid JPEG stream")
+        print("ARTIFACT", view, len(artifact.content), "bytes", "JPEG_OK")
+    print("spc", c.get(f"/api/batch/{active_batch}/spc").json()["status"])
     return 0
 
 

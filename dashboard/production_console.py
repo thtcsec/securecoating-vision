@@ -256,8 +256,9 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
 
     with history_tab:
         st.caption(
-            "Persisted inspection history is authoritative for the active batch. Overlay images are "
-            "loaded on demand; the event table below is a reconstruction from persisted fields, not raw PLC logs."
+            "Persisted inspection history is authoritative for the active batch. Bounded acquired, "
+            "model-input, and overlay previews are loaded on demand; the event table below is a "
+            "reconstruction from persisted fields, not raw PLC logs."
         )
         history_col, dataset_col = st.columns([3, 2])
         with history_col:
@@ -281,26 +282,39 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
                     selected_latency = "NO DATA"
                 if selected.get("image_available") and run_id:
                     image_cache = st.session_state.setdefault("inspection_image_cache", {})
-                    if run_id not in image_cache:
-                        try:
-                            image_cache[run_id] = api_client.inspection_image(run_id)
-                        except Exception:
-                            image_cache[run_id] = None
-                        while len(image_cache) > 8:
-                            image_cache.pop(next(iter(image_cache)))
-                    if image_cache.get(run_id):
-                        st.image(
-                            image_cache[run_id],
-                            caption=(
-                                f"{selected.get('part_id')} · {selected.get('gate_action')} · "
-                                f"{selected_latency} ms"
-                            ),
-                            width="stretch",
-                        )
-                    else:
-                        st.error("The API reported an image artifact, but the bounded fetch failed.")
+                    artifacts = selected.get("artifacts") or {
+                        "overlay": {"available": True}
+                    }
+                    view_config = [
+                        ("raw", "1 · Acquired frame", "Bounded optical preview; no annotations"),
+                        ("input", "2 · Model input", "Letterboxed inference geometry"),
+                        ("overlay", "3 · Detection result", "Model detections on acquired frame"),
+                    ]
+                    image_columns = st.columns(3)
+                    for column, (view, title, caption) in zip(image_columns, view_config):
+                        with column:
+                            st.markdown(f"**{title}**")
+                            available = bool((artifacts.get(view) or {}).get("available"))
+                            cache_key = f"{run_id}:{view}"
+                            if available and cache_key not in image_cache:
+                                try:
+                                    image_cache[cache_key] = api_client.inspection_image(run_id, view)
+                                except Exception:
+                                    image_cache[cache_key] = None
+                                while len(image_cache) > 24:
+                                    image_cache.pop(next(iter(image_cache)))
+                            if available and image_cache.get(cache_key):
+                                st.image(image_cache[cache_key], caption=caption, width="stretch")
+                            elif available:
+                                st.error(f"The API reported {view} evidence, but fetch failed.")
+                            else:
+                                st.info("Not retained for this historical run.")
+                    st.caption(
+                        f"{selected.get('part_id')} · {selected.get('gate_action')} · "
+                        f"{selected_latency} ms · all views are bounded JPEG evidence previews"
+                    )
                 else:
-                    st.info("No retained overlay image is available for this historical row.")
+                    st.info("No retained inspection image bundle is available for this historical row.")
 
                 selected_defects = [
                     defect
@@ -353,7 +367,13 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
             catalog = snapshot.get("dataset_catalog") or {}
             st.markdown("##### Dataset catalog")
             st.caption(
-                "Basename-only cached catalog; image payloads are not embedded in the operations snapshot."
+                "Metadata-only cached catalog; image payloads and host paths are not embedded."
+            )
+            source_type = "VERIFIED REAL OPTICAL" if catalog.get("provenance_verified") else "UNVERIFIED"
+            st.markdown(f"**Source:** `{source_type}`")
+            st.caption(
+                f"{catalog.get('dataset_name') or 'Unknown dataset'} · "
+                f"{catalog.get('dataset_license') or 'license not recorded'}"
             )
             page_size = 24
             total_items = int(catalog.get("total") or 0)

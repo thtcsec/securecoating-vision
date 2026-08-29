@@ -47,7 +47,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 import numpy as np
 import cv2
 from PIL import Image, UnidentifiedImageError
@@ -218,7 +218,9 @@ with open(CALIBRATION_CONFIG_PATH, "r") as f:
 PIXEL_SIZE_MM = float(calibration_config["pixel_size_x_mm"])
 CALIBRATION_VERIFIED = bool(calibration_config.get("verified", False))
 
-TEST_SET_DIR = os.path.join(PROJECT_ROOT, "data", "test_set", "images")
+DEMO_DATASET_ROOT = Path(PROJECT_ROOT, "data", "demo_real").resolve()
+TEST_SET_DIR = str(DEMO_DATASET_ROOT / "images")
+DEMO_DATASET_MANIFEST = DEMO_DATASET_ROOT / "manifest.json"
 _default_artifact_dir = Path(PROJECT_ROOT, "outputs", "inspection_artifacts").resolve()
 INSPECTION_ARTIFACT_DIR = Path(
     os.environ.get("SECURECOATING_INSPECTION_ARTIFACT_DIR", str(_default_artifact_dir))
@@ -237,7 +239,8 @@ REQUIRE_INSPECTION_ARTIFACTS = os.environ.get(
 ).lower() in {"1", "true", "yes"}
 _artifact_lock = threading.Lock()
 _dataset_catalog_lock = threading.Lock()
-_dataset_catalog_cache: Optional[tuple[str, ...]] = None
+_dataset_catalog_cache: Optional[tuple[Dict[str, Any], ...]] = None
+_dataset_catalog_identity: Dict[str, Any] = {}
 IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
 CONTROL_POLICY = {
     "endpoint": "/api/operations/control",
@@ -403,7 +406,7 @@ async def _read_upload_limited(upload: UploadFile) -> bytes:
 
 
 def _load_sample_image(sample_name: str) -> np.ndarray:
-    """Load a demo image from data/test_set/images (basename only)."""
+    """Load an attributed real demo image by basename only."""
     safe_name = os.path.basename(sample_name)
     if safe_name != sample_name or len(sample_name) > 255:
         raise HTTPException(status_code=422, detail="sample_name must be a bounded basename")
@@ -411,7 +414,7 @@ def _load_sample_image(sample_name: str) -> np.ndarray:
     if not os.path.isfile(path):
         raise HTTPException(
             status_code=404,
-            detail=f"Sample '{safe_name}' not found under data/test_set/images",
+            detail=f"Sample '{safe_name}' not found under data/demo_real/images",
         )
     image = cv2.imread(path)
     if image is None:
@@ -447,10 +450,54 @@ ALLOWED_IMAGE_MIME_TYPES = {
 Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 
 
-def _inspection_artifact_path(run_id: str) -> Path:
+ARTIFACT_VIEWS = ("raw", "input", "overlay")
+
+
+def _inspection_artifact_path(run_id: str, view: str = "overlay") -> Path:
     if not re.fullmatch(r"RUN_[A-F0-9]{12}", run_id):
         raise ValueError("Invalid inspection run identifier")
-    return INSPECTION_ARTIFACT_DIR / f"{run_id}.jpg"
+    if view not in ARTIFACT_VIEWS:
+        raise ValueError("Invalid inspection artifact view")
+    # Keep the historical overlay filename stable for existing deployments.
+    suffix = "" if view == "overlay" else f"_{view}"
+    return INSPECTION_ARTIFACT_DIR / f"{run_id}{suffix}.jpg"
+
+
+def _bounded_preview(image: np.ndarray, max_edge: int = 1280) -> np.ndarray:
+    """Return a bounded BGR preview without changing the acquired source array."""
+    height, width = image.shape[:2]
+    scale = min(1.0, max_edge / max(height, width))
+    if scale >= 1.0:
+        return image.copy()
+    return cv2.resize(
+        image,
+        (max(1, int(width * scale)), max(1, int(height * scale))),
+        interpolation=cv2.INTER_AREA,
+    )
+
+
+def _model_input_preview(image: np.ndarray) -> np.ndarray:
+    """Render the letterboxed optical tensor geometry used by the YOLO paths."""
+    image_size = int(model_config.get("inference", {}).get("imgsz", 640))
+    height, width = image.shape[:2]
+    scale = min(image_size / height, image_size / width)
+    resized_width = max(1, int(width * scale))
+    resized_height = max(1, int(height * scale))
+    resized = cv2.resize(
+        image, (resized_width, resized_height), interpolation=cv2.INTER_LINEAR
+    )
+    canvas = np.full((image_size, image_size, 3), 114, dtype=np.uint8)
+    top = (image_size - resized_height) // 2
+    left = (image_size - resized_width) // 2
+    canvas[top:top + resized_height, left:left + resized_width] = resized
+    return canvas
+
+
+def _encode_artifact_jpeg(image: np.ndarray) -> Optional[bytes]:
+    ok, encoded = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, 88])
+    if not ok or encoded.nbytes > 3 * 1024 * 1024:
+        return None
+    return encoded.tobytes()
 
 
 def _write_inspection_artifact(
@@ -458,17 +505,11 @@ def _write_inspection_artifact(
     defects: list[Dict[str, Any]],
     run_id: str,
 ) -> bool:
-    """Atomically persist one bounded JPEG overlay without retaining upload bytes."""
-    canvas = image.copy()
-    height, width = canvas.shape[:2]
-    max_edge = 1280
-    scale = min(1.0, max_edge / max(height, width))
-    if scale < 1.0:
-        canvas = cv2.resize(
-            canvas,
-            (max(1, int(width * scale)), max(1, int(height * scale))),
-            interpolation=cv2.INTER_AREA,
-        )
+    """Persist bounded raw/input/overlay previews as one run-scoped bundle."""
+    raw_preview = _bounded_preview(image)
+    canvas = raw_preview.copy()
+    height, width = image.shape[:2]
+    scale = canvas.shape[1] / width
 
     for defect in defects:
         bbox = defect.get("bbox") or []
@@ -495,37 +536,61 @@ def _write_inspection_artifact(
             cv2.LINE_AA,
         )
 
-    ok, encoded = cv2.imencode(".jpg", canvas, [cv2.IMWRITE_JPEG_QUALITY, 88])
-    if not ok or encoded.nbytes > 3 * 1024 * 1024:
+    encoded_artifacts = {
+        "raw": _encode_artifact_jpeg(raw_preview),
+        "input": _encode_artifact_jpeg(_model_input_preview(image)),
+        "overlay": _encode_artifact_jpeg(canvas),
+    }
+    if any(payload is None for payload in encoded_artifacts.values()):
         return False
 
-    target = _inspection_artifact_path(run_id)
     with _artifact_lock:
         INSPECTION_ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
-        temporary = target.with_suffix(".jpg.tmp")
+        targets = {
+            view: _inspection_artifact_path(run_id, view)
+            for view in ARTIFACT_VIEWS
+        }
+        temporaries = {
+            view: target.with_suffix(target.suffix + ".tmp")
+            for view, target in targets.items()
+        }
+        committed = []
         try:
-            with open(temporary, "wb") as handle:
-                handle.write(encoded.tobytes())
-                handle.flush()
-                os.fsync(handle.fileno())
-            os.replace(temporary, target)
+            for view in ARTIFACT_VIEWS:
+                with open(temporaries[view], "wb") as handle:
+                    handle.write(encoded_artifacts[view])
+                    handle.flush()
+                    os.fsync(handle.fileno())
+            for view in ARTIFACT_VIEWS:
+                os.replace(temporaries[view], targets[view])
+                committed.append(targets[view])
+        except OSError:
+            for target in committed:
+                target.unlink(missing_ok=True)
+            raise
         finally:
-            if temporary.exists():
-                temporary.unlink()
+            for temporary in temporaries.values():
+                temporary.unlink(missing_ok=True)
 
-        artifacts = sorted(
+        overlays = sorted(
             INSPECTION_ARTIFACT_DIR.glob("RUN_*.jpg"),
             key=lambda path: path.stat().st_mtime_ns,
             reverse=True,
         )
-        for expired in artifacts[MAX_INSPECTION_ARTIFACTS:]:
-            expired.unlink()
+        overlays = [
+            path for path in overlays
+            if not path.stem.endswith(("_raw", "_input"))
+        ]
+        for expired_overlay in overlays[MAX_INSPECTION_ARTIFACTS:]:
+            expired_run_id = expired_overlay.stem
+            for view in ARTIFACT_VIEWS:
+                _inspection_artifact_path(expired_run_id, view).unlink(missing_ok=True)
     return True
 
 
 def _dataset_catalog(offset: int = 0, limit: int = 24) -> Dict[str, Any]:
-    """Return a cached, paginated basename-only catalog of local demo images."""
-    global _dataset_catalog_cache
+    """Return bounded demo metadata without image payloads or host paths."""
+    global _dataset_catalog_cache, _dataset_catalog_identity
     with _dataset_catalog_lock:
         if _dataset_catalog_cache is None:
             names = []
@@ -538,16 +603,56 @@ def _dataset_catalog(offset: int = 0, limit: int = 24) -> Dict[str, Any]:
                             names.append(entry.name)
                             if len(names) >= 50_000:
                                 break
-            _dataset_catalog_cache = tuple(sorted(names))
-        names = _dataset_catalog_cache
-    page = names[offset:offset + limit]
+            try:
+                manifest = json.loads(DEMO_DATASET_MANIFEST.read_text(encoding="utf-8"))
+                manifest_records = {
+                    str(record["filename"]): record
+                    for record in manifest.get("samples", [])
+                    if isinstance(record, dict) and record.get("filename")
+                }
+            except (OSError, ValueError, TypeError):
+                manifest = {}
+                manifest_records = {}
+
+            catalog_records = []
+            all_verified = bool(names)
+            for name in sorted(names):
+                record = manifest_records.get(name, {})
+                expected_hash = str(record.get("sha256") or "").lower()
+                path = Path(TEST_SET_DIR, name)
+                actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+                hash_verified = bool(expected_hash) and secrets.compare_digest(
+                    expected_hash, actual_hash
+                )
+                all_verified = all_verified and hash_verified
+                catalog_records.append({
+                    "filename": name,
+                    "source_type": record.get("source_type", "UNVERIFIED"),
+                    "capture_stage": record.get("capture_stage", "unknown"),
+                    "source_id": record.get("source_id"),
+                    "license": record.get("license"),
+                    "sha256": actual_hash,
+                    "hash_verified": hash_verified,
+                })
+            all_verified = all_verified and len(manifest_records) == len(names)
+            _dataset_catalog_cache = tuple(catalog_records)
+            _dataset_catalog_identity = {
+                "dataset_name": manifest.get("dataset_name", "Unverified local dataset"),
+                "dataset_source": manifest.get("source"),
+                "dataset_license": manifest.get("license"),
+                "provenance_verified": all_verified,
+            }
+        records = _dataset_catalog_cache
+        identity = dict(_dataset_catalog_identity)
+    page = records[offset:offset + limit]
     return {
-        "total": len(names),
+        "total": len(records),
         "offset": offset,
         "limit": limit,
         "returned": len(page),
-        "items": [{"filename": name} for name in page],
-        "truncated_at_source": len(names) >= 50_000,
+        "items": list(page),
+        **identity,
+        "truncated_at_source": len(records) >= 50_000,
         "image_payloads_included": False,
     }
 
@@ -808,7 +913,7 @@ async def inspect(
 
     Image sources (priority):
     1. multipart `image` upload
-    2. `sample_name` from data/test_set/images (e.g. defect_val_00000.jpg)
+    2. `sample_name` from the attributed real optical demo subset
     3. camera simulation canvas (+ optional simulate_defect overlay)
     """
     using_real_image = False
@@ -1044,7 +1149,7 @@ def list_demo_samples(
     offset: int = Query(0, ge=0, le=10_000),
     limit: int = Query(100, ge=1, le=100),
 ):
-    """List demo images available under data/test_set/images."""
+    """List attributed real optical demo images available in simulation mode."""
     if not SIMULATION_MODE:
         raise HTTPException(status_code=404, detail="Demo samples are disabled in production")
     catalog = _dataset_catalog(offset=offset, limit=limit)
@@ -1053,7 +1158,7 @@ def list_demo_samples(
         **catalog,
         "samples": samples,
         "count": catalog["total"],
-        "directory": "data/test_set/images",
+        "directory": "data/demo_real/images",
     }
 
 
@@ -1067,10 +1172,13 @@ def get_dataset_catalog(
 
 
 @app.get("/api/inspections/{run_id}/image")
-def get_inspection_image(run_id: str):
-    """Return one authenticated overlay only for the active roll/batch identity."""
+def get_inspection_image(
+    run_id: str,
+    view: Literal["raw", "input", "overlay"] = Query("overlay"),
+):
+    """Return one authenticated bounded view for the active roll/batch identity."""
     try:
-        path = _inspection_artifact_path(run_id)
+        path = _inspection_artifact_path(run_id, view)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     identity = quality_mem.get_inspection_identity(run_id)
@@ -1084,7 +1192,10 @@ def get_inspection_image(run_id: str):
     ):
         raise HTTPException(status_code=404, detail="Inspection run is outside the active roll/batch")
     if not path.is_file():
-        raise HTTPException(status_code=404, detail="Inspection image artifact is unavailable")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Inspection {view} image artifact is unavailable",
+        )
     return FileResponse(path, media_type="image/jpeg")
 
 
@@ -1208,14 +1319,31 @@ def get_operations_snapshot(signal_limit: int = Query(25, ge=1, le=100)):
     recent_inspections = quality_mem.get_recent_inspections(batch_id, limit=20)
     for inspection in recent_inspections.get("records", []):
         run_id = inspection.get("run_id")
+        artifact_views = {}
         try:
-            image_available = bool(run_id and _inspection_artifact_path(run_id).is_file())
+            for view in ARTIFACT_VIEWS:
+                available = bool(
+                    run_id and _inspection_artifact_path(run_id, view).is_file()
+                )
+                artifact_views[view] = {
+                    "available": available,
+                    "endpoint": (
+                        f"/api/inspections/{run_id}/image?view={view}"
+                        if available else None
+                    ),
+                }
+            image_available = artifact_views["overlay"]["available"]
         except ValueError:
             image_available = False
+            artifact_views = {
+                view: {"available": False, "endpoint": None}
+                for view in ARTIFACT_VIEWS
+            }
         inspection["image_available"] = image_available
         inspection["image_endpoint"] = (
             f"/api/inspections/{run_id}/image" if image_available else None
         )
+        inspection["artifacts"] = artifact_views
     industrial = industrial_mgr.get_plc_state()
     signals = industrial_mgr.get_signal_history(limit=signal_limit)
     control_audit = quality_mem.get_recent_control_audits(limit=25)

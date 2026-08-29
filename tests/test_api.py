@@ -34,6 +34,7 @@ from api.main import app  # noqa: E402
 
 ONNX_PATH = os.path.join(ROOT, "outputs", "model.onnx")
 TEST_IMG = os.path.join(ROOT, "data", "test_set", "images", "defect_val_00000.jpg")
+REAL_DEMO_IMG = os.path.join(ROOT, "data", "demo_real", "images", "image_1548.jpg")
 
 
 class ASGITestClient:
@@ -91,8 +92,11 @@ class TestAPI(unittest.TestCase):
         body = resp.json()
         self.assertLessEqual(body["returned"], 3)
         self.assertFalse(body["image_payloads_included"])
+        self.assertTrue(body["provenance_verified"])
+        self.assertEqual(body["dataset_license"], "CC BY 4.0")
         for item in body["items"]:
-            self.assertEqual(set(item), {"filename"})
+            self.assertEqual(item["source_type"], "REAL_OPTICAL")
+            self.assertTrue(item["hash_verified"])
             self.assertEqual(os.path.basename(item["filename"]), item["filename"])
 
     def test_active_roll_discovery_is_authoritative(self):
@@ -154,16 +158,16 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(resp.json()["batch_id"], "BATCH_2026_MSE_01")
 
     @unittest.skipUnless(
-        os.path.isfile(ONNX_PATH) and os.path.isfile(TEST_IMG),
-        "ONNX model or test image missing",
+        os.path.isfile(ONNX_PATH) and os.path.isfile(REAL_DEMO_IMG),
+        "ONNX model or real demo image missing",
     )
-    def test_inspect_sample_name_detects_defect(self):
+    def test_inspect_attributed_real_sample_stays_fail_closed(self):
         resp = self.client.post(
             "/api/inspect",
             data={
                 "batch_id": "BATCH_2026_MSE_01",
                 "part_id": "PART_API_SAMPLE",
-                "sample_name": "defect_val_00000.jpg",
+                "sample_name": "image_1548.jpg",
                 "thermal_online": "true",
                 "profiler_online": "true",
             },
@@ -174,8 +178,8 @@ class TestAPI(unittest.TestCase):
             str(body["engine"]).startswith("ONNX")
             or str(body["engine"]).startswith("YOLO")
         )
-        self.assertGreaterEqual(len(body["defects_found"]), 1)
         self.assertFalse(body["passed"])
+        self.assertIn(body["gate_action"], {"HOLD", "REJECT"})
         roll_snapshot = self.client.get("/api/roll/active").json()
         ledger_ids = {
             record["defect_id"]
@@ -204,6 +208,18 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(image_response.status_code, 200)
         self.assertTrue(image_response.headers["content-type"].startswith("image/jpeg"))
         self.assertGreater(len(image_response.content), 1000)
+        for view in ("raw", "input", "overlay"):
+            view_response = self.client.get(
+                f"/api/inspections/{body['run_id']}/image",
+                params={"view": view},
+            )
+            self.assertEqual(view_response.status_code, 200)
+            self.assertTrue(view_response.content.startswith(b"\xff\xd8\xff"))
+        invalid_view = self.client.get(
+            f"/api/inspections/{body['run_id']}/image",
+            params={"view": "ground_truth"},
+        )
+        self.assertEqual(invalid_view.status_code, 422)
 
     def test_required_artifact_failure_is_persisted_fail_closed(self):
         with patch("api.main.REQUIRE_INSPECTION_ARTIFACTS", True), patch(
