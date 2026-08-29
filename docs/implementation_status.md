@@ -105,12 +105,12 @@ The latest repository validation is recorded by `scripts/record_test_manifest.py
 <!-- TEST_MANIFEST:START -->
 ```text
 D:\tu_projects\securecoating-vision\.venv\Scripts\python.exe -m pytest -q
-168 passed in 36.94s
+171 passed in 70.98s
 python 3.11.9
-commit eb83aad23516f46e995863f8cac0447faeeefba9
+commit 78785b8484d6e59fae1dd66bb2f1d26784dd1b92
 working_tree_dirty False
 source_diff_sha256 None
-log_sha256 8ca9398feddb8acb7f31fa1299ea272ee61b00e8f52bd0870f980ff1e9eb579f
+log_sha256 d511d7d9792969046e1af2e62c1f52e20090d68ed086a0b507025f9c9027db3f
 ```
 <!-- TEST_MANIFEST:END -->
 
