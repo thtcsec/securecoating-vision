@@ -43,8 +43,10 @@ st.markdown("""
         background: #151B28;
         border-left: 4px solid #00F2FE;
         border-radius: 6px;
-        padding: 12px 16px;
+        padding: 14px 18px;
         margin-bottom: 10px;
+        min-height: 104px;
+        box-sizing: border-box;
     }
     .metric-label {
         font-size: 11px;
@@ -56,8 +58,11 @@ st.markdown("""
     .metric-val {
         font-size: 22px;
         font-weight: 800;
+        line-height: 1.18;
         color: #FFFFFF;
         font-family: 'SF Pro Display', -apple-system, sans-serif;
+        overflow-wrap: normal;
+        word-break: normal;
     }
     .status-optimal { color: #00E676; }
     .status-warning { color: #FFD600; }

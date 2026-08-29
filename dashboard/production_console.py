@@ -118,7 +118,7 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
     )
     sys_class = "status-optimal" if sys_state == "OPTIMAL" else "status-warning"
 
-    m1, m2, m3, m4, m5, m6 = st.columns(6)
+    m1, m2, m3 = st.columns(3)
     with m1:
         _metric_card(
             "Line Velocity",
@@ -138,6 +138,7 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
             "#FFD600",
             pass_class,
         )
+    m4, m5, m6 = st.columns(3)
     with m4:
         _metric_card(
             "Mean Pipeline Latency",
