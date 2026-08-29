@@ -15,7 +15,7 @@ The repository contains a fail-closed inspection prototype, traceability experim
 The initial prototype validated the software and safety contract using RGB inspection and simulated secondary modalities. The repository now contains a validation adapter and 10-seed harness for [LIBAD](https://arxiv.org/abs/2608.07958), whose official release contains aligned visible-light and inline-compatible X-ray data from real roll-to-roll electrode manufacturing. The checked-in demo and benchmark reports use deterministic protocol fixtures because the official dataset/splits are not present. This is a validation extension, not a change of topic. Details are in [docs/libad_validation_extension.md](docs/libad_validation_extension.md).
 
 <!-- TEST_MANIFEST:START -->
-The current software validation snapshot is 156 passing tests with 0 skips and 0 failures (commit `3b630c19c3e1`, working tree clean, source diff `none`, Python 3.11.9, 42.69s). The authoritative record is [reports/test_manifest.json](reports/test_manifest.json). This does not constitute evidence of factory performance, physical PLC behavior, safety-rated E-stop operation, or production qualification.
+The current software validation snapshot is 158 passing tests with 0 skips and 0 failures (commit `655a27930eba`, working tree clean, source diff `none`, Python 3.11.9, 39.14s). The authoritative record is [reports/test_manifest.json](reports/test_manifest.json). This does not constitute evidence of factory performance, physical PLC behavior, safety-rated E-stop operation, or production qualification.
 <!-- TEST_MANIFEST:END -->
 
 ## Current safety contract
