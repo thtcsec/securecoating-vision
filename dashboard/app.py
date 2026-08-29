@@ -77,6 +77,42 @@ st.markdown("""
     }
     .stage-done { background: #1B5E20; color: #00E676; }
     .stage-active { background: #01579B; color: #40C4FF; }
+    div[data-testid="stButtonGroup"] {
+        background: #131824;
+        border: 1px solid #222C3E;
+        border-radius: 10px;
+        padding: 6px 8px;
+        margin: 0 0 8px 0;
+    }
+    div[data-testid="stButtonGroup"] > div {
+        flex-wrap: wrap;
+        row-gap: 4px;
+    }
+    div[data-testid="stButtonGroup"] button {
+        min-height: 38px;
+    }
+    div[data-testid="stButtonGroup"] [aria-checked="true"] {
+        background: #0E3A45 !important;
+        color: #00E5FF !important;
+        border-color: #00E5FF !important;
+    }
+    header[data-testid="stHeader"] { background: transparent; }
+    div[data-testid="stToolbar"] { display: none; }
+    div[data-testid="stStatusWidget"] { display: none; }
+    div[data-testid="stSkeleton"] { display: none !important; }
+    /* Streamlit fades the tree on every rerun (tab switch + 5s live strip). */
+    .stApp, .stApp * {
+        animation: none !important;
+        animation-duration: 0s !important;
+        animation-delay: 0s !important;
+        transition: none !important;
+        transition-duration: 0s !important;
+    }
+    [data-stale="true"] {
+        opacity: 1 !important;
+        filter: none !important;
+    }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -97,20 +133,36 @@ api_client = InspectionApiClient(
 )
 
 if not DASHBOARD_SANDBOX_ENABLED:
-    from dashboard.production_console import render_production_console
+    from dashboard.production_console import render_live_strip, render_production_console
+
+    force_reload = bool(st.session_state.pop("ops_force_reload", False))
+    if force_reload or "ops_snapshot" not in st.session_state:
+        try:
+            st.session_state["ops_snapshot"] = api_client.operations_snapshot()
+        except (OSError, ValueError, KeyError, requests.RequestException):
+            if "ops_snapshot" not in st.session_state:
+                st.error(
+                    "Authoritative API unavailable. Production dashboard refuses local fallback."
+                )
+                st.stop()
+            st.warning("Snapshot reload failed. Last authoritative snapshot remains on screen.")
 
     @st.fragment(run_every="5s")
-    def render_authoritative_console() -> None:
+    def refresh_live_telemetry() -> None:
         try:
             snapshot = api_client.operations_snapshot()
+            st.session_state["ops_snapshot"] = snapshot
         except (OSError, ValueError, KeyError, requests.RequestException):
-            st.error(
-                "Authoritative API unavailable. Production dashboard refuses local fallback."
-            )
-            st.stop()
-        render_production_console(snapshot, api_client)
+            st.warning("Live telemetry refresh failed. Last authoritative snapshot remains on screen.")
+            snapshot = st.session_state["ops_snapshot"]
+        render_live_strip(snapshot)
 
-    render_authoritative_console()
+    @st.fragment
+    def render_operator_views() -> None:
+        render_production_console(st.session_state["ops_snapshot"], api_client)
+
+    refresh_live_telemetry()
+    render_operator_views()
     st.stop()
 
 from dashboard.sandbox_console import render_sandbox_console

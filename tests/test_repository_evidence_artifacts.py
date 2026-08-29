@@ -60,9 +60,13 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         records = {record["filename"]: record for record in manifest["samples"]}
         images = sorted((demo_root / "images").glob("*.jpg"))
         self.assertEqual(set(records), {path.name for path in images})
+        self.assertGreaterEqual(len(images), 80)
+        self.assertEqual(manifest.get("split"), "test")
+        self.assertEqual(manifest.get("license"), "CC BY 4.0")
         for path in images:
             self.assertEqual(records[path.name]["source_type"], "REAL_OPTICAL")
             self.assertEqual(records[path.name]["license"], "CC BY 4.0")
+            self.assertEqual(records[path.name].get("split"), "test")
             self.assertEqual(
                 records[path.name]["sha256"],
                 hashlib.sha256(path.read_bytes()).hexdigest(),
@@ -83,6 +87,11 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn("data/**", dockerignore)
         self.assertIn("outputs/**", dockerignore)
         self.assertIn("./data:/app/data", compose)
+        self.assertIn("./dashboard:/app/dashboard:ro", compose)
+        self.assertIn("./.streamlit:/app/.streamlit:ro", compose)
+        streamlit_config = (ROOT / ".streamlit/config.toml").read_text(encoding="utf-8")
+        self.assertIn('toolbarMode = "minimal"', streamlit_config)
+        self.assertIn('primaryColor = "#00E5FF"', streamlit_config)
         self.assertIn("./outputs:/app/outputs", compose)
         self.assertIn('SECURECOATING_INFERENCE_DEVICE: "cpu"', compose)
         self.assertIn('SECURECOATING_DASHBOARD_SANDBOX: "false"', compose)
@@ -99,6 +108,13 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn("Operate", production_source)
         self.assertIn("Diagnose", production_source)
         self.assertIn("Traceability", production_source)
+        self.assertIn('key="ops_view"', production_source)
+        self.assertIn("def render_live_strip", production_source)
+        self.assertIn('key="ops_reload"', production_source)
+        self.assertIn('st.rerun(scope="app")', production_source)
+        self.assertNotIn("st.tabs", production_source)
+        self.assertNotIn("Bắt đầu", production_source)
+        self.assertNotIn("run_every", production_source)
 
     def test_external_demo_accepts_output_paths_outside_repository(self):
         external_path = Path("C:/securecoating-manual/output.png")

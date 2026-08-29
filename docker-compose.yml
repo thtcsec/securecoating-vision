@@ -76,10 +76,12 @@ services:
       - ./outputs:/app/outputs
       - ./data:/app/data
       - ./logs:/app/logs
+      - ./dashboard:/app/dashboard:ro
+      - ./.streamlit:/app/.streamlit:ro
     depends_on:
       api:
         condition: service_healthy
-    command: streamlit run dashboard/app.py --server.address=0.0.0.0 --server.port=8501 --server.headless=true
+    command: streamlit run dashboard/app.py --server.address=0.0.0.0 --server.port=8501 --server.headless=true --client.toolbarMode=minimal
     restart: unless-stopped
     read_only: true
     tmpfs:

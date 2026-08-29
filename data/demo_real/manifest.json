@@ -1,57 +1,804 @@
 {
-  "schema_version": "1.0",
-  "dataset_name": "CoatingVision real optical demo subset",
+  "schema_version": "1.1",
+  "dataset_name": "CoatingVision held-out test-split optical frames",
   "source": "CoatingVision, Figshare DOI 10.6084/m9.figshare.29260121.v1",
   "license": "CC BY 4.0",
-  "purpose": "attributed real-input demonstration; not an independent metric set",
+  "purpose": "attributed real-input demonstration from the project test split; not an independent factory metric set",
+  "parent_archive_images": 2227,
+  "parent_labeled_split_images": 581,
+  "split": "test",
   "samples": [
     {
-      "filename": "image_1090.jpg",
-      "source_id": "CoatingVision/image_1090",
+      "filename": "image_25.jpg",
+      "source_id": "CoatingVision/image_25",
       "source_type": "REAL_OPTICAL",
       "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
       "license": "CC BY 4.0",
-      "sha256": "acc2c7a4c50a64156ca2d9a6882ddf23078eec97624ec73dbfdbf27b71c3c821"
+      "sha256": "255455a11750a8820bb2794b929d583fca8aaeb9b0b52c666641da395181288e"
     },
     {
-      "filename": "image_1256.jpg",
-      "source_id": "CoatingVision/image_1256",
+      "filename": "image_92.jpg",
+      "source_id": "CoatingVision/image_92",
       "source_type": "REAL_OPTICAL",
       "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
       "license": "CC BY 4.0",
-      "sha256": "ad57200ddb104a2bfb8da0313012259e1555a7fa80e41d6b172b139334c056fe"
+      "sha256": "2015403bffa7c31bd9f79ea72762f790a8f75f4232c9fc2c5bd3a59984a19d6f"
     },
     {
-      "filename": "image_1435.jpg",
-      "source_id": "CoatingVision/image_1435",
+      "filename": "image_232.jpg",
+      "source_id": "CoatingVision/image_232",
       "source_type": "REAL_OPTICAL",
       "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
       "license": "CC BY 4.0",
-      "sha256": "2de1dbea456e60de524784e2a4d8fd2579d9060dd70a462fb5ca13ef18ca445c"
+      "sha256": "ba57add9137add0f8b58c5a0565fc5800ee387fee14df0a8a8574e03321c83c5"
     },
     {
-      "filename": "image_1548.jpg",
-      "source_id": "CoatingVision/image_1548",
+      "filename": "image_233.jpg",
+      "source_id": "CoatingVision/image_233",
       "source_type": "REAL_OPTICAL",
       "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
       "license": "CC BY 4.0",
-      "sha256": "88db1995244c387af1538e9f948836c7bd3f4fbcc9da49bcce3349b8b4f15a12"
+      "sha256": "1a92db2066ddbdad3d0606accfde2d0804175152d9f1e0d9f546c4e8f55107fc"
     },
     {
-      "filename": "image_1847.jpg",
-      "source_id": "CoatingVision/image_1847",
+      "filename": "image_236.jpg",
+      "source_id": "CoatingVision/image_236",
       "source_type": "REAL_OPTICAL",
       "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
       "license": "CC BY 4.0",
-      "sha256": "919049bd57466ad10eac8349231de59342e70e19781a103a18a4f3ca5236e2c9"
+      "sha256": "d4d47ccb52c3bd1c005d7a4cff5ed22c927857db9f97d00dba85d0d80c3d5acc"
+    },
+    {
+      "filename": "image_237.jpg",
+      "source_id": "CoatingVision/image_237",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "41c690cdd5f0e0fc4cb84ef2d6719dae1afc9870f7b1b14890eb5b56ff5b5bc6"
+    },
+    {
+      "filename": "image_245.jpg",
+      "source_id": "CoatingVision/image_245",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "61573f813284e00a9e52e7165f00ee402360537b32c25f38e5bb48155a394d4b"
+    },
+    {
+      "filename": "image_262.jpg",
+      "source_id": "CoatingVision/image_262",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "49200f6c67f31f7236e2145639f8a07164b4fd997f0db3cac728d949be343c72"
+    },
+    {
+      "filename": "image_348.jpg",
+      "source_id": "CoatingVision/image_348",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "c49acfe612c31ef0b6ce641533e8ebdd661a3c33afce17a51f23ea06388dfcb0"
+    },
+    {
+      "filename": "image_360.jpg",
+      "source_id": "CoatingVision/image_360",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "d20a933a4c0af85e2c0c04be67c6656d66b7855c43b3123a2c7dce536bcb6a67"
+    },
+    {
+      "filename": "image_422.jpg",
+      "source_id": "CoatingVision/image_422",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "f389bfade872ce0f47bcfac0d55a9982fcb95b519fb75a5a7792a86415510b8e"
+    },
+    {
+      "filename": "image_457.jpg",
+      "source_id": "CoatingVision/image_457",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "f3901d03185efb4ce276acdea6b57e35b9236c2de194d69398eb01c86a5274c3"
+    },
+    {
+      "filename": "image_491.jpg",
+      "source_id": "CoatingVision/image_491",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "11f6ad60ed7acadc31567c34c5a968af783260cd94bf1dc4d721714933049882"
     },
     {
       "filename": "image_565.jpg",
       "source_id": "CoatingVision/image_565",
       "source_type": "REAL_OPTICAL",
       "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
       "license": "CC BY 4.0",
       "sha256": "959de9ffa94d17d58dc2b27857937cc44a06599a6ab51be55d8d86cf83e26c62"
+    },
+    {
+      "filename": "image_590.jpg",
+      "source_id": "CoatingVision/image_590",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "02ad2408795f6f1f5eb7900fe2f45e673fbfe8e794ff1aae64a50c7a3f486512"
+    },
+    {
+      "filename": "image_606.jpg",
+      "source_id": "CoatingVision/image_606",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "e43020edae6248d1f5184ba66575c9b49ea3ab36264a8e514b838a1b49b56496"
+    },
+    {
+      "filename": "image_612.jpg",
+      "source_id": "CoatingVision/image_612",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "ba89646dbe45b3f2832b1f051d86bb8419ee1c95abd48b3ab6632ef0c4a8b889"
+    },
+    {
+      "filename": "image_659.jpg",
+      "source_id": "CoatingVision/image_659",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "ca6d905e0e31d695c053bef159d9f0287e2fef2f6febeba473427deb1b1fb502"
+    },
+    {
+      "filename": "image_723.jpg",
+      "source_id": "CoatingVision/image_723",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "744999d9c51c520720a9efc4355a848b98bd9be222e4bbde772aac06789a2dcf"
+    },
+    {
+      "filename": "image_730.jpg",
+      "source_id": "CoatingVision/image_730",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "9cea1760c19a66a685ee8560205befa920a33d526c142c27cec712f28dab6e68"
+    },
+    {
+      "filename": "image_770.jpg",
+      "source_id": "CoatingVision/image_770",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "ecd84d9c66a738acf2cdf68cd7dc22d1e35c3ea97dbf7baaedbbae3a4e469c04"
+    },
+    {
+      "filename": "image_774.jpg",
+      "source_id": "CoatingVision/image_774",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "5b9997958b2adf5ec9ad07339ead8b229c05e67d985516c14f336e48cae0cfbd"
+    },
+    {
+      "filename": "image_799.jpg",
+      "source_id": "CoatingVision/image_799",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "df0fdb336d167e862ad7213ca84b7e6fcbf5397164a8cfa628c5b6559bb9405e"
+    },
+    {
+      "filename": "image_811.jpg",
+      "source_id": "CoatingVision/image_811",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "2c5f92663d0c6bc863a439e287df687391518182338464f004ecb87b359a0b98"
+    },
+    {
+      "filename": "image_814.jpg",
+      "source_id": "CoatingVision/image_814",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "2f5240515d084162eb72b27b6f54712a9b9fcdf530a703935ee81ba567b8b8a1"
+    },
+    {
+      "filename": "image_821.jpg",
+      "source_id": "CoatingVision/image_821",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "5b790d8e2cf265ac614060f518a1b0ac0b436ddbfd29092ace636d145da6b4b9"
+    },
+    {
+      "filename": "image_822.jpg",
+      "source_id": "CoatingVision/image_822",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "7704e9d5aad504a2a5103c720c96f530ceeeda71fe8b232b263a2cac8aabe12f"
+    },
+    {
+      "filename": "image_839.jpg",
+      "source_id": "CoatingVision/image_839",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "366524a3c403ecc1b2c6eaf9c1937c2e198b6cfd15100ac02f726064ca04cedd"
+    },
+    {
+      "filename": "image_853.jpg",
+      "source_id": "CoatingVision/image_853",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "7d8856a28b969a5e946c7e2fbcbb335b5d60946c364475d4d85f410827139c52"
+    },
+    {
+      "filename": "image_862.jpg",
+      "source_id": "CoatingVision/image_862",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "4b24c289eee4616e06fcb412892f27be31a1fbcae36e450a4d7a283c482d97f9"
+    },
+    {
+      "filename": "image_900.jpg",
+      "source_id": "CoatingVision/image_900",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "3b8f722ee20154ec31aced49913afd1eb81c4684c2fd485da137c7d1e57bd89f"
+    },
+    {
+      "filename": "image_914.jpg",
+      "source_id": "CoatingVision/image_914",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "c9fef449334d7a71ae1d401832a61623b2eeb413b17d40fdb85de11b8bd089da"
+    },
+    {
+      "filename": "image_970.jpg",
+      "source_id": "CoatingVision/image_970",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "1a6e6b2733666f70ad200ad7ded4751ed1264cbea33975ae670964c2a34cb012"
+    },
+    {
+      "filename": "image_979.jpg",
+      "source_id": "CoatingVision/image_979",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "004f0cfacdf2a932471f5c651f9e9055d41914352adc417e79aacfc2e1d12d47"
+    },
+    {
+      "filename": "image_1019.jpg",
+      "source_id": "CoatingVision/image_1019",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "08b88c7c9a8b098c0da77bf0acc1ec4831b0c8bfb6deb06184676c813333c325"
+    },
+    {
+      "filename": "image_1053.jpg",
+      "source_id": "CoatingVision/image_1053",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "52cde56ac04080c6cc752a4e0eb5aad01de5c1c646b2c9f45a0c820283f630a2"
+    },
+    {
+      "filename": "image_1067.jpg",
+      "source_id": "CoatingVision/image_1067",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "665ecb4347ad679cc64cd4b0aecaf4347612e57067802c38aaa44d7c06e7eceb"
+    },
+    {
+      "filename": "image_1077.jpg",
+      "source_id": "CoatingVision/image_1077",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "7292e6561a0ebe6ebd6baa3d8187e59b610d57c46ceb35cc17ee72e375603ff1"
+    },
+    {
+      "filename": "image_1082.jpg",
+      "source_id": "CoatingVision/image_1082",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "d8ffc5571d74b4354b750e8e4238d37b365dc987d68896df0cacc0d944c44cb9"
+    },
+    {
+      "filename": "image_1090.jpg",
+      "source_id": "CoatingVision/image_1090",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "acc2c7a4c50a64156ca2d9a6882ddf23078eec97624ec73dbfdbf27b71c3c821"
+    },
+    {
+      "filename": "image_1097.jpg",
+      "source_id": "CoatingVision/image_1097",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "cb3f21fae5b9279fb160985974bc3e78a0743fc56d3e9f22bb1db3524d7aa23f"
+    },
+    {
+      "filename": "image_1104.jpg",
+      "source_id": "CoatingVision/image_1104",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "66d2071a320bba2a1db9885b0b55e999862ebb76af391d26c28a6e331a8c0b1c"
+    },
+    {
+      "filename": "image_1130.jpg",
+      "source_id": "CoatingVision/image_1130",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "275ef5ffea748bd701247f4dbcf6ce062231092abd664f5ac406930d0d7ac42f"
+    },
+    {
+      "filename": "image_1135.jpg",
+      "source_id": "CoatingVision/image_1135",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "93698eb0ccb13b9357f08f612305f26e856e325402c814547bb751af0fe6d06f"
+    },
+    {
+      "filename": "image_1222.jpg",
+      "source_id": "CoatingVision/image_1222",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "42d9395576c44a084185158f8d3971a437ed9e327ea953eb5a9f3b483bd7f3fd"
+    },
+    {
+      "filename": "image_1253.jpg",
+      "source_id": "CoatingVision/image_1253",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "a55a8a88d12a7686e7c6c271296c21b29e8b8424a5f6de5d68c2f4f7bf963af9"
+    },
+    {
+      "filename": "image_1256.jpg",
+      "source_id": "CoatingVision/image_1256",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "ad57200ddb104a2bfb8da0313012259e1555a7fa80e41d6b172b139334c056fe"
+    },
+    {
+      "filename": "image_1307.jpg",
+      "source_id": "CoatingVision/image_1307",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "9ee4da1b336c8056b9bbc4a1a6b0b47983f4fc3bb48550fb050a1d854cc90967"
+    },
+    {
+      "filename": "image_1333.jpg",
+      "source_id": "CoatingVision/image_1333",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "3ac26ba9dbefe1617fa98f3fd449176912810511deabcc72e48b6d4e7831b24d"
+    },
+    {
+      "filename": "image_1340.jpg",
+      "source_id": "CoatingVision/image_1340",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "db89a531591b841efc0c0741cf71584004ee4af39fdc1c080b4111b9f72e6d9e"
+    },
+    {
+      "filename": "image_1344.jpg",
+      "source_id": "CoatingVision/image_1344",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "8b02f0a6e9b1599b3820eb4f8a08aacabf45a24782c42b172d669efc2d09a3b8"
+    },
+    {
+      "filename": "image_1435.jpg",
+      "source_id": "CoatingVision/image_1435",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "2de1dbea456e60de524784e2a4d8fd2579d9060dd70a462fb5ca13ef18ca445c"
+    },
+    {
+      "filename": "image_1469.jpg",
+      "source_id": "CoatingVision/image_1469",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "2c6078b0de708ed1840af81241de160acc8064335b22425b23de5ac70b145274"
+    },
+    {
+      "filename": "image_1487.jpg",
+      "source_id": "CoatingVision/image_1487",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "7b0d9201124c55ad4f0f0296fc98ad253f4a755fafa9629ca03d7b6791e443ec"
+    },
+    {
+      "filename": "image_1499.jpg",
+      "source_id": "CoatingVision/image_1499",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "9ebd0faf0288a3a96bd7b9cb60518c763b5a16c1dad14f53a126f477772207c5"
+    },
+    {
+      "filename": "image_1530.jpg",
+      "source_id": "CoatingVision/image_1530",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "3b2053d38e028e4aa08e08c64a072cd38e80bd5f12f4c7667934552a5811ceb1"
+    },
+    {
+      "filename": "image_1535.jpg",
+      "source_id": "CoatingVision/image_1535",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "4baf73e12a76bfb731da9bcf89045e2dfa774985e557bd4983f5dfd40d856bac"
+    },
+    {
+      "filename": "image_1548.jpg",
+      "source_id": "CoatingVision/image_1548",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "88db1995244c387af1538e9f948836c7bd3f4fbcc9da49bcce3349b8b4f15a12"
+    },
+    {
+      "filename": "image_1562.jpg",
+      "source_id": "CoatingVision/image_1562",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "29f43102079efd537d0beb1be74316f7463f045a63d76aaadcb9dfaf1d0d9a44"
+    },
+    {
+      "filename": "image_1565.jpg",
+      "source_id": "CoatingVision/image_1565",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "e6eca91dacbca4d99ca05191f0914ba48eb0ca8b9a71c2cf912dd49a5aff381f"
+    },
+    {
+      "filename": "image_1585.jpg",
+      "source_id": "CoatingVision/image_1585",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "4382e346eeb5bd96a42ef019f2d90bedf2df5325d6bf6d848ac903faceee7ba0"
+    },
+    {
+      "filename": "image_1588.jpg",
+      "source_id": "CoatingVision/image_1588",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "59156e571e39ffce4938db4bd0457da6b83f4522b37aeda3bc7ffb5228f76b4d"
+    },
+    {
+      "filename": "image_1603.jpg",
+      "source_id": "CoatingVision/image_1603",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "91a606e5ecee59cda865515193db6ccde6a67a7f34f544cbbf1049b83748be98"
+    },
+    {
+      "filename": "image_1665.jpg",
+      "source_id": "CoatingVision/image_1665",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "5846900e78c714c7103ace1d3072f1c1d9457b1df2fd8004d9e428f907f0c608"
+    },
+    {
+      "filename": "image_1669.jpg",
+      "source_id": "CoatingVision/image_1669",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "23d5ef7aee190b4017e844d96365cf4857a0c0937420c176a4dfa4a85574aece"
+    },
+    {
+      "filename": "image_1683.jpg",
+      "source_id": "CoatingVision/image_1683",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "92fef215de6d39c7d65104b645e45fef762aa7a1dc9c57605008cc9ec639c83a"
+    },
+    {
+      "filename": "image_1708.jpg",
+      "source_id": "CoatingVision/image_1708",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "9ee245bc65611a519ba9284efbe5ce13a3fea626013daee46295a1bcaa732cfe"
+    },
+    {
+      "filename": "image_1738.jpg",
+      "source_id": "CoatingVision/image_1738",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "856904b8d103b5369c36d69450a113abca9539b41fdcdd85162c744579cdd8f7"
+    },
+    {
+      "filename": "image_1757.jpg",
+      "source_id": "CoatingVision/image_1757",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "e36ed2878fee79293ff04c30df6a17100f2421af4a318812a55985c3f2a7f336"
+    },
+    {
+      "filename": "image_1790.jpg",
+      "source_id": "CoatingVision/image_1790",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "2f2dc45898c2ab57e50fcd7ee35859cfee449c84717c0335b8247d4800905fe2"
+    },
+    {
+      "filename": "image_1816.jpg",
+      "source_id": "CoatingVision/image_1816",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "350a65d0c83519d327ed9df3867d374ae810fa1611709bfd599f52062ab1be34"
+    },
+    {
+      "filename": "image_1847.jpg",
+      "source_id": "CoatingVision/image_1847",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "919049bd57466ad10eac8349231de59342e70e19781a103a18a4f3ca5236e2c9"
+    },
+    {
+      "filename": "image_1850.jpg",
+      "source_id": "CoatingVision/image_1850",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "8a888b49583675b41f4a437c209b2640753952ebba23bd3385fdc2f946a3caf1"
+    },
+    {
+      "filename": "image_1876.jpg",
+      "source_id": "CoatingVision/image_1876",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "b70ef6a5f1e2a3a87b882d8688ef1af3c8cb5bd3093eca2f5b7a02c181902387"
+    },
+    {
+      "filename": "image_1881.jpg",
+      "source_id": "CoatingVision/image_1881",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "e092be8618e8e27d03eed4a4977e0c553909f5252d01f6431c4e9cb63bf33f3c"
+    },
+    {
+      "filename": "image_1883.jpg",
+      "source_id": "CoatingVision/image_1883",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "89bdb58b08dc2a7c2a2903aa897ca1703a88ba9ff76c343ccfbc966d5a7c7d71"
+    },
+    {
+      "filename": "image_1896.jpg",
+      "source_id": "CoatingVision/image_1896",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "b12b57db2c0c2429976ee8e8e5bcb597cda228bd975f4f3f9c7d03efcf950abe"
+    },
+    {
+      "filename": "image_1914.jpg",
+      "source_id": "CoatingVision/image_1914",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "49680a8b9b2612961e1478275d127146210e5f0569bf3e106b6edcf2f70f0820"
+    },
+    {
+      "filename": "image_1923.jpg",
+      "source_id": "CoatingVision/image_1923",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "9d39e80512b5e9e93e0df62920907033bd9cba0d46fb66c529ad790ef9d2cda1"
+    },
+    {
+      "filename": "image_1931.jpg",
+      "source_id": "CoatingVision/image_1931",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "0af07440ee89f112b28158c60205bfee8714de6349e086a6eb1f851f11088538"
+    },
+    {
+      "filename": "image_1940.jpg",
+      "source_id": "CoatingVision/image_1940",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "c9024591981486b8c9395b03e19d50f094028558090023f41099296a425e12a1"
+    },
+    {
+      "filename": "image_1959.jpg",
+      "source_id": "CoatingVision/image_1959",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "906c853af80d6cb48bebc5360ccb7188a89f6a3d519960eb8f7cc228f96af8c3"
+    },
+    {
+      "filename": "image_2064.jpg",
+      "source_id": "CoatingVision/image_2064",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "cf1557ecb30493ddf244c5ca2cf0b21974fae4a5b11f72b105bcf076e660b47f"
+    },
+    {
+      "filename": "image_2070.jpg",
+      "source_id": "CoatingVision/image_2070",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "d15cd8b29e6df893acfe9abd73b017f68b11544cfd997b3c7f036c189492d8b7"
+    },
+    {
+      "filename": "image_2089.jpg",
+      "source_id": "CoatingVision/image_2089",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "aff8c01446713c24c86e3c2d36e8fd22e3d2b8ff6067a1dca389caf79d197e6e"
+    },
+    {
+      "filename": "image_2151.jpg",
+      "source_id": "CoatingVision/image_2151",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "2762f015e4c655d62782730662b5e8a242db517b1cded3af7f1e1d6b9dc589ba"
+    },
+    {
+      "filename": "image_2154.jpg",
+      "source_id": "CoatingVision/image_2154",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "238b3328b705ae8f109713ef78ddc3563400696bd9398b428dac4712b1cfa186"
+    },
+    {
+      "filename": "image_2162.jpg",
+      "source_id": "CoatingVision/image_2162",
+      "source_type": "REAL_OPTICAL",
+      "capture_stage": "acquired_optical_surface_frame",
+      "split": "test",
+      "license": "CC BY 4.0",
+      "sha256": "49ae564c2f7bf2bbf1705896ea3cc6a6503c45d5777d9e9747cfbc8ec9bed16b"
     }
   ]
 }

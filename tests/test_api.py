@@ -91,6 +91,7 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
         self.assertLessEqual(body["returned"], 3)
+        self.assertGreaterEqual(body["total"], 80)
         self.assertFalse(body["image_payloads_included"])
         self.assertTrue(body["provenance_verified"])
         self.assertEqual(body["dataset_license"], "CC BY 4.0")

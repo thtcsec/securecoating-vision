@@ -77,6 +77,18 @@ PRODUCTION_SNAPSHOT = {
         "certificate_error": None,
     },
     "control_audit": {"status": "OK", "count": 0, "records": []},
+    "dataset_catalog": {
+        "total": 88,
+        "offset": 0,
+        "limit": 24,
+        "returned": 24,
+        "items": [],
+        "provenance_verified": True,
+        "dataset_name": "CoatingVision held-out test-split optical frames",
+        "dataset_license": "CC BY 4.0",
+        "dataset_source": "CoatingVision, Figshare DOI 10.6084/m9.figshare.29260121.v1",
+        "image_payloads_included": False,
+    },
     "control_policy": {
         "endpoint": "/api/operations/control",
         "actions": {
@@ -104,11 +116,31 @@ class FakeOperationsClient:
             "acknowledged": False,
         }
 
+    def dataset_catalog(self, offset=0, limit=24):
+        return {
+            "total": 88,
+            "offset": offset,
+            "limit": limit,
+            "returned": min(limit, max(0, 88 - offset)),
+            "items": [],
+            "provenance_verified": True,
+            "dataset_name": "CoatingVision held-out test-split optical frames",
+            "dataset_license": "CC BY 4.0",
+            "dataset_source": "CoatingVision, Figshare DOI 10.6084/m9.figshare.29260121.v1",
+            "image_payloads_included": False,
+        }
+
 
 class TestDashboardApp(unittest.TestCase):
     def test_production_console_refreshes_authoritative_snapshot(self):
         source = (ROOT / "dashboard" / "app.py").read_text(encoding="utf-8")
         self.assertIn('@st.fragment(run_every="5s")', source)
+        self.assertIn("render_live_strip", source)
+        self.assertIn("refresh_live_telemetry", source)
+        self.assertIn("render_operator_views", source)
+        self.assertIn("ops_force_reload", source)
+        self.assertIn("animation-duration: 0s", source)
+        self.assertNotIn("render_production_console(snapshot, api_client)", source)
 
     def test_production_dashboard_stops_without_local_stateful_fallback(self):
         with patch.dict(
@@ -138,11 +170,17 @@ class TestDashboardApp(unittest.TestCase):
             app = AppTest.from_file(str(ROOT / "dashboard" / "app.py"), default_timeout=30)
             app.run()
             self.assertEqual(list(app.exception), [])
-            self.assertTrue(any("Bắt đầu trong 2 phút" in item.value for item in app.markdown))
-            rendered = " ".join(item.value for item in app.markdown)
-            self.assertIn("Line Operations", rendered)
-            self.assertIn("HOLD_REQUIRED", rendered)
-            self.assertIn("NO DATA", rendered)
+            markdown = " ".join(item.value for item in app.markdown)
+            self.assertIn("Get started in 2 minutes", markdown)
+            self.assertIn("Line Operations", markdown)
+            self.assertIn("HOLD_REQUIRED", markdown)
+            self.assertIn("NO DATA", markdown)
+            self.assertNotIn("Bắt đầu", markdown)
+            self.assertFalse(any("Submit control command" in item.label for item in app.button))
+
+            app.segmented_control(key="ops_view").set_value("Operate")
+            app.run()
+            self.assertEqual(list(app.exception), [])
             labels = [item.label for item in app.button]
             self.assertTrue(any("Submit control command" in label for label in labels))
             submit = next(item for item in app.button if "Submit control command" in item.label)
@@ -151,6 +189,26 @@ class TestDashboardApp(unittest.TestCase):
             self.assertFalse(any("7-STAGE" in label for label in labels))
             self.assertFalse(any("90s" in label for label in labels))
             self.assertFalse(any("Send Parameter Offset" in label for label in labels))
+            self.assertNotIn(
+                "Get started in 2 minutes",
+                " ".join(item.value for item in app.markdown),
+            )
+
+            app.segmented_control(key="ops_view").set_value("Dataset")
+            app.run()
+            self.assertEqual(list(app.exception), [])
+            dataset_markdown = " ".join(item.value for item in app.markdown)
+            self.assertIn("Dataset Library", dataset_markdown)
+            self.assertNotIn("Get started in 2 minutes", dataset_markdown)
+            page = next(item for item in app.selectbox if item.label == "Preview page")
+            page.set_value(2)
+            app.run()
+            self.assertEqual(list(app.exception), [])
+            self.assertEqual(app.segmented_control(key="ops_view").value, "Dataset")
+            self.assertNotIn(
+                "Get started in 2 minutes",
+                " ".join(item.value for item in app.markdown),
+            )
 
     def test_dashboard_renders_without_exceptions_in_explicit_sandbox(self):
         with tempfile.TemporaryDirectory() as directory, patch.dict(

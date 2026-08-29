@@ -61,6 +61,7 @@ WHITELIST = [
     "dashboard/production_console.py",
     "dashboard/sandbox_console.py",
     "dashboard/__init__.py",
+    ".streamlit/config.toml",
     # Tests
     "tests/test_failsafe.py",
     "tests/test_sensor_fusion.py",
