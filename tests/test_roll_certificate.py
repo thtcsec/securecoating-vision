@@ -46,6 +46,7 @@ class TestRollCertificate(unittest.TestCase):
             spc_status="IN CONTROL",
             total_inspections=2000,
             failed_inspections=0,
+            held_inspections=0,
             metric_provenance="unit-test fixture",
         )
         md = cert.to_markdown()
@@ -66,6 +67,27 @@ class TestRollCertificate(unittest.TestCase):
         )
         self.assertEqual(cert.overall_quality_grade, "UNVERIFIED")
         self.assertFalse(cert.standards_compliant)
+        self.assertIsNone(cert.pass_rate_pct)
+
+    def test_unresolved_hold_never_counts_as_pass(self):
+        cert = RollCertificateGenerator.build_certificate(
+            roll_id="TEST_ROLL_HOLD",
+            batch_id="BATCH_HOLD",
+            inspected_length_m=1.0,
+            total_length_m=1000.0,
+            defect_records=[],
+            total_inspections=1,
+            failed_inspections=0,
+            held_inspections=1,
+            metric_provenance="unit-test unresolved HOLD",
+        )
+
+        self.assertEqual(cert.overall_quality_grade, "UNVERIFIED")
+        self.assertIsNone(cert.pass_rate_pct)
+        self.assertTrue(cert.quality_metrics_provisional)
+        self.assertFalse(cert.standards_compliant)
+        self.assertTrue(cert.verify_signature())
+        self.assertIn("UNVERIFIED (unresolved inspections present)", cert.to_markdown())
 
 
 if __name__ == "__main__":

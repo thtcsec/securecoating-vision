@@ -308,7 +308,16 @@ class QualityMemory:
             GROUP BY defect_class
         """
         
-        stats = {"status": "OK", "total": 0, "failed": 0, "passed": 0, "pass_rate": None, "avg_latency_ms": None, "defect_distribution": {}}
+        stats = {
+            "status": "OK",
+            "total": 0,
+            "failed": 0,
+            "passed": 0,
+            "held": 0,
+            "pass_rate": None,
+            "avg_latency_ms": None,
+            "defect_distribution": {},
+        }
         
         try:
             with self._connection() as conn:

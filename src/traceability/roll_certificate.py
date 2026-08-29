@@ -43,7 +43,7 @@ class DigitalRollCertificate:
     
     # Statistical Yield & Quality
     total_scanned_length_m: float
-    pass_rate_pct: float
+    pass_rate_pct: Optional[float]
     total_defects_count: int
     defect_density_per_100m: float
     overall_quality_grade: str          # 'GRADE_A_PRIME', 'GRADE_B_REWORK', 'GRADE_C_SCRAP'
@@ -131,6 +131,12 @@ class DigitalRollCertificate:
     def to_markdown(self) -> str:
         if not self.hmac_digital_signature:
             self.generate_cryptographic_signature()
+
+        pass_rate_display = (
+            f"{self.pass_rate_pct:.1f}%"
+            if self.pass_rate_pct is not None
+            else "UNVERIFIED (unresolved inspections present)"
+        )
         
         md = f"""# Provisional Battery Electrode Quality Manifest
 
@@ -157,7 +163,7 @@ class DigitalRollCertificate:
 ## 2. Quality Evaluation & Yield Summary
 * **Overall Quality Verdict:** **`{self.overall_quality_grade}`**
 * **Configured Prototype Policy Result:** **{'PASS' if self.standards_compliant else 'NOT VERIFIED / POLICY VIOLATION'}**
-* **Batch Pass Rate:** **{self.pass_rate_pct:.1f}%**
+* **Batch Pass Rate:** **{pass_rate_display}**
 * **Total Defects Logged:** {self.total_defects_count}
 * **Defect Density:** {self.defect_density_per_100m:.2f} defects / 100m
 * **Process SPC Status:** `{self.spc_status}`
@@ -199,17 +205,30 @@ class RollCertificateGenerator:
         web_width_mm: float = 650.0,
         total_inspections: Optional[int] = None,
         failed_inspections: Optional[int] = None,
+        held_inspections: Optional[int] = None,
         metric_provenance: str = "UNSPECIFIED",
     ) -> DigitalRollCertificate:
         """Compile inspection findings into a cryptographically verified certificate."""
         total_defects = len(defect_records)
         
-        metrics_provisional = total_inspections is None or failed_inspections is None
-        if metrics_provisional:
-            pass_rate = 0.0
-        else:
-            if total_inspections < 0 or failed_inspections < 0 or failed_inspections > total_inspections:
+        counts_missing = any(
+            count is None
+            for count in (total_inspections, failed_inspections, held_inspections)
+        )
+        if not counts_missing:
+            if (
+                total_inspections < 0
+                or failed_inspections < 0
+                or held_inspections < 0
+                or failed_inspections + held_inspections > total_inspections
+            ):
                 raise ValueError("Invalid inspection counts for certificate")
+
+        unresolved_inspections = not counts_missing and held_inspections > 0
+        metrics_provisional = counts_missing or unresolved_inspections
+        if metrics_provisional:
+            pass_rate = None
+        else:
             pass_rate = (
                 0.0 if total_inspections == 0 else
                 ((total_inspections - failed_inspections) / total_inspections) * 100.0

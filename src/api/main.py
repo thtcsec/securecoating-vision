@@ -648,7 +648,11 @@ def _build_roll_certificate_payload(roll_id: str, batch_id: str, electrode_type:
         electrode_type=electrode_type,
         total_inspections=batch_stats["total"] if batch_stats["total"] > 0 else None,
         failed_inspections=batch_stats["failed"] if batch_stats["total"] > 0 else None,
-        metric_provenance=f"SQLite batch={batch_id}; roll ledger={roll_id}",
+        held_inspections=batch_stats.get("held", 0) if batch_stats["total"] > 0 else None,
+        metric_provenance=(
+            f"SQLite batch={batch_id}; roll ledger={roll_id}; "
+            f"unresolved_holds={batch_stats.get('held', 0)}"
+        ),
     )
     return cert.to_dict()
 

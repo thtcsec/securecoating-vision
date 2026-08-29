@@ -570,6 +570,7 @@ def render_sandbox_console(
                 electrode_type=electrode_type,
                 total_inspections=stats["total"] if stats.get("total") else None,
                 failed_inspections=stats["failed"] if stats.get("total") else None,
+                held_inspections=stats.get("held", 0) if stats.get("total") else None,
                 metric_provenance="Isolated dashboard sandbox; not a production certificate",
             )
             cert_payload = cert.to_dict()
@@ -582,7 +583,7 @@ def render_sandbox_console(
             <p><b>Payload Digest (SHA-256):</b> <code>{cert_payload['payload_hash_sha256']}</code></p>
             <p><b>Cryptographic HMAC Signature:</b> <code style="color:#00F2FE;">{cert_payload['hmac_digital_signature']}</code> (Algorithm: <code>{cert_payload['signature_algorithm']}</code>)</p>
             <p><b>Signature Status:</b> <span>{signature_status}</span></p>
-            <p><b>Overall Quality Grade:</b> <span>{cert_payload['overall_quality_grade']}</span> · <b>Pass Rate:</b> {float(cert_payload['pass_rate_pct']):.1f}%</p>
+            <p><b>Overall Quality Grade:</b> <span>{cert_payload['overall_quality_grade']}</span> · <b>Pass Rate:</b> {f"{float(cert_payload['pass_rate_pct']):.1f}%" if cert_payload['pass_rate_pct'] is not None else "UNVERIFIED"}</p>
         </div>
         """, unsafe_allow_html=True)
         col_dl1, col_dl2 = st.columns(2)

@@ -66,6 +66,14 @@ class TestQualityMemoryFaults(unittest.TestCase):
         self.assertEqual(stats["held"], 1)
         self.assertEqual(stats["pass_rate"], 100.0)
 
+    def test_empty_batch_exposes_complete_zero_counts(self):
+        stats = self.memory.get_batch_stats("EMPTY")
+        self.assertEqual(stats["total"], 0)
+        self.assertEqual(stats["failed"], 0)
+        self.assertEqual(stats["passed"], 0)
+        self.assertEqual(stats["held"], 0)
+        self.assertIsNone(stats["pass_rate"])
+
     def test_duplicate_part_identity_is_rejected_transactionally(self):
         kwargs = {
             "batch_id": "B",
