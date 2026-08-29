@@ -115,6 +115,43 @@ class TestInspectionApiClient(unittest.TestCase):
             timeout=5.0,
         )
 
+    def test_inspection_image_is_bounded_and_type_checked(self):
+        client = InspectionApiClient("http://api.local", api_key="secret")
+        response = Mock(status_code=200)
+        response.headers = {"content-type": "image/jpeg"}
+        response.content = b"jpeg-bytes"
+        with patch.object(client.session, "get", return_value=response) as get:
+            payload = client.inspection_image("RUN_0123456789AB")
+        self.assertEqual(payload, b"jpeg-bytes")
+        get.assert_called_once_with(
+            "http://api.local/api/inspections/RUN_0123456789AB/image",
+            headers={"x-api-key": "secret"},
+            timeout=5.0,
+        )
+
+    def test_inspection_image_rejects_oversized_response(self):
+        client = InspectionApiClient("http://api.local")
+        response = Mock(status_code=200)
+        response.headers = {"content-type": "image/jpeg"}
+        response.content = b"x" * 11
+        with patch.object(client.session, "get", return_value=response):
+            with self.assertRaises(ValueError):
+                client.get_bytes("/image", max_bytes=10)
+
+    def test_dataset_catalog_sends_bounded_page(self):
+        client = InspectionApiClient("http://api.local")
+        response = Mock(status_code=200)
+        response.json.return_value = {"total": 50, "offset": 24, "limit": 24, "items": []}
+        with patch.object(client.session, "get", return_value=response) as get:
+            payload = client.dataset_catalog(offset=24, limit=24)
+        self.assertEqual(payload["total"], 50)
+        get.assert_called_once_with(
+            "http://api.local/api/dataset/catalog",
+            params={"offset": 24, "limit": 24},
+            headers={},
+            timeout=5.0,
+        )
+
     def test_operations_control_requires_idempotency_key(self):
         client = InspectionApiClient("http://api.local")
         with self.assertRaises(ValueError):

@@ -35,6 +35,7 @@ import base64
 import hashlib
 import json
 import threading
+from pathlib import Path
 from datetime import datetime, timezone
 from io import BytesIO
 import yaml
@@ -44,7 +45,7 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File, F
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.concurrency import run_in_threadpool
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 import numpy as np
@@ -218,6 +219,25 @@ PIXEL_SIZE_MM = float(calibration_config["pixel_size_x_mm"])
 CALIBRATION_VERIFIED = bool(calibration_config.get("verified", False))
 
 TEST_SET_DIR = os.path.join(PROJECT_ROOT, "data", "test_set", "images")
+_default_artifact_dir = Path(PROJECT_ROOT, "outputs", "inspection_artifacts").resolve()
+INSPECTION_ARTIFACT_DIR = Path(
+    os.environ.get("SECURECOATING_INSPECTION_ARTIFACT_DIR", str(_default_artifact_dir))
+).resolve()
+if ENVIRONMENT == "production" and _default_artifact_dir.parent not in (
+    INSPECTION_ARTIFACT_DIR,
+    *INSPECTION_ARTIFACT_DIR.parents,
+):
+    raise RuntimeError("Production inspection artifact directory must remain under outputs/")
+MAX_INSPECTION_ARTIFACTS = max(
+    10, min(int(os.environ.get("SECURECOATING_MAX_INSPECTION_ARTIFACTS", "200")), 5000)
+)
+REQUIRE_INSPECTION_ARTIFACTS = os.environ.get(
+    "SECURECOATING_REQUIRE_INSPECTION_ARTIFACTS",
+    "true" if ENVIRONMENT == "production" else "false",
+).lower() in {"1", "true", "yes"}
+_artifact_lock = threading.Lock()
+_dataset_catalog_lock = threading.Lock()
+_dataset_catalog_cache: Optional[tuple[str, ...]] = None
 IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
 CONTROL_POLICY = {
     "endpoint": "/api/operations/control",
@@ -425,6 +445,111 @@ ALLOWED_IMAGE_MIME_TYPES = {
     "image/jpeg", "image/png", "image/bmp", "image/tiff", "application/octet-stream"
 }
 Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
+
+
+def _inspection_artifact_path(run_id: str) -> Path:
+    if not re.fullmatch(r"RUN_[A-F0-9]{12}", run_id):
+        raise ValueError("Invalid inspection run identifier")
+    return INSPECTION_ARTIFACT_DIR / f"{run_id}.jpg"
+
+
+def _write_inspection_artifact(
+    image: np.ndarray,
+    defects: list[Dict[str, Any]],
+    run_id: str,
+) -> bool:
+    """Atomically persist one bounded JPEG overlay without retaining upload bytes."""
+    canvas = image.copy()
+    height, width = canvas.shape[:2]
+    max_edge = 1280
+    scale = min(1.0, max_edge / max(height, width))
+    if scale < 1.0:
+        canvas = cv2.resize(
+            canvas,
+            (max(1, int(width * scale)), max(1, int(height * scale))),
+            interpolation=cv2.INTER_AREA,
+        )
+
+    for defect in defects:
+        bbox = defect.get("bbox") or []
+        if len(bbox) != 4:
+            continue
+        x, y, box_width, box_height = (int(round(float(v) * scale)) for v in bbox)
+        x2 = min(canvas.shape[1] - 1, max(x + 1, x + box_width))
+        y2 = min(canvas.shape[0] - 1, max(y + 1, y + box_height))
+        x = max(0, min(x, canvas.shape[1] - 1))
+        y = max(0, min(y, canvas.shape[0] - 1))
+        cv2.rectangle(canvas, (x, y), (x2, y2), (0, 220, 255), 2)
+        confidence = defect.get("confidence")
+        label = str(defect.get("class_name", "unknown"))
+        if isinstance(confidence, (int, float)):
+            label += f" {confidence:.3f}"
+        cv2.putText(
+            canvas,
+            label,
+            (x, max(18, y - 6)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.52,
+            (0, 220, 255),
+            1,
+            cv2.LINE_AA,
+        )
+
+    ok, encoded = cv2.imencode(".jpg", canvas, [cv2.IMWRITE_JPEG_QUALITY, 88])
+    if not ok or encoded.nbytes > 3 * 1024 * 1024:
+        return False
+
+    target = _inspection_artifact_path(run_id)
+    with _artifact_lock:
+        INSPECTION_ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
+        temporary = target.with_suffix(".jpg.tmp")
+        try:
+            with open(temporary, "wb") as handle:
+                handle.write(encoded.tobytes())
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, target)
+        finally:
+            if temporary.exists():
+                temporary.unlink()
+
+        artifacts = sorted(
+            INSPECTION_ARTIFACT_DIR.glob("RUN_*.jpg"),
+            key=lambda path: path.stat().st_mtime_ns,
+            reverse=True,
+        )
+        for expired in artifacts[MAX_INSPECTION_ARTIFACTS:]:
+            expired.unlink()
+    return True
+
+
+def _dataset_catalog(offset: int = 0, limit: int = 24) -> Dict[str, Any]:
+    """Return a cached, paginated basename-only catalog of local demo images."""
+    global _dataset_catalog_cache
+    with _dataset_catalog_lock:
+        if _dataset_catalog_cache is None:
+            names = []
+            if os.path.isdir(TEST_SET_DIR):
+                with os.scandir(TEST_SET_DIR) as entries:
+                    for entry in entries:
+                        if entry.is_file() and entry.name.lower().endswith(
+                            (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")
+                        ):
+                            names.append(entry.name)
+                            if len(names) >= 50_000:
+                                break
+            _dataset_catalog_cache = tuple(sorted(names))
+        names = _dataset_catalog_cache
+    page = names[offset:offset + limit]
+    return {
+        "total": len(names),
+        "offset": offset,
+        "limit": limit,
+        "returned": len(page),
+        "items": [{"filename": name} for name in page],
+        "truncated_at_source": len(names) >= 50_000,
+        "image_payloads_included": False,
+    }
 
 
 def _attach_confidences(defects: list, detections: list) -> list:
@@ -794,6 +919,8 @@ async def inspect(
     detections = result.get("detections", [])
     defects = _attach_confidences(defects, detections)
     run_id = f"RUN_{uuid.uuid4().hex[:12].upper()}"
+    for defect in defects:
+        defect["run_id"] = run_id
     trace_written = quality_mem.add_entry(
         batch_id=batch_id,
         part_id=part_id,
@@ -815,6 +942,15 @@ async def inspect(
         error_reason="; ".join(safety_reasons) or None,
     )
     if trace_written:
+        try:
+            artifact_written = _write_inspection_artifact(optical, defects, run_id)
+        except (OSError, ValueError, cv2.error) as exc:
+            artifact_written = False
+            logger.error("Inspection artifact write failed: %s", exc)
+        if REQUIRE_INSPECTION_ARTIFACTS and not artifact_written:
+            safety_reasons.append(
+                "Inspection evidence artifact write failed; automatic gate decision forbidden"
+            )
         try:
             for defect in defects:
                 bbox = defect.get("bbox") or []
@@ -853,7 +989,13 @@ async def inspect(
         safety_reasons=safety_reasons,
     )
     final_gate_action = industrial_result["gate_action"]
-    if trace_written and not quality_mem.update_decision(run_id, final_gate_action, result_state):
+    if trace_written and not quality_mem.update_decision(
+        run_id,
+        final_gate_action,
+        result_state,
+        inspection_valid=not safety_reasons,
+        error_reason="; ".join(safety_reasons) or None,
+    ):
         safety_reasons.append("Traceability finalization failed; HOLD latched")
         hold_signal = industrial_mgr.trigger_hold(part_id, batch_id, safety_reasons)
         final_gate_action = "HOLD"
@@ -898,18 +1040,52 @@ async def inspect(
 
 
 @app.get("/api/samples")
-def list_demo_samples():
+def list_demo_samples(
+    offset: int = Query(0, ge=0, le=10_000),
+    limit: int = Query(100, ge=1, le=100),
+):
     """List demo images available under data/test_set/images."""
     if not SIMULATION_MODE:
         raise HTTPException(status_code=404, detail="Demo samples are disabled in production")
-    if not os.path.isdir(TEST_SET_DIR):
-        return {"samples": [], "directory": TEST_SET_DIR}
-    samples = sorted(
-        f
-        for f in os.listdir(TEST_SET_DIR)
-        if f.lower().endswith((".jpg", ".jpeg", ".png", ".bmp"))
-    )
-    return {"samples": samples, "count": len(samples), "directory": "data/test_set/images"}
+    catalog = _dataset_catalog(offset=offset, limit=limit)
+    samples = [item["filename"] for item in catalog["items"]]
+    return {
+        **catalog,
+        "samples": samples,
+        "count": catalog["total"],
+        "directory": "data/test_set/images",
+    }
+
+
+@app.get("/api/dataset/catalog")
+def get_dataset_catalog(
+    offset: int = Query(0, ge=0, le=10_000),
+    limit: int = Query(24, ge=1, le=100),
+):
+    """Return bounded dataset basenames; never return image payloads or host paths."""
+    return _dataset_catalog(offset=offset, limit=limit)
+
+
+@app.get("/api/inspections/{run_id}/image")
+def get_inspection_image(run_id: str):
+    """Return one authenticated overlay only for the active roll/batch identity."""
+    try:
+        path = _inspection_artifact_path(run_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    identity = quality_mem.get_inspection_identity(run_id)
+    if identity.get("status") == "ERROR":
+        raise HTTPException(status_code=503, detail="Traceability database unavailable")
+    if identity.get("status") != "OK":
+        raise HTTPException(status_code=404, detail="Inspection run not found")
+    if (
+        identity.get("roll_id") != web_synchronizer.roll.roll_id
+        or identity.get("batch_id") != web_synchronizer.roll.batch_id
+    ):
+        raise HTTPException(status_code=404, detail="Inspection run is outside the active roll/batch")
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Inspection image artifact is unavailable")
+    return FileResponse(path, media_type="image/jpeg")
 
 
 @app.get("/api/metrics/latency")
@@ -1030,6 +1206,16 @@ def get_operations_snapshot(signal_limit: int = Query(25, ge=1, le=100)):
     stats = quality_mem.get_batch_stats(batch_id)
     spc = quality_mem.check_spc_alarms(batch_id)
     recent_inspections = quality_mem.get_recent_inspections(batch_id, limit=20)
+    for inspection in recent_inspections.get("records", []):
+        run_id = inspection.get("run_id")
+        try:
+            image_available = bool(run_id and _inspection_artifact_path(run_id).is_file())
+        except ValueError:
+            image_available = False
+        inspection["image_available"] = image_available
+        inspection["image_endpoint"] = (
+            f"/api/inspections/{run_id}/image" if image_available else None
+        )
     industrial = industrial_mgr.get_plc_state()
     signals = industrial_mgr.get_signal_history(limit=signal_limit)
     control_audit = quality_mem.get_recent_control_audits(limit=25)
@@ -1088,6 +1274,7 @@ def get_operations_snapshot(signal_limit: int = Query(25, ge=1, le=100)):
             "spc": spc,
             "recent_inspections": recent_inspections,
         },
+        "dataset_catalog": _dataset_catalog(offset=0, limit=24),
         "industrial": industrial,
         "signals": signals,
         "traceability": {

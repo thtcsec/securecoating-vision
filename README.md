@@ -24,7 +24,7 @@ The current software validation snapshot is 160 passing tests with 0 skips and 0
 - Timeout, inference error, missing model, missing sensor, unverified production calibration, traceability failure, PLC communication failure, modality disagreement, stale evidence, or a latched interlock produces `HOLD`.
 - Mock OPC UA/Modbus operations are labelled `SIMULATED`; they are never reported as PLC acknowledgements.
 - Real PLC commands use exactly one configured command-owner protocol and require a unique command sequence plus a matching PLC ACK sequence. OPC UA requires `SignAndEncrypt`; plaintext Modbus is refused unless an explicitly trusted gateway is configured.
-- The production dashboard reads one `/api/operations/snapshot` payload. Simulator, recipe sliders, defect injection, and LIBAD evidence demo exist only in the explicit development/test sandbox. Operator control is limited to authenticated confirm-audit actions (E-stop, reset, inference reset); the dashboard never writes recipe offsets to a PLC.
+- The production dashboard reads one `/api/operations/snapshot` payload. Its bounded inspection history loads authenticated JPEG overlays on demand, matches detections by run ID, reconstructs decision events from persisted fields, and pages a basename-only cached dataset catalog. Simulator, recipe sliders, defect injection, and LIBAD evidence demo exist only in the explicit development/test sandbox. Operator control is limited to authenticated confirm-audit actions (E-stop, reset, inference reset); the dashboard never writes recipe offsets to a PLC.
 
 These properties are covered by software tests, but physical actuator behavior still requires vendor-specific HIL and safety validation.
 

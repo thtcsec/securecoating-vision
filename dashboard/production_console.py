@@ -161,7 +161,9 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
     if st.sidebar.button("Reload snapshot", width="stretch"):
         st.rerun()
 
-    operate, diagnose, traceability_tab = st.tabs(["Operate", "Diagnose", "Traceability"])
+    operate, history_tab, diagnose, traceability_tab = st.tabs(
+        ["Operate", "Inspection History", "Diagnose", "Traceability"]
+    )
 
     with operate:
         st.caption(
@@ -251,6 +253,141 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
                             st.warning("PLC delivery is SIMULATED in this runtime. This is not a hardware ACK.")
                         if result.get("status") in {"UNCONFIRMED", "RESET_BLOCKED"}:
                             st.error("Command was not confirmed. Treat the line as HOLD.")
+
+    with history_tab:
+        st.caption(
+            "Persisted inspection history is authoritative for the active batch. Overlay images are "
+            "loaded on demand; the event table below is a reconstruction from persisted fields, not raw PLC logs."
+        )
+        history_col, dataset_col = st.columns([3, 2])
+        with history_col:
+            st.markdown("##### Inspection result")
+            if not recent:
+                st.info("No persisted inspection is available for the active batch.")
+            else:
+                options = {
+                    (
+                        f"{row.get('part_id')} · {row.get('gate_action')} · "
+                        f"{str(row.get('run_id') or 'NO RUN ID')}"
+                    ): row
+                    for row in recent
+                }
+                selected_label = st.selectbox("Inspection run", list(options.keys()))
+                selected = options[selected_label]
+                run_id = selected.get("run_id")
+                try:
+                    selected_latency = f"{float(selected.get('latency_ms')):.2f}"
+                except (TypeError, ValueError):
+                    selected_latency = "NO DATA"
+                if selected.get("image_available") and run_id:
+                    image_cache = st.session_state.setdefault("inspection_image_cache", {})
+                    if run_id not in image_cache:
+                        try:
+                            image_cache[run_id] = api_client.inspection_image(run_id)
+                        except Exception:
+                            image_cache[run_id] = None
+                        while len(image_cache) > 8:
+                            image_cache.pop(next(iter(image_cache)))
+                    if image_cache.get(run_id):
+                        st.image(
+                            image_cache[run_id],
+                            caption=(
+                                f"{selected.get('part_id')} · {selected.get('gate_action')} · "
+                                f"{selected_latency} ms"
+                            ),
+                            width="stretch",
+                        )
+                    else:
+                        st.error("The API reported an image artifact, but the bounded fetch failed.")
+                else:
+                    st.info("No retained overlay image is available for this historical row.")
+
+                selected_defects = [
+                    defect
+                    for defect in (roll.get("defect_records") or [])
+                    if defect.get("run_id") == run_id
+                ]
+                if selected_defects:
+                    st.markdown("##### Matched detections")
+                    detection_columns = [
+                        "defect_id", "class_name", "confidence", "bbox",
+                        "area_mm2", "length_mm", "width_mm", "coordinate_verified",
+                    ]
+                    st.dataframe(
+                        pd.DataFrame(selected_defects)[
+                            [column for column in detection_columns if column in selected_defects[0]]
+                        ],
+                        width="stretch",
+                        hide_index=True,
+                    )
+
+                event_rows = [
+                    {
+                        "event": "INSPECTION_PERSISTED",
+                        "status": "OK",
+                        "detail": f"part={selected.get('part_id')} run={run_id}",
+                    },
+                    {
+                        "event": "INFERENCE_COMPLETED",
+                        "status": selected.get("system_state") or "UNKNOWN",
+                        "detail": (
+                            f"model={selected.get('model_version')} latency={selected_latency}ms "
+                            f"defect={selected.get('defect_class')}"
+                        ),
+                    },
+                    {
+                        "event": "SAFETY_VALIDATION",
+                        "status": "VALID" if selected.get("inspection_valid") else "FAIL_CLOSED",
+                        "detail": selected.get("error_reason") or "No safety blocker persisted",
+                    },
+                    {
+                        "event": "GATE_DISPOSITION",
+                        "status": selected.get("gate_action") or "UNKNOWN",
+                        "detail": f"system_state={selected.get('system_state')}",
+                    },
+                ]
+                st.markdown("##### Decision event log")
+                st.dataframe(pd.DataFrame(event_rows), width="stretch", hide_index=True)
+
+        with dataset_col:
+            catalog = snapshot.get("dataset_catalog") or {}
+            st.markdown("##### Dataset catalog")
+            st.caption(
+                "Basename-only cached catalog; image payloads are not embedded in the operations snapshot."
+            )
+            page_size = 24
+            total_items = int(catalog.get("total") or 0)
+            page_count = max(1, (total_items + page_size - 1) // page_size)
+            page_number = st.selectbox(
+                "Catalog page",
+                options=list(range(1, page_count + 1)),
+                format_func=lambda page: f"Page {page} / {page_count}",
+            )
+            if page_number == 1:
+                page_catalog = catalog
+            else:
+                catalog_cache = st.session_state.setdefault("dataset_catalog_cache", {})
+                if page_number not in catalog_cache:
+                    try:
+                        catalog_cache[page_number] = api_client.dataset_catalog(
+                            offset=(page_number - 1) * page_size,
+                            limit=page_size,
+                        )
+                    except Exception:
+                        catalog_cache[page_number] = None
+                    while len(catalog_cache) > 8:
+                        catalog_cache.pop(next(iter(catalog_cache)))
+                page_catalog = catalog_cache.get(page_number) or {}
+            items = page_catalog.get("items") or []
+            if not items:
+                st.info("No local dataset entries were reported by the API.")
+            else:
+                st.metric("Indexed images", total_items)
+                st.dataframe(pd.DataFrame(items), width="stretch", hide_index=True)
+                st.caption(
+                    f"Showing {page_catalog.get('returned', len(items))} from offset "
+                    f"{page_catalog.get('offset', 0)}; API page limit {page_catalog.get('limit', len(items))}."
+                )
 
     with diagnose:
         st.caption(

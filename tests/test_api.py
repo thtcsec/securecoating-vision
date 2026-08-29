@@ -24,6 +24,10 @@ os.environ.setdefault("SECURECOATING_ENABLE_SENSOR_SIMULATION", "true")
 API_TEST_TEMP_DIR = tempfile.mkdtemp(prefix="securecoating_api_test_")
 atexit.register(shutil.rmtree, API_TEST_TEMP_DIR, ignore_errors=True)
 os.environ.setdefault("SECURECOATING_DB_PATH", os.path.join(API_TEST_TEMP_DIR, "quality.db"))
+os.environ.setdefault(
+    "SECURECOATING_INSPECTION_ARTIFACT_DIR",
+    os.path.join(API_TEST_TEMP_DIR, "inspection_artifacts"),
+)
 
 # Import after cwd so config paths resolve
 from api.main import app  # noqa: E402
@@ -80,6 +84,16 @@ class TestAPI(unittest.TestCase):
         self.assertIn("samples", body)
         if os.path.isdir(os.path.join(ROOT, "data", "test_set", "images")):
             self.assertGreaterEqual(body["count"], 1)
+
+    def test_dataset_catalog_is_bounded_and_metadata_only(self):
+        resp = self.client.get("/api/dataset/catalog", params={"offset": 0, "limit": 3})
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertLessEqual(body["returned"], 3)
+        self.assertFalse(body["image_payloads_included"])
+        for item in body["items"]:
+            self.assertEqual(set(item), {"filename"})
+            self.assertEqual(os.path.basename(item["filename"]), item["filename"])
 
     def test_active_roll_discovery_is_authoritative(self):
         resp = self.client.get("/api/roll/active")
@@ -184,6 +198,38 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
         self.assertEqual(body["part_id"], "PART_API_UPLOAD")
+        image_response = self.client.get(
+            f"/api/inspections/{body['run_id']}/image"
+        )
+        self.assertEqual(image_response.status_code, 200)
+        self.assertTrue(image_response.headers["content-type"].startswith("image/jpeg"))
+        self.assertGreater(len(image_response.content), 1000)
+
+    def test_required_artifact_failure_is_persisted_fail_closed(self):
+        with patch("api.main.REQUIRE_INSPECTION_ARTIFACTS", True), patch(
+            "api.main._write_inspection_artifact", return_value=False
+        ):
+            resp = self.client.post(
+                "/api/inspect",
+                data={
+                    "batch_id": "BATCH_2026_MSE_01",
+                    "part_id": "PART_ARTIFACT_FAILURE",
+                },
+            )
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["gate_action"], "HOLD")
+        self.assertTrue(
+            any("artifact write failed" in reason for reason in body["reject_reasons"])
+        )
+        snapshot = self.client.get("/api/operations/snapshot").json()
+        persisted = next(
+            row
+            for row in snapshot["quality"]["recent_inspections"]["records"]
+            if row["run_id"] == body["run_id"]
+        )
+        self.assertFalse(persisted["inspection_valid"])
+        self.assertIn("artifact write failed", persisted["error_reason"])
 
     def test_upload_rejects_wrong_media_type(self):
         resp = self.client.post(

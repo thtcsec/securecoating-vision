@@ -86,6 +86,7 @@ This document is the project status ledger. A feature is marked **verified** onl
 - [x] Operator control uses authenticated confirm-audit workflow; recipe/PLC parameter writes are not offered.
 - [x] Dashboard API client has bounded requests and explicit HTTP/JSON error handling.
 - [x] Production dashboard refuses automatic local fallback; sandbox fallback is explicit development/test opt-in.
+- [x] Inspection history retains bounded authenticated overlay artifacts, run-scoped detections, persisted decision context, and a paginated metadata-only dataset catalog.
 - [x] Dashboard AppTest covers production snapshot console and isolated sandbox render.
 - [x] Dependency resolver dry-run succeeds; Pillow/GitPython/Torch pins were advanced to audited fixed versions.
 - [x] GPU development environment verified Torch 2.13.0+cu130 with the RTX 4050.

@@ -36,6 +36,21 @@ class InspectionApiClient:
             raise ValueError(f"Expected JSON object from {path}")
         return payload
 
+    def get_bytes(self, path: str, *, max_bytes: int = 3 * 1024 * 1024) -> bytes:
+        response = self.session.get(
+            f"{self.base_url}{path}",
+            headers=self.headers,
+            timeout=self.timeout_seconds,
+        )
+        response.raise_for_status()
+        content_type = response.headers.get("content-type", "").split(";", 1)[0].lower()
+        if content_type != "image/jpeg":
+            raise ValueError(f"Expected image/jpeg from {path}")
+        payload = response.content
+        if not payload or len(payload) > max_bytes:
+            raise ValueError("Inspection artifact is empty or exceeds the dashboard limit")
+        return payload
+
     def post(
         self,
         path: str,
@@ -84,6 +99,18 @@ class InspectionApiClient:
         if not 1 <= signal_limit <= 100:
             raise ValueError("signal_limit must be between 1 and 100")
         return self.get("/api/operations/snapshot", signal_limit=signal_limit)
+
+    def inspection_image(self, run_id: str) -> bytes:
+        if not run_id.startswith("RUN_") or len(run_id) != 16:
+            raise ValueError("Invalid inspection run identifier")
+        return self.get_bytes(f"/api/inspections/{run_id}/image")
+
+    def dataset_catalog(self, offset: int = 0, limit: int = 24) -> Dict[str, Any]:
+        if not 0 <= offset <= 10_000:
+            raise ValueError("dataset catalog offset must be between 0 and 10000")
+        if not 1 <= limit <= 100:
+            raise ValueError("dataset catalog limit must be between 1 and 100")
+        return self.get("/api/dataset/catalog", offset=offset, limit=limit)
 
     def operations_control(
         self,

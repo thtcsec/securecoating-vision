@@ -8,5 +8,7 @@ For evidence screenshots, use the live Docker dashboard at `http://127.0.0.1:850
 - **`runtime-diagnose.png`:** authoritative readiness plus sensor/model state; do not crop out `DEGRADED` or offline hardware.
 - **`runtime-traceability.png`:** the four retained defect records and the unverified-calibration warning. The live page continues below the captured viewport with the signed certificate fields.
 - **`runtime-certificate.png`:** inspection disposition counts, signed payload digest/HMAC, explicit `UNVERIFIED` grade, and metric provenance.
+- **`runtime-history.png`:** selected inspection run, retained inference overlay, and paginated dataset catalog.
+- **`runtime-history-log.png`:** matched bbox/confidence rows and the reconstructed fail-closed decision event log.
 
 These screenshots are direct captures of the running Docker dashboard. Do not present a university, laboratory, or company logo unless permission and the precise relationship can be documented.

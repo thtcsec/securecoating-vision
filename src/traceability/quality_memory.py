@@ -235,13 +235,32 @@ class QualityMemory:
             self._set_health(False, str(e))
             return False
 
-    def update_decision(self, run_id: str, gate_action: str, system_state: str) -> bool:
+    def update_decision(
+        self,
+        run_id: str,
+        gate_action: str,
+        system_state: str,
+        inspection_valid=None,
+        error_reason=None,
+    ) -> bool:
         """Finalize the decision fields for a previously persisted inspection."""
         try:
             with self._connection() as conn:
                 cursor = conn.execute(
-                    "UPDATE inspections SET gate_action = ?, system_state = ? WHERE run_id = ?",
-                    (gate_action, system_state, run_id),
+                    """
+                    UPDATE inspections
+                    SET gate_action = ?, system_state = ?,
+                        inspection_valid = COALESCE(?, inspection_valid),
+                        error_reason = COALESCE(?, error_reason)
+                    WHERE run_id = ?
+                    """,
+                    (
+                        gate_action,
+                        system_state,
+                        None if inspection_valid is None else (1 if inspection_valid else 0),
+                        error_reason,
+                        run_id,
+                    ),
                 )
                 if cursor.rowcount != 1:
                     raise sqlite3.IntegrityError(f"Expected one inspection for run_id={run_id}")
@@ -476,7 +495,9 @@ class QualityMemory:
                 cursor.execute(
                     """
                     SELECT timestamp, part_id, run_id, gate_action, system_state,
-                           defect_class, latency_ms, inspection_valid, error_reason
+                           defect_class, latency_ms, inspection_valid, error_reason,
+                           has_defect, max_length_mm, max_area_mm2, peak_height_um,
+                           fallback_active, model_version, roll_id
                     FROM inspections
                     WHERE batch_id = ?
                     ORDER BY timestamp DESC, id DESC
@@ -497,6 +518,13 @@ class QualityMemory:
                             "latency_ms": row[6],
                             "inspection_valid": bool(row[7]) if row[7] is not None else None,
                             "error_reason": row[8],
+                            "has_defect": bool(row[9]),
+                            "max_length_mm": row[10],
+                            "max_area_mm2": row[11],
+                            "peak_height_um": row[12],
+                            "fallback_active": bool(row[13]),
+                            "model_version": row[14],
+                            "roll_id": row[15],
                         }
                     )
                 payload["count"] = len(records)
@@ -513,6 +541,34 @@ class QualityMemory:
                 "error": str(exc),
             }
         return payload
+
+    def get_inspection_identity(self, run_id):
+        """Resolve one artifact owner without exposing records across roll/batch scope."""
+        try:
+            with self._connection() as conn:
+                row = conn.execute(
+                    """
+                    SELECT run_id, roll_id, batch_id, part_id, gate_action
+                    FROM inspections
+                    WHERE run_id = ?
+                    """,
+                    (run_id,),
+                ).fetchone()
+            self._set_health(True)
+            if row is None:
+                return {"status": "NOT_FOUND"}
+            return {
+                "status": "OK",
+                "run_id": row[0],
+                "roll_id": row[1],
+                "batch_id": row[2],
+                "part_id": row[3],
+                "gate_action": row[4],
+            }
+        except sqlite3.Error as exc:
+            logger.error(f"Inspection identity query failed: {exc}")
+            self._set_health(False, str(exc))
+            return {"status": "ERROR", "error": str(exc)}
 
     def record_control_audit(
         self,
