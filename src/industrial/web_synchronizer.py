@@ -307,6 +307,9 @@ class WebSynchronizer:
                 "severity": defect_info.get("severity", "WARNING"),
                 "area_mm2": defect_info.get("area_mm2", 0.0),
                 "peak_height_um": defect_info.get("peak_height_um", 0.0),
+                "confidence": defect_info.get("confidence"),
+                "bbox": copy.deepcopy(defect_info.get("bbox")),
+                "coordinate_verified": True,
                 "timestamp": time.time(),
             }
             # Layer A: Recent UI cache
@@ -316,6 +319,41 @@ class WebSynchronizer:
             # Layer B: True lifetime counters
             self.lifetime_total_defects += 1
             self.lifetime_defects_by_lane[coord.lane_id] += 1
+            self.lifetime_defects_by_class[record["class_name"]] += 1
+
+    def record_unlocalized_defect(
+        self,
+        defect_info: Dict[str, Any],
+        frame_ctx: FrameContext,
+    ) -> None:
+        """Record detection evidence without inventing physical coordinates."""
+        with self._lock:
+            if frame_ctx.roll_id != self.roll.roll_id:
+                raise ValueError(
+                    f"Frame roll {frame_ctx.roll_id} does not match active roll {self.roll.roll_id}"
+                )
+            next_id = self.lifetime_total_defects + 1
+            record = {
+                "defect_id": defect_info.get("defect_id", f"DEF_{next_id}"),
+                "frame_id": frame_ctx.frame_id,
+                "roll_id": frame_ctx.roll_id,
+                "batch_id": self.roll.batch_id,
+                "linear_pos_m": None,
+                "cross_pos_mm": None,
+                "lane_id": None,
+                "class_name": defect_info.get("class_name", "unknown"),
+                "severity": defect_info.get("severity", "WARNING"),
+                "area_mm2": defect_info.get("area_mm2", 0.0),
+                "peak_height_um": defect_info.get("peak_height_um", 0.0),
+                "confidence": defect_info.get("confidence"),
+                "bbox": copy.deepcopy(defect_info.get("bbox")),
+                "coordinate_verified": False,
+                "coordinate_status": "UNVERIFIED_CALIBRATION",
+                "timestamp": time.time(),
+            }
+            self.recent_defect_cache.append(copy.deepcopy(record))
+            self._defect_ledger.append(copy.deepcopy(record))
+            self.lifetime_total_defects += 1
             self.lifetime_defects_by_class[record["class_name"]] += 1
 
     def get_roll_defect_summary(self) -> Dict[str, Any]:

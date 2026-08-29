@@ -295,18 +295,25 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
             st.info("The snapshot roll ledger contains no defect records.")
         else:
             df_roll = pd.DataFrame(defects)
-            fig_map = px.scatter(
-                df_roll,
-                x="linear_pos_m",
-                y="cross_pos_mm",
-                color="class_name" if "class_name" in df_roll.columns else None,
-                size="area_mm2" if "area_mm2" in df_roll.columns else None,
-                hover_data=[col for col in ("defect_id", "lane_id", "peak_height_um") if col in df_roll.columns],
-                title=f"Roll ledger {summary.get('roll_id', 'UNKNOWN')}",
-                labels={"linear_pos_m": "Machine direction (m)", "cross_pos_mm": "Cross-web (mm)"},
-            )
-            fig_map.update_layout(paper_bgcolor="#0E121B", plot_bgcolor="#131824", font_color="#FFF", height=420)
-            st.plotly_chart(fig_map, width="stretch")
+            localized = df_roll.dropna(subset=["linear_pos_m", "cross_pos_mm"])
+            if localized.empty:
+                st.warning(
+                    "Defects were retained, but no physical roll coordinates are shown because "
+                    "the factory calibration is unverified. Pixel bounding boxes remain in the signed ledger."
+                )
+            else:
+                fig_map = px.scatter(
+                    localized,
+                    x="linear_pos_m",
+                    y="cross_pos_mm",
+                    color="class_name" if "class_name" in localized.columns else None,
+                    size="area_mm2" if "area_mm2" in localized.columns else None,
+                    hover_data=[col for col in ("defect_id", "lane_id", "peak_height_um") if col in localized.columns],
+                    title=f"Roll ledger {summary.get('roll_id', 'UNKNOWN')}",
+                    labels={"linear_pos_m": "Machine direction (m)", "cross_pos_mm": "Cross-web (mm)"},
+                )
+                fig_map.update_layout(paper_bgcolor="#0E121B", plot_bgcolor="#131824", font_color="#FFF", height=420)
+                st.plotly_chart(fig_map, width="stretch")
             st.dataframe(df_roll, width="stretch", hide_index=True)
 
         s1, s2, s3 = st.columns(3)

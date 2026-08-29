@@ -720,6 +720,7 @@ async def inspect(
         optical = _synthetic_optical(1024, 1024, simulate_defect)
 
     h, w = optical.shape[:2]
+    frame_ctx = web_synchronizer.advance_motion(dt_seconds=0.0)
 
     # 2. Multi-source sensor fusion
     effective_thermal_online = thermal_online if SIMULATION_MODE else False
@@ -813,6 +814,27 @@ async def inspect(
         inspection_valid=not safety_reasons,
         error_reason="; ".join(safety_reasons) or None,
     )
+    if trace_written:
+        try:
+            for defect in defects:
+                bbox = defect.get("bbox") or []
+                if (CALIBRATION_VERIFIED or SIMULATION_MODE) and len(bbox) == 4:
+                    box_x, box_y, box_w, box_h = bbox
+                    coordinate = web_synchronizer.map_defect_to_physical_coordinate(
+                        frame_ctx,
+                        pixel_x_td=float(box_x) + float(box_w) / 2.0,
+                        pixel_y_md=float(box_y) + float(box_h) / 2.0,
+                        frame_width_px=w,
+                        frame_height_px=h,
+                        fov_width_mm=float(calibration_config["fov_width_mm"]),
+                        fov_length_m=float(calibration_config["fov_length_m"]),
+                    )
+                    web_synchronizer.record_defect_on_roll(defect, coordinate)
+                else:
+                    web_synchronizer.record_unlocalized_defect(defect, frame_ctx)
+        except (KeyError, TypeError, ValueError) as exc:
+            logger.error("Defect-ledger write failed: %s", exc)
+            safety_reasons.append("Defect-ledger write failed; automatic gate decision forbidden")
     if not trace_written:
         trace_reason = quality_mem.last_error
         if trace_reason.startswith("Duplicate inspection identity rejected"):

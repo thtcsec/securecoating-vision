@@ -51,7 +51,7 @@ class DigitalRollCertificate:
     
     # Defect Breakdown by Class & Slitting Lane
     defects_by_class: Dict[str, int]
-    defects_by_lane: Dict[int, int]
+    defects_by_lane: Dict[str, int]
     
     # Spatial Defect Map
     defect_map_entries: List[Dict[str, Any]]
@@ -175,7 +175,10 @@ class DigitalRollCertificate:
 
         md += "\n### Defect Distribution by Slitting Lane\n"
         for lane_idx, cnt in self.defects_by_lane.items():
-            md += f"- **Lane {lane_idx} (Width ~162.5mm):** {cnt} defect(s)\n"
+            if lane_idx == "UNLOCALIZED":
+                md += f"- **Unlocalized (calibration unverified):** {cnt} defect(s)\n"
+            else:
+                md += f"- **Lane {lane_idx} (Width ~162.5mm):** {cnt} defect(s)\n"
 
         md += f"""
 ---
@@ -235,15 +238,16 @@ class RollCertificateGenerator:
             )
 
         by_class: Dict[str, int] = {}
-        by_lane = {1: 0, 2: 0, 3: 0, 4: 0}
+        by_lane: Dict[str, int] = {"1": 0, "2": 0, "3": 0, "4": 0, "UNLOCALIZED": 0}
         
         std_ok = True
         for d in defect_records:
             c_name = d.get("class_name", "unknown")
             by_class[c_name] = by_class.get(c_name, 0) + 1
             
-            lane = d.get("lane_id", 1)
-            by_lane[lane] = by_lane.get(lane, 0) + 1
+            lane = d.get("lane_id")
+            lane_key = str(lane) if isinstance(lane, int) and lane in {1, 2, 3, 4} else "UNLOCALIZED"
+            by_lane[lane_key] = by_lane.get(lane_key, 0) + 1
             
             if d.get("class_name") == "delamination" or d.get("peak_height_um", 0.0) >= 12.0:
                 std_ok = False

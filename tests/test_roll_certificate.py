@@ -89,6 +89,20 @@ class TestRollCertificate(unittest.TestCase):
         self.assertTrue(cert.verify_signature())
         self.assertIn("UNVERIFIED (unresolved inspections present)", cert.to_markdown())
 
+    def test_unlocalized_defect_is_not_falsely_assigned_to_lane_one(self):
+        cert = RollCertificateGenerator.build_certificate(
+            roll_id="TEST_ROLL_UNLOCALIZED",
+            batch_id="BATCH_UNLOCALIZED",
+            inspected_length_m=1.0,
+            total_length_m=1000.0,
+            defect_records=[{"class_name": "void", "lane_id": None}],
+            total_inspections=1,
+            failed_inspections=1,
+            held_inspections=0,
+        )
+        self.assertEqual(cert.defects_by_lane["1"], 0)
+        self.assertEqual(cert.defects_by_lane["UNLOCALIZED"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

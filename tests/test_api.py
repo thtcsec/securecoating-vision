@@ -162,6 +162,13 @@ class TestAPI(unittest.TestCase):
         )
         self.assertGreaterEqual(len(body["defects_found"]), 1)
         self.assertFalse(body["passed"])
+        roll_snapshot = self.client.get("/api/roll/active").json()
+        ledger_ids = {
+            record["defect_id"]
+            for record in roll_snapshot["defect_records"]
+        }
+        response_ids = {record["defect_id"] for record in body["defects_found"]}
+        self.assertTrue(response_ids.issubset(ledger_ids))
 
     @unittest.skipUnless(os.path.isfile(TEST_IMG), "test image missing")
     def test_inspect_upload(self):

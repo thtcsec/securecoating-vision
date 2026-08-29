@@ -101,6 +101,27 @@ class TestWebSynchronizerRefactored(unittest.TestCase):
         self.assertEqual(summary["defects_by_lane"][1], 1)
         self.assertEqual(summary["defects_by_class"]["scratch"], 1)
 
+    def test_unverified_coordinates_retain_detection_without_fabricating_position(self):
+        frame_ctx = self.sync.advance_motion(dt_seconds=0.0)
+        self.sync.record_unlocalized_defect(
+            {
+                "defect_id": "D_UNLOCALIZED",
+                "class_name": "void",
+                "bbox": [10, 20, 30, 40],
+                "confidence": 0.91,
+            },
+            frame_ctx,
+        )
+
+        snapshot = self.sync.get_roll_snapshot(self.sync.roll.roll_id, self.sync.roll.batch_id)
+        record = snapshot["defect_records"][0]
+        self.assertIsNone(record["linear_pos_m"])
+        self.assertIsNone(record["cross_pos_mm"])
+        self.assertIsNone(record["lane_id"])
+        self.assertFalse(record["coordinate_verified"])
+        self.assertEqual(record["bbox"], [10, 20, 30, 40])
+        self.assertEqual(record["confidence"], 0.91)
+
 
 if __name__ == "__main__":
     unittest.main()
