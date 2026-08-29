@@ -106,6 +106,10 @@ class FakeOperationsClient:
 
 
 class TestDashboardApp(unittest.TestCase):
+    def test_production_console_refreshes_authoritative_snapshot(self):
+        source = (ROOT / "dashboard" / "app.py").read_text(encoding="utf-8")
+        self.assertIn('@st.fragment(run_every="5s")', source)
+
     def test_production_dashboard_stops_without_local_stateful_fallback(self):
         with patch.dict(
             os.environ,

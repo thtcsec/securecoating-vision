@@ -94,15 +94,18 @@ api_client = InspectionApiClient(
 if not DASHBOARD_SANDBOX_ENABLED:
     from dashboard.production_console import render_production_console
 
-    try:
-        snapshot = api_client.operations_snapshot()
-    except (OSError, ValueError, KeyError, requests.RequestException) as exc:
-        st.error(
-            "Authoritative API unavailable. Production dashboard refuses local fallback. "
-            f"Details: {exc}"
-        )
-        st.stop()
-    render_production_console(snapshot, api_client)
+    @st.fragment(run_every="5s")
+    def render_authoritative_console() -> None:
+        try:
+            snapshot = api_client.operations_snapshot()
+        except (OSError, ValueError, KeyError, requests.RequestException):
+            st.error(
+                "Authoritative API unavailable. Production dashboard refuses local fallback."
+            )
+            st.stop()
+        render_production_console(snapshot, api_client)
+
+    render_authoritative_console()
     st.stop()
 
 from dashboard.sandbox_console import render_sandbox_console
