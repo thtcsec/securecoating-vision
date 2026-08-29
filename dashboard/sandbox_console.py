@@ -138,7 +138,7 @@ def render_sandbox_console(
         ["Random Physical Anomaly", "Scratch (Doctor Blade Nick)", "Void (Slurry Degassing)", "Blister (Solvent Boil)", "Delamination (Skinning)", "Nominal (Clean Surface)"],
     )
     cross_pos = st.sidebar.slider("Cross-Web Position (mm)", 0.0, 650.0, 325.0, 10.0)
-    if st.sidebar.button("RUN SANDBOX 7-STAGE INSPECTION", type="primary", use_container_width=True):
+    if st.sidebar.button("RUN SANDBOX 7-STAGE INSPECTION", type="primary", width="stretch"):
         sim_map = {
             "Scratch (Doctor Blade Nick)": "scratch",
             "Void (Slurry Degassing)": "void",
@@ -177,7 +177,7 @@ def render_sandbox_console(
             4: "4 · Disagreement → HOLD",
         }[value],
     )
-    if st.sidebar.button("RUN 90s EVIDENCE CASE", use_container_width=True):
+    if st.sidebar.button("RUN 90s EVIDENCE CASE", width="stretch"):
         try:
             if api_online:
                 st.session_state.libad_demo = api_client.libad_demo(int(libad_case))
@@ -238,11 +238,11 @@ def render_sandbox_console(
             vis_col, xray_col = st.columns(2)
             with vis_col:
                 st.caption("VIS (visible-light surface)")
-                st.image(cv2.cvtColor(vis, cv2.COLOR_BGR2RGB), use_container_width=True)
+                st.image(cv2.cvtColor(vis, cv2.COLOR_BGR2RGB), width="stretch")
             with xray_col:
                 st.caption("X-rayL (inline-compatible density)")
                 xray_gray = cv2.cvtColor(xray, cv2.COLOR_BGR2GRAY)
-                st.image(cv2.cvtColor(cv2.applyColorMap(xray_gray, cv2.COLORMAP_BONE), cv2.COLOR_BGR2RGB), use_container_width=True)
+                st.image(cv2.cvtColor(cv2.applyColorMap(xray_gray, cv2.COLORMAP_BONE), cv2.COLOR_BGR2RGB), width="stretch")
             if action == "PASS":
                 st.success(f"Case {demo['case_id']} — {demo['case_name']}: **PASS**")
             elif action == "HOLD":
@@ -298,24 +298,24 @@ def render_sandbox_console(
             c1, c2, c3, c4 = st.columns(4)
             with c1:
                 st.caption("Optical Brightfield (RGB)")
-                st.image(cv2.cvtColor(res.optical_brightfield, cv2.COLOR_BGR2RGB), use_container_width=True)
+                st.image(cv2.cvtColor(res.optical_brightfield, cv2.COLOR_BGR2RGB), width="stretch")
             with c2:
                 st.caption("Optical Darkfield Scatter")
-                st.image(cv2.cvtColor(res.optical_darkfield, cv2.COLOR_BGR2RGB), use_container_width=True)
+                st.image(cv2.cvtColor(res.optical_darkfield, cv2.COLOR_BGR2RGB), width="stretch")
             with c3:
                 st.caption("Lock-in Thermography Phase")
                 disp_th = cv2.applyColorMap(res.thermal_diffusivity_phase, cv2.COLORMAP_INFERNO)
-                st.image(cv2.cvtColor(disp_th, cv2.COLOR_BGR2RGB), use_container_width=True)
+                st.image(cv2.cvtColor(disp_th, cv2.COLOR_BGR2RGB), width="stretch")
             with c4:
                 st.caption("Confocal 3D Laser Profile")
                 norm_h = cv2.normalize(res.height_topography_map, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
                 disp_h = cv2.applyColorMap(norm_h, cv2.COLORMAP_JET)
-                st.image(cv2.cvtColor(disp_h, cv2.COLOR_BGR2RGB), use_container_width=True)
+                st.image(cv2.cvtColor(disp_h, cv2.COLOR_BGR2RGB), width="stretch")
             st.markdown("<h4 style='color:#FFF; margin-top:15px;'>Defect Segmentation & Metrology Ledger</h4>", unsafe_allow_html=True)
             if res.defect_metrology:
                 df_defects = pd.DataFrame(res.defect_metrology)
                 cols_to_show = ["defect_id", "class_name", "length_mm", "width_mm", "area_mm2", "peak_height_um", "micro_short_hazard_index", "battery_failure_mode", "quality_tier"]
-                st.dataframe(df_defects[cols_to_show], use_container_width=True)
+                st.dataframe(df_defects[cols_to_show], width="stretch")
             elif res.raw_detections:
                 st.warning(
                     f"{len(res.raw_detections)} raw detector proposals are present, but metrology/"
@@ -347,7 +347,7 @@ def render_sandbox_console(
                 ),
                 margin=dict(l=10, r=10, b=10, t=40), paper_bgcolor="#0E121B",
             )
-            st.plotly_chart(fig3d, use_container_width=True)
+            st.plotly_chart(fig3d, width="stretch")
             col_s1, col_s2 = st.columns(2)
             with col_s1:
                 mid_y = h_down.shape[0] // 2
@@ -357,7 +357,7 @@ def render_sandbox_console(
                     title="Cross-Sectional Height Profile Slice (Y = 10.0 mm)",
                 )
                 fig_slice.update_layout(paper_bgcolor="#0E121B", plot_bgcolor="#131824", font_color="#FFF")
-                st.plotly_chart(fig_slice, use_container_width=True)
+                st.plotly_chart(fig_slice, width="stretch")
             with col_s2:
                 st.markdown(f"""
                 <div class="scada-panel" style="margin-top:25px;">
@@ -385,14 +385,14 @@ def render_sandbox_console(
                 range_y=[0, 650.0],
             )
             fig_map.update_layout(paper_bgcolor="#0E121B", plot_bgcolor="#131824", font_color="#FFF", height=450)
-            st.plotly_chart(fig_map, use_container_width=True)
+            st.plotly_chart(fig_map, width="stretch")
             c_lane1, c_lane2 = st.columns(2)
             with c_lane1:
                 lane_counts = df_roll["lane_id"].value_counts().reset_index()
                 lane_counts.columns = ["Slitting Lane", "Defects Count"]
                 fig_lane = px.bar(lane_counts, x="Slitting Lane", y="Defects Count", title="Defects Distribution across Slitting Lanes (1-4)", color="Slitting Lane")
                 fig_lane.update_layout(paper_bgcolor="#0E121B", plot_bgcolor="#131824", font_color="#FFF")
-                st.plotly_chart(fig_lane, use_container_width=True)
+                st.plotly_chart(fig_lane, width="stretch")
             with c_lane2:
                 st.markdown(f"""
                 <div class="scada-panel" style="margin-top:20px;">
@@ -428,7 +428,7 @@ def render_sandbox_console(
                     },
                 ))
                 fig_gauge.update_layout(paper_bgcolor="#0E121B", font_color="#FFF", height=320)
-                st.plotly_chart(fig_gauge, use_container_width=True)
+                st.plotly_chart(fig_gauge, width="stretch")
             with col_g2:
                 st.markdown("""
                 <div class="scada-panel">
@@ -592,7 +592,7 @@ def render_sandbox_console(
                 data=cert_markdown or json.dumps(cert_payload, indent=2),
                 file_name=f"{cert_id}.{'md' if cert_markdown else 'json'}",
                 mime="text/markdown" if cert_markdown else "application/json",
-                use_container_width=True,
+                width="stretch",
             )
         with col_dl2:
             st.download_button(
@@ -600,7 +600,7 @@ def render_sandbox_console(
                 data=json.dumps(cert_payload, indent=2),
                 file_name=f"{cert_id}.json",
                 mime="application/json",
-                use_container_width=True,
+                width="stretch",
             )
         with st.expander("Preview Full Certificate Document", expanded=False):
             if cert_markdown:

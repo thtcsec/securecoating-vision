@@ -7,6 +7,7 @@ import asyncio
 import struct
 import zlib
 import base64
+import hashlib
 import tempfile
 import atexit
 import shutil
@@ -291,6 +292,7 @@ class TestAPI(unittest.TestCase):
                 "operator_id": "OP_UNIT",
                 "confirmation": "yes",
                 "reason": "unit test wrong phrase",
+                "idempotency_key": "CMD_WRONG_CONFIRMATION",
             },
         )
         self.assertEqual(resp.status_code, 409)
@@ -307,6 +309,7 @@ class TestAPI(unittest.TestCase):
                 "confirmation": "CONFIRM EMERGENCY_STOP",
                 "reason": "unit test emergency stop",
                 "snapshot_id": snap["snapshot_id"],
+                "idempotency_key": "CMD_UNIT_ESTOP",
             },
         )
         self.assertEqual(resp.status_code, 200)
@@ -326,9 +329,134 @@ class TestAPI(unittest.TestCase):
                 "confirmation": "CONFIRM RESET",
                 "reason": "unit test restore after estop",
                 "snapshot_id": later["snapshot_id"],
+                "idempotency_key": "CMD_UNIT_RESET",
             },
         )
         self.assertEqual(reset.status_code, 200)
+
+    def test_reset_rejects_fabricated_snapshot(self):
+        resp = self.client.post(
+            "/api/operations/control",
+            data={
+                "action": "RESET",
+                "operator_id": "OP_UNIT",
+                "confirmation": "CONFIRM RESET",
+                "reason": "fabricated snapshot test",
+                "snapshot_id": "OPS_FAKE1234",
+                "idempotency_key": "CMD_FAKE_SNAPSHOT",
+            },
+        )
+        self.assertEqual(resp.status_code, 409)
+        self.assertIn("unknown", resp.json()["detail"].lower())
+
+    def test_control_retry_is_idempotent(self):
+        data = {
+            "action": "EMERGENCY_STOP",
+            "operator_id": "OP_RETRY",
+            "confirmation": "CONFIRM EMERGENCY_STOP",
+            "reason": "idempotency replay verification",
+            "idempotency_key": "CMD_REPLAY_ESTOP",
+        }
+        first = self.client.post("/api/operations/control", data=data)
+        second = self.client.post("/api/operations/control", data=data)
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(first.json()["audit_id"], second.json()["audit_id"])
+        self.assertTrue(second.json()["idempotent_replay"])
+
+    def test_legacy_control_routes_are_disabled(self):
+        self.assertEqual(self.client.post("/api/industrial/estop").status_code, 410)
+        self.assertEqual(self.client.post("/api/industrial/reset").status_code, 410)
+        self.assertEqual(self.client.post("/api/system/inference-reset").status_code, 410)
+
+    def test_production_control_binds_operator_identity_to_token(self):
+        token = "unit-operator-secret"
+        credential = {
+            "operator_id": "OP_VERIFIED",
+            "token_sha256": hashlib.sha256(token.encode()).hexdigest(),
+            "roles": {"operator"},
+        }
+        data = {
+            "action": "EMERGENCY_STOP",
+            "operator_id": "OP_IMPOSTOR",
+            "confirmation": "CONFIRM EMERGENCY_STOP",
+            "reason": "operator identity binding test",
+            "idempotency_key": "CMD_OPERATOR_BINDING",
+        }
+        with patch("api.main.ENVIRONMENT", "production"), patch(
+            "api.main.OPERATOR_CREDENTIALS", [credential]
+        ):
+            mismatch = self.client.post(
+                "/api/operations/control",
+                data=data,
+                headers={"x-operator-token": token},
+            )
+            missing = self.client.post("/api/operations/control", data=data)
+        self.assertEqual(mismatch.status_code, 403)
+        self.assertEqual(missing.status_code, 401)
+
+    def test_expired_snapshot_blocks_reset(self):
+        snap = self.client.get("/api/operations/snapshot").json()
+        with patch("api.main.time.monotonic", return_value=10**9):
+            resp = self.client.post(
+                "/api/operations/control",
+                data={
+                    "action": "RESET",
+                    "operator_id": "OP_UNIT",
+                    "confirmation": "CONFIRM RESET",
+                    "reason": "expired snapshot verification",
+                    "snapshot_id": snap["snapshot_id"],
+                    "idempotency_key": "CMD_EXPIRED_SNAPSHOT",
+                },
+            )
+        self.assertEqual(resp.status_code, 409)
+        self.assertIn("expired", resp.json()["detail"].lower())
+
+    def test_dispatch_exception_is_audited_and_latches_failure(self):
+        with patch("api.main._dispatch_confirmed_control", side_effect=RuntimeError("boom")), patch(
+            "api.main._latch_control_failure"
+        ) as latch:
+            resp = self.client.post(
+                "/api/operations/control",
+                data={
+                    "action": "EMERGENCY_STOP",
+                    "operator_id": "OP_UNIT",
+                    "confirmation": "CONFIRM EMERGENCY_STOP",
+                    "reason": "dispatch exception verification",
+                    "idempotency_key": "CMD_DISPATCH_EXCEPTION",
+                },
+            )
+        self.assertEqual(resp.status_code, 503)
+        self.assertEqual(resp.json()["status"], "DISPATCH_EXCEPTION")
+        latch.assert_called_once()
+
+    def test_audit_finalization_failure_requests_fail_closed_latch(self):
+        with patch("api.main.quality_mem.finalize_control_audit", return_value=False), patch(
+            "api.main._latch_control_failure"
+        ) as latch:
+            resp = self.client.post(
+                "/api/operations/control",
+                data={
+                    "action": "EMERGENCY_STOP",
+                    "operator_id": "OP_UNIT",
+                    "confirmation": "CONFIRM EMERGENCY_STOP",
+                    "reason": "audit finalization fault injection",
+                    "idempotency_key": "CMD_FINALIZE_FAILURE",
+                },
+            )
+        self.assertEqual(resp.status_code, 503)
+        latch.assert_called_once()
+
+    def test_inference_reset_does_not_report_a_plc_ack(self):
+        from api import main as api_main
+
+        with patch.object(api_main.failsafe, "request_inference_reset_probe", return_value=True):
+            outcome = api_main._dispatch_confirmed_control(
+                "INFERENCE_RESET", "unit inference reset"
+            )
+        self.assertIsNone(outcome["acknowledged"])
+        self.assertTrue(outcome["reset_probe_accepted"])
+        self.assertIsNone(outcome["signal_id"])
 
 
 if __name__ == "__main__":

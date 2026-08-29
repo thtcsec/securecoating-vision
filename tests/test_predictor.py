@@ -39,6 +39,18 @@ class TestPredictor(unittest.TestCase):
             with self.assertRaises(ValueError):
                 CoatingPredictor(_load_config())
 
+    def test_cpu_override_is_forwarded_to_all_real_engines(self):
+        cfg = _load_config()
+        cfg["inference"]["device"] = "cuda"
+        with patch.dict(os.environ, {"SECURECOATING_INFERENCE_DEVICE": "cpu"}), patch(
+            "inference.yolo_engine.YOLOEngine"
+        ) as yolo_cls, patch("inference.onnx_engine.InferenceEngine") as onnx_cls:
+            yolo_cls.return_value.is_loaded = False
+            onnx_cls.return_value.is_loaded = False
+            CoatingPredictor(cfg)
+        self.assertEqual(yolo_cls.call_args.kwargs["device"], "cpu")
+        self.assertEqual(onnx_cls.call_args.kwargs["device"], "cpu")
+
     def test_sensor_fallback_flag_in_result(self):
         cfg = _load_config()
         cfg["inference"]["device"] = "cpu"

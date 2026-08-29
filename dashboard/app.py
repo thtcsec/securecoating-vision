@@ -8,6 +8,14 @@ The research sandbox is opt-in for development/test only.
 import os
 import sys
 
+# Streamlit executes this file as a script, so the repository root is not
+# guaranteed to be importable. Bootstrap it before importing dashboard modules.
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SRC_DIR = os.path.join(PROJECT_ROOT, "src")
+for path in (PROJECT_ROOT, SRC_DIR):
+    if path not in sys.path:
+        sys.path.insert(0, path)
+
 import requests
 import streamlit as st
 import yaml
@@ -67,11 +75,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SRC_DIR = os.path.join(PROJECT_ROOT, "src")
-for path in (PROJECT_ROOT, SRC_DIR):
-    if path not in sys.path:
-        sys.path.insert(0, path)
 os.chdir(PROJECT_ROOT)
 
 DASHBOARD_SANDBOX_ENABLED = (

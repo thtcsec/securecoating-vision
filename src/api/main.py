@@ -19,8 +19,8 @@ Endpoints:
 - GET  /api/batch/{id}/spc        -> SPC alarm status
 - GET  /api/industrial/state      -> PLC register state
 - GET  /api/industrial/signals    -> Signal history
-- POST /api/industrial/estop      -> Emergency stop
-- POST /api/industrial/reset      -> Reset line after E-Stop
+- POST /api/industrial/estop      -> Disabled legacy control (410)
+- POST /api/industrial/reset      -> Disabled legacy control (410)
 - GET  /api/system/health-report  -> Detailed system health
 """
 
@@ -32,6 +32,9 @@ import secrets
 import re
 import asyncio
 import base64
+import hashlib
+import json
+import threading
 from datetime import datetime, timezone
 from io import BytesIO
 import yaml
@@ -106,7 +109,7 @@ app.add_middleware(
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type", "X-API-Key"],
+    allow_headers=["Content-Type", "X-API-Key", "X-Operator-Token"],
 )
 TRUSTED_HOSTS = [
     host.strip()
@@ -218,6 +221,7 @@ TEST_SET_DIR = os.path.join(PROJECT_ROOT, "data", "test_set", "images")
 IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
 CONTROL_POLICY = {
     "endpoint": "/api/operations/control",
+    "snapshot_ttl_seconds": 30,
     "actions": {
         "EMERGENCY_STOP": {
             "confirmation": "CONFIRM EMERGENCY_STOP",
@@ -226,10 +230,12 @@ CONTROL_POLICY = {
         "RESET": {
             "confirmation": "CONFIRM RESET",
             "effect": "Request PLC reset; latch clears only after confirmation",
+            "requires_fresh_snapshot": True,
         },
         "INFERENCE_RESET": {
             "confirmation": "CONFIRM INFERENCE_RESET",
             "effect": "Arm one trained-model recovery probe after an inference fault",
+            "requires_fresh_snapshot": True,
         },
     },
     "forbidden": [
@@ -240,6 +246,43 @@ CONTROL_POLICY = {
     ],
 }
 
+SNAPSHOT_TTL_SECONDS = max(
+    5, min(int(os.environ.get("SECURECOATING_SNAPSHOT_TTL_SECONDS", "30")), 300)
+)
+CONTROL_POLICY["snapshot_ttl_seconds"] = SNAPSHOT_TTL_SECONDS
+_snapshot_registry: Dict[str, Dict[str, Any]] = {}
+_snapshot_lock = threading.Lock()
+_control_lock = threading.Lock()
+
+
+def _load_operator_credentials() -> List[Dict[str, Any]]:
+    """Load hashed operator tokens without keeping plaintext credentials in memory."""
+    raw = os.environ.get("SECURECOATING_OPERATOR_CREDENTIALS", "").strip()
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("SECURECOATING_OPERATOR_CREDENTIALS must be valid JSON") from exc
+    if not isinstance(parsed, list):
+        raise RuntimeError("SECURECOATING_OPERATOR_CREDENTIALS must be a JSON list")
+    credentials = []
+    for entry in parsed:
+        if not isinstance(entry, dict):
+            raise RuntimeError("Each operator credential must be an object")
+        operator_id = str(entry.get("operator_id", ""))
+        token_sha256 = str(entry.get("token_sha256", "")).lower()
+        roles = entry.get("roles", [])
+        _validate_identifier(operator_id, "operator_id")
+        if not re.fullmatch(r"[0-9a-f]{64}", token_sha256):
+            raise RuntimeError("Operator token_sha256 must be a 64-character lowercase hex digest")
+        if not isinstance(roles, list) or not roles:
+            raise RuntimeError("Operator credentials must contain at least one role")
+        credentials.append(
+            {"operator_id": operator_id, "token_sha256": token_sha256, "roles": set(map(str, roles))}
+        )
+    return credentials
+
 
 def _validate_identifier(value: str, field_name: str) -> str:
     if not IDENTIFIER_PATTERN.fullmatch(value or ""):
@@ -248,6 +291,47 @@ def _validate_identifier(value: str, field_name: str) -> str:
             detail=f"{field_name} must be 1-128 characters from the approved identifier set",
         )
     return value
+
+
+OPERATOR_CREDENTIALS = _load_operator_credentials()
+CONTROL_AUTH_READY = ENVIRONMENT != "production" or bool(OPERATOR_CREDENTIALS)
+_ACTION_ROLES = {
+    "EMERGENCY_STOP": {"operator", "safety_reset", "maintenance"},
+    "RESET": {"safety_reset"},
+    "INFERENCE_RESET": {"maintenance"},
+}
+
+
+def _authenticate_control_operator(request: Request, claimed_operator_id: str, action: str) -> str:
+    """Resolve the operator from a hashed token; never trust a form identity in production."""
+    _validate_identifier(claimed_operator_id, "operator_id")
+    if not OPERATOR_CREDENTIALS:
+        if ENVIRONMENT == "production":
+            raise HTTPException(
+                status_code=503,
+                detail="Operator control authentication is not configured",
+            )
+        return claimed_operator_id
+
+    token = request.headers.get("x-operator-token", "")
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing X-Operator-Token")
+    token_digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    credential = next(
+        (
+            item
+            for item in OPERATOR_CREDENTIALS
+            if secrets.compare_digest(token_digest, item["token_sha256"])
+        ),
+        None,
+    )
+    if credential is None:
+        raise HTTPException(status_code=401, detail="Invalid operator credential")
+    if not secrets.compare_digest(claimed_operator_id, credential["operator_id"]):
+        raise HTTPException(status_code=403, detail="Operator identity does not match credential")
+    if not (credential["roles"] & _ACTION_ROLES[action]):
+        raise HTTPException(status_code=403, detail="Operator role is not authorized for this action")
+    return credential["operator_id"]
 
 
 def _decode_upload(file_bytes: bytes) -> np.ndarray:
@@ -510,6 +594,7 @@ def _build_health_payload():
         and quality_mem.healthy
         and (predictor.yolo_available or predictor.onnx_available)
         and industrial_mgr.transport_ready
+        and CONTROL_AUTH_READY
     )
     payload = {
         "status": "HEALTHY" if ready else "DEGRADED",
@@ -532,6 +617,7 @@ def _build_health_payload():
         "traceability_ok": quality_mem.healthy,
         "simulation_mode": SIMULATION_MODE,
         "industrial_transport_ready": industrial_mgr.transport_ready,
+        "control_auth_ready": CONTROL_AUTH_READY,
     }
     return payload, ready
 
@@ -848,6 +934,63 @@ def get_signal_history(limit: int = Query(50, ge=1, le=500)):
     return industrial_mgr.get_signal_history(limit=limit)
 
 
+def _control_state_digest(state: Dict[str, Any]) -> str:
+    canonical = json.dumps(state, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _current_control_state() -> Dict[str, Any]:
+    health, ready = _build_health_payload()
+    roll = web_synchronizer.get_roll_snapshot(web_synchronizer.roll.roll_id)
+    industrial = industrial_mgr.get_plc_state()
+    summary = (roll or {}).get("summary") or {}
+    disposition = (
+        "EMERGENCY_STOP"
+        if health["system_state"] == "EMERGENCY"
+        else ("AUTOMATIC_DECISIONS_ALLOWED" if ready else "HOLD_REQUIRED")
+    )
+    return {
+        "roll_id": summary.get("roll_id"),
+        "batch_id": summary.get("batch_id"),
+        "system_state": health["system_state"],
+        "line_disposition": disposition,
+        "industrial_interlock_latched": industrial.get("interlock_latched"),
+        "inference_interlock_latched": failsafe.inference_interlock_latched,
+        "industrial_transport_ready": health["industrial_transport_ready"],
+        "traceability_ok": health["traceability_ok"],
+        "trained_model_ready": bool(health["yolo_available"] or health["onnx_available"]),
+    }
+
+
+def _register_control_snapshot(snapshot_id: str) -> None:
+    now = time.monotonic()
+    record = {
+        "expires_at": now + SNAPSHOT_TTL_SECONDS,
+        "state_digest": _control_state_digest(_current_control_state()),
+    }
+    with _snapshot_lock:
+        expired = [key for key, value in _snapshot_registry.items() if value["expires_at"] <= now]
+        for key in expired:
+            _snapshot_registry.pop(key, None)
+        while len(_snapshot_registry) >= 256:
+            _snapshot_registry.pop(next(iter(_snapshot_registry)))
+        _snapshot_registry[snapshot_id] = record
+
+
+def _consume_fresh_snapshot(snapshot_id: str) -> None:
+    if not snapshot_id:
+        raise HTTPException(status_code=409, detail="A fresh operations snapshot is required")
+    now = time.monotonic()
+    with _snapshot_lock:
+        record = _snapshot_registry.pop(snapshot_id, None)
+    if record is None:
+        raise HTTPException(status_code=409, detail="Snapshot is unknown, expired, or already consumed")
+    if record["expires_at"] <= now:
+        raise HTTPException(status_code=409, detail="Snapshot has expired")
+    if not secrets.compare_digest(record["state_digest"], _control_state_digest(_current_control_state())):
+        raise HTTPException(status_code=409, detail="Authoritative control state changed after the snapshot")
+
+
 @app.get("/api/operations/snapshot")
 def get_operations_snapshot(signal_limit: int = Query(25, ge=1, le=100)):
     """Return one read-only operations snapshot for the production dashboard."""
@@ -888,6 +1031,8 @@ def get_operations_snapshot(signal_limit: int = Query(25, ge=1, le=100)):
         readiness_reasons.append("traceability_not_ready")
     if not (health["yolo_available"] or health["onnx_available"]):
         readiness_reasons.append("trained_model_not_ready")
+    if not health["control_auth_ready"]:
+        readiness_reasons.append("operator_control_auth_not_ready")
 
     certificate_payload = None
     certificate_error = None
@@ -900,9 +1045,10 @@ def get_operations_snapshot(signal_limit: int = Query(25, ge=1, le=100)):
     except HTTPException as exc:
         certificate_error = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
 
-    return {
+    snapshot_id = f"OPS_{uuid.uuid4().hex[:12].upper()}"
+    snapshot = {
         "schema_version": "1.1",
-        "snapshot_id": f"OPS_{uuid.uuid4().hex[:12].upper()}",
+        "snapshot_id": snapshot_id,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "consistency": "single_api_response_non_transactional_components",
         "surface": "operations",
@@ -926,6 +1072,8 @@ def get_operations_snapshot(signal_limit: int = Query(25, ge=1, le=100)):
         "control_audit": control_audit,
         "control_policy": CONTROL_POLICY,
     }
+    _register_control_snapshot(snapshot_id)
+    return snapshot
 
 
 def _dispatch_confirmed_control(action: str, reason: str) -> Dict[str, Any]:
@@ -960,21 +1108,33 @@ def _dispatch_confirmed_control(action: str, reason: str) -> Dict[str, Any]:
         "http_status": 202 if accepted else 409,
         "signal_id": None,
         "inference_interlock_latched": failsafe.inference_interlock_latched,
-        "acknowledged": accepted,
+        "acknowledged": None,
+        "reset_probe_accepted": accepted,
         "mock_mode": industrial_mgr.mock_mode,
     }
 
 
+def _latch_control_failure(reason: str) -> None:
+    """Best-effort local HOLD/E-stop latch when command integrity becomes uncertain."""
+    failsafe.latch_inference_interlock(reason)
+    try:
+        industrial_mgr.emergency_stop(reason)
+    except Exception:
+        logger.exception("Failed to dispatch secondary E-stop while latching control failure")
+
+
 @app.post("/api/operations/control")
 def operations_control(
+    request: Request,
     action: str = Form(...),
     operator_id: str = Form(...),
     confirmation: str = Form(...),
     reason: str = Form(...),
     snapshot_id: str = Form(""),
+    idempotency_key: str = Form(...),
 ):
     """Authenticated operator control: exact confirmation phrase, then durable audit."""
-    _validate_identifier(operator_id, "operator_id")
+    _validate_identifier(idempotency_key, "idempotency_key")
     if snapshot_id:
         _validate_identifier(snapshot_id, "snapshot_id")
     policy = CONTROL_POLICY["actions"].get(action)
@@ -994,109 +1154,156 @@ def operations_control(
             status_code=409,
             detail="No trained model is available for a reset probe",
         )
+    operator_id = _authenticate_control_operator(request, operator_id, action)
+    request_digest = hashlib.sha256(
+        json.dumps(
+            {
+                "action": action,
+                "operator_id": operator_id,
+                "reason": reason,
+                "snapshot_id": snapshot_id or None,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
 
-    audit_id = f"AUD_{uuid.uuid4().hex[:12].upper()}"
-    recorded = quality_mem.record_control_audit(
-        audit_id=audit_id,
-        operator_id=operator_id,
-        action=action,
-        reason=reason,
-        confirmation=expected,
-        snapshot_id=snapshot_id or None,
-        result_status="DISPATCHING",
-        details={"policy_effect": policy["effect"]},
-    )
-    if not recorded:
-        raise HTTPException(
-            status_code=503,
-            detail="Control audit write failed; command was not dispatched",
+    with _control_lock:
+        try:
+            prior = quality_mem.get_control_audit_by_idempotency(idempotency_key)
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail="Control audit lookup failed") from exc
+        if prior is not None:
+            details = prior["details"]
+            if not secrets.compare_digest(str(details.get("request_digest", "")), request_digest):
+                raise HTTPException(status_code=409, detail="Idempotency key was used for another command")
+            if prior["result_status"] == "DISPATCHING":
+                raise HTTPException(
+                    status_code=409,
+                    detail="Prior command outcome is unresolved; keep the line in HOLD",
+                )
+            return JSONResponse(
+                status_code=int(details.get("http_status", 503)),
+                content={
+                    "audit_id": prior["audit_id"],
+                    "action": prior["action"],
+                    "operator_id": prior["operator_id"],
+                    "snapshot_id": prior["snapshot_id"],
+                    "status": prior["result_status"],
+                    "signal_id": prior["signal_id"],
+                    "acknowledged": details.get("acknowledged"),
+                    "mock_mode": details.get("mock_mode"),
+                    "interlock_latched": (
+                        details.get("interlock_latched")
+                        if isinstance(details.get("interlock_latched"), bool)
+                        else industrial_mgr.interlock_latched
+                    ),
+                    "inference_interlock_latched": details.get(
+                        "inference_interlock_latched", failsafe.inference_interlock_latched
+                    ),
+                    "idempotent_replay": True,
+                    "reset_probe_accepted": details.get("reset_probe_accepted"),
+                },
+            )
+
+        if policy.get("requires_fresh_snapshot"):
+            _consume_fresh_snapshot(snapshot_id)
+
+        audit_id = f"AUD_{uuid.uuid4().hex[:12].upper()}"
+        recorded = quality_mem.record_control_audit(
+            audit_id=audit_id,
+            operator_id=operator_id,
+            action=action,
+            reason=reason,
+            confirmation=expected,
+            snapshot_id=snapshot_id or None,
+            idempotency_key=idempotency_key,
+            result_status="DISPATCHING",
+            details={"policy_effect": policy["effect"], "request_digest": request_digest},
         )
+        if not recorded:
+            _latch_control_failure("Control audit write failed before dispatch")
+            raise HTTPException(
+                status_code=503,
+                detail="Control audit write failed; fail-closed HOLD/E-stop was requested",
+            )
 
-    outcome = _dispatch_confirmed_control(action, reason)
-    finalized = quality_mem.finalize_control_audit(
-        audit_id,
-        outcome["result_status"],
-        signal_id=outcome.get("signal_id"),
-        details={
+        try:
+            outcome = _dispatch_confirmed_control(action, reason)
+        except Exception as exc:
+            logger.exception("Control dispatch raised an exception")
+            _latch_control_failure("Control dispatch exception; outcome is uncertain")
+            outcome = {
+                "result_status": "DISPATCH_EXCEPTION",
+                "http_status": 503,
+                "signal_id": None,
+                "acknowledged": False,
+                "mock_mode": industrial_mgr.mock_mode,
+                "interlock_latched": industrial_mgr.interlock_latched,
+                "inference_interlock_latched": failsafe.inference_interlock_latched,
+                "error_type": type(exc).__name__,
+            }
+        final_details = {
             "policy_effect": policy["effect"],
+            "request_digest": request_digest,
+            "http_status": outcome["http_status"],
             "acknowledged": outcome.get("acknowledged"),
+            "reset_probe_accepted": outcome.get("reset_probe_accepted"),
             "mock_mode": outcome.get("mock_mode"),
-            "interlock_latched": outcome.get("interlock_latched"),
+            "interlock_latched": outcome.get(
+                "interlock_latched", industrial_mgr.interlock_latched
+            ),
             "inference_interlock_latched": outcome.get("inference_interlock_latched"),
-        },
-    )
-    if not finalized:
-        raise HTTPException(
-            status_code=503,
-            detail="Control was dispatched but audit finalization failed; treat the line as HOLD",
+            "error_type": outcome.get("error_type"),
+        }
+        finalized = quality_mem.finalize_control_audit(
+            audit_id,
+            outcome["result_status"],
+            signal_id=outcome.get("signal_id"),
+            details=final_details,
         )
+        if not finalized:
+            _latch_control_failure("Control audit finalization failed after dispatch")
+            raise HTTPException(
+                status_code=503,
+                detail="Control was dispatched but audit finalization failed; treat the line as HOLD",
+            )
 
-    return JSONResponse(
-        status_code=outcome["http_status"],
-        content={
-            "audit_id": audit_id,
-            "action": action,
-            "operator_id": operator_id,
-            "snapshot_id": snapshot_id or None,
-            "status": outcome["result_status"],
-            "signal_id": outcome.get("signal_id"),
-            "acknowledged": outcome.get("acknowledged"),
-            "mock_mode": outcome.get("mock_mode"),
-            "interlock_latched": industrial_mgr.interlock_latched,
-            "inference_interlock_latched": failsafe.inference_interlock_latched,
-        },
-    )
+        return JSONResponse(
+            status_code=outcome["http_status"],
+            content={
+                "audit_id": audit_id,
+                "action": action,
+                "operator_id": operator_id,
+                "snapshot_id": snapshot_id or None,
+                "status": outcome["result_status"],
+                "signal_id": outcome.get("signal_id"),
+                "acknowledged": outcome.get("acknowledged"),
+                "reset_probe_accepted": outcome.get("reset_probe_accepted"),
+                "mock_mode": outcome.get("mock_mode"),
+                "interlock_latched": industrial_mgr.interlock_latched,
+                "inference_interlock_latched": failsafe.inference_interlock_latched,
+                "idempotent_replay": False,
+            },
+        )
 
 
 @app.post("/api/industrial/estop")
 def emergency_stop(reason: str = Form("API trigger")):
-    """Trigger emergency stop on production line."""
-    signal = industrial_mgr.emergency_stop(reason)
-    return JSONResponse(
-        status_code=200 if signal.acknowledged or industrial_mgr.mock_mode else 503,
-        content={
-            "status": "SIMULATED" if industrial_mgr.mock_mode else (
-                "ACKNOWLEDGED" if signal.acknowledged else "UNCONFIRMED"
-            ),
-            "action": "EMERGENCY_STOP",
-            "reason": reason,
-            "signal_id": signal.signal_id,
-            "interlock_latched": industrial_mgr.interlock_latched,
-        },
-    )
+    """Legacy unaudited control is deliberately disabled."""
+    raise HTTPException(status_code=410, detail="Use POST /api/operations/control")
 
 
 @app.post("/api/industrial/reset")
 def reset_line():
-    """Reset production line after emergency stop."""
-    signal = industrial_mgr.reset_line()
-    cleared = not industrial_mgr.interlock_latched
-    return JSONResponse(
-        status_code=200 if cleared else 503,
-        content={
-            "status": "SIMULATED" if industrial_mgr.mock_mode and cleared else (
-                "ACKNOWLEDGED" if signal.acknowledged and cleared else "UNCONFIRMED"
-            ),
-            "action": "RESET",
-            "signal_id": signal.signal_id,
-            "interlock_latched": industrial_mgr.interlock_latched,
-        },
-    )
+    """Legacy unaudited control is deliberately disabled."""
+    raise HTTPException(status_code=410, detail="Use POST /api/operations/control")
 
 
 @app.post("/api/system/inference-reset")
 def reset_inference_interlock():
-    """Authorize one trained-model recovery probe after an inference fault."""
-    if not (predictor.yolo_available or predictor.onnx_available):
-        raise HTTPException(status_code=409, detail="No trained model is available for a reset probe")
-    accepted = failsafe.request_inference_reset_probe()
-    return JSONResponse(
-        status_code=202 if accepted else 409,
-        content={
-            "status": "RESET_PROBE_ARMED" if accepted else "RESET_BLOCKED",
-            "inference_interlock_latched": failsafe.inference_interlock_latched,
-        },
-    )
+    """Legacy unaudited control is deliberately disabled."""
+    raise HTTPException(status_code=410, detail="Use POST /api/operations/control")
 
 
 @app.get("/api/system/health-report")

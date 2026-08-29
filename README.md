@@ -15,7 +15,7 @@ The repository contains a fail-closed inspection prototype, traceability experim
 The initial prototype validated the software and safety contract using RGB inspection and simulated secondary modalities. The repository now contains a validation adapter and 10-seed harness for [LIBAD](https://arxiv.org/abs/2608.07958), whose official release contains aligned visible-light and inline-compatible X-ray data from real roll-to-roll electrode manufacturing. The checked-in demo and benchmark reports use deterministic protocol fixtures because the official dataset/splits are not present. This is a validation extension, not a change of topic. Details are in [docs/libad_validation_extension.md](docs/libad_validation_extension.md).
 
 <!-- TEST_MANIFEST:START -->
-The current software validation snapshot is 145 passing tests with 0 skips and 0 failures (commit `04668830fe14`, working tree clean, source diff `none`, Python 3.11.9, 38.9s). The authoritative record is [reports/test_manifest.json](reports/test_manifest.json). This does not constitute evidence of factory performance, physical PLC behavior, safety-rated E-stop operation, or production qualification.
+The current software validation snapshot is 155 passing tests with 0 skips and 0 failures (commit `661253e16531`, working tree dirty, source diff `26f88152584f`, Python 3.11.9, 46.7s). The authoritative record is [reports/test_manifest.json](reports/test_manifest.json). This does not constitute evidence of factory performance, physical PLC behavior, safety-rated E-stop operation, or production qualification.
 <!-- TEST_MANIFEST:END -->
 
 ## Current safety contract
@@ -60,10 +60,13 @@ The API defaults to fail-closed production mode. At minimum configure:
 $env:SECURECOATING_ENV = "production"
 $env:SECURECOATING_API_KEY = "<secret from your secret manager>"
 $env:SECURECOATING_FACTORY_SECRET = "<certificate signing secret>"
+$env:SECURECOATING_OPERATOR_CREDENTIALS = '[{"operator_id":"OP_SHIFT_A","token_sha256":"<sha256-of-operator-token>","roles":["operator","safety_reset"]}]'
 $env:SECURECOATING_INDUSTRIAL_MOCK_MODE = "false"
 ```
 
 You must also replace the simulation-only values in `configs/calibration.yaml`, configure the selected PLC command owner and its command/ACK sequence contract, and provision OPC UA client/server certificates. Set `modbus.trusted_gateway: true` only after the OT network control has been independently verified.
+
+Production operator controls are disabled unless `SECURECOATING_OPERATOR_CREDENTIALS` contains hashed tokens. `operator` may request E-stop, `safety_reset` may reset the line, and `maintenance` may arm an inference recovery probe. Never store plaintext operator tokens in the repository.
 
 For an explicit unauthenticated local test sandbox only:
 

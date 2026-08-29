@@ -97,6 +97,7 @@ class TestQualityMemoryFaults(unittest.TestCase):
             reason="unit test",
             confirmation="CONFIRM EMERGENCY_STOP",
             snapshot_id="OPS_TEST",
+            idempotency_key="CMD_TEST1",
             result_status="DISPATCHING",
             details={"step": "start"},
         ))
@@ -113,7 +114,18 @@ class TestQualityMemoryFaults(unittest.TestCase):
         self.assertEqual(row["audit_id"], "AUD_TEST1")
         self.assertEqual(row["result_status"], "SIMULATED")
         self.assertEqual(row["signal_id"], "SIG_1")
+        self.assertEqual(row["idempotency_key"], "CMD_TEST1")
         self.assertEqual(row["details"]["step"], "done")
+        replay = self.memory.get_control_audit_by_idempotency("CMD_TEST1")
+        self.assertEqual(replay["audit_id"], "AUD_TEST1")
+        self.assertFalse(self.memory.record_control_audit(
+            audit_id="AUD_TEST2",
+            operator_id="OP_A",
+            action="EMERGENCY_STOP",
+            reason="duplicate idempotency key",
+            confirmation="CONFIRM EMERGENCY_STOP",
+            idempotency_key="CMD_TEST1",
+        ))
 
     def test_control_audit_write_failure_is_reported(self):
         with patch.object(self.memory, "_get_connection", self.fail_connection):

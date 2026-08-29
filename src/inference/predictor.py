@@ -67,6 +67,7 @@ class CoatingPredictor:
             self.device = torch.device("cpu")
         else:
             self.device = torch.device(requested_device)
+        self.requested_device = self.device.type
 
         self.num_classes = self.config.get("model", {}).get("num_classes", 5)
         self.model_version = str(self.config.get("model", {}).get("version", "2.0.0"))
@@ -143,13 +144,12 @@ class CoatingPredictor:
             conf = self.config.get("inference", {}).get("confidence_threshold", 0.35)
             iou = self.config.get("inference", {}).get("nms_threshold", 0.45)
             imgsz = int(self.config.get("inference", {}).get("imgsz", 640))
-            device = self.config.get("inference", {}).get("device", "auto")
             self.yolo_engine = YOLOEngine(
                 model_path=path,
                 imgsz=imgsz,
                 conf_thresh=conf,
                 iou_thresh=iou,
-                device=device if device != "cuda" else "auto",
+                device=self.requested_device,
             )
         except Exception as e:
             logger.info(f"YOLO engine not available: {e}")
@@ -171,7 +171,7 @@ class CoatingPredictor:
                 imgsz=imgsz,
                 conf_thresh=conf,
                 iou_thresh=iou,
-                device="auto",
+                device=self.requested_device,
             )
             if self.onnx_engine.is_loaded:
                 # Warmup CUDA kernels so first API call is not multi-second

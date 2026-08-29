@@ -140,6 +140,9 @@ class TestDashboardApp(unittest.TestCase):
             self.assertIn("NO DATA", rendered)
             labels = [item.label for item in app.button]
             self.assertTrue(any("Submit control command" in label for label in labels))
+            submit = next(item for item in app.button if "Submit control command" in item.label)
+            self.assertTrue(submit.disabled)
+            self.assertTrue(any("Snapshot is stale" in item.value for item in app.error))
             self.assertFalse(any("7-STAGE" in label for label in labels))
             self.assertFalse(any("90s" in label for label in labels))
             self.assertFalse(any("Send Parameter Offset" in label for label in labels))

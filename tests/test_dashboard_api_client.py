@@ -96,6 +96,8 @@ class TestInspectionApiClient(unittest.TestCase):
                 confirmation="CONFIRM EMERGENCY_STOP",
                 reason="unit test stop",
                 snapshot_id="OPS_1",
+                idempotency_key="CMD_1",
+                operator_token="operator-secret",
             )
         self.assertEqual(payload["audit_id"], "AUD_1")
         self.assertEqual(payload["_http_status"], 200)
@@ -107,10 +109,22 @@ class TestInspectionApiClient(unittest.TestCase):
                 "confirmation": "CONFIRM EMERGENCY_STOP",
                 "reason": "unit test stop",
                 "snapshot_id": "OPS_1",
+                "idempotency_key": "CMD_1",
             },
-            headers={"x-api-key": "secret"},
+            headers={"x-api-key": "secret", "x-operator-token": "operator-secret"},
             timeout=5.0,
         )
+
+    def test_operations_control_requires_idempotency_key(self):
+        client = InspectionApiClient("http://api.local")
+        with self.assertRaises(ValueError):
+            client.operations_control(
+                action="EMERGENCY_STOP",
+                operator_id="OP_1",
+                confirmation="CONFIRM EMERGENCY_STOP",
+                reason="missing idempotency test",
+                idempotency_key="",
+            )
 
 
 if __name__ == "__main__":

@@ -42,11 +42,14 @@ class InspectionApiClient:
         *,
         accepted_statuses: tuple[int, ...] = (200, 202),
         data: Optional[Dict[str, Any]] = None,
+        extra_headers: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
+        headers = dict(self.headers)
+        headers.update(extra_headers or {})
         response = self.session.post(
             f"{self.base_url}{path}",
             data=data or None,
-            headers=self.headers,
+            headers=headers,
             timeout=self.timeout_seconds,
         )
         if response.status_code not in accepted_statuses:
@@ -88,8 +91,12 @@ class InspectionApiClient:
         operator_id: str,
         confirmation: str,
         reason: str,
+        idempotency_key: str,
         snapshot_id: str = "",
+        operator_token: str = "",
     ) -> Dict[str, Any]:
+        if not idempotency_key:
+            raise ValueError("idempotency_key is required for control commands")
         return self.post(
             "/api/operations/control",
             data={
@@ -98,7 +105,9 @@ class InspectionApiClient:
                 "confirmation": confirmation,
                 "reason": reason,
                 "snapshot_id": snapshot_id,
+                "idempotency_key": idempotency_key,
             },
+            extra_headers={"x-operator-token": operator_token} if operator_token else None,
             accepted_statuses=(200, 202, 409, 503),
         )
 

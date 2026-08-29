@@ -127,15 +127,24 @@ class QualityMemory:
                     reason TEXT NOT NULL,
                     confirmation TEXT NOT NULL,
                     snapshot_id TEXT,
+                    idempotency_key TEXT,
                     result_status TEXT NOT NULL,
                     signal_id TEXT,
                     details_json TEXT NOT NULL
                 )
                 """
             )
+            cursor.execute("PRAGMA table_info(control_audit)")
+            control_cols = {row[1] for row in cursor.fetchall()}
+            if "idempotency_key" not in control_cols:
+                cursor.execute("ALTER TABLE control_audit ADD COLUMN idempotency_key TEXT")
             cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_control_audit_timestamp "
                 "ON control_audit(timestamp)"
+            )
+            cursor.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_control_audit_idempotency_unique "
+                "ON control_audit(idempotency_key) WHERE idempotency_key IS NOT NULL"
             )
             conn.commit()
 
@@ -504,6 +513,7 @@ class QualityMemory:
         reason,
         confirmation,
         snapshot_id=None,
+        idempotency_key=None,
         result_status="DISPATCHING",
         signal_id=None,
         details=None,
@@ -516,8 +526,8 @@ class QualityMemory:
                     """
                     INSERT INTO control_audit (
                         audit_id, timestamp, operator_id, action, reason, confirmation,
-                        snapshot_id, result_status, signal_id, details_json
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        snapshot_id, idempotency_key, result_status, signal_id, details_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         audit_id,
@@ -527,6 +537,7 @@ class QualityMemory:
                         reason,
                         confirmation,
                         snapshot_id,
+                        idempotency_key,
                         result_status,
                         signal_id,
                         json.dumps(details or {}, sort_keys=True),
@@ -535,10 +546,44 @@ class QualityMemory:
                 conn.commit()
             self._set_health(True)
             return True
+        except sqlite3.IntegrityError as exc:
+            logger.warning(f"Duplicate control idempotency key rejected: {exc}")
+            self._set_health(True, "Duplicate control idempotency key rejected")
+            return False
         except sqlite3.Error as exc:
             logger.error(f"Control audit write failed: {exc}")
             self._set_health(False, str(exc))
             return False
+
+    def get_control_audit_by_idempotency(self, idempotency_key):
+        """Return a prior command result so transport retries never redispatch it."""
+        try:
+            with self._connection() as conn:
+                row = conn.execute(
+                    """
+                    SELECT audit_id, operator_id, action, snapshot_id, result_status,
+                           signal_id, details_json
+                    FROM control_audit
+                    WHERE idempotency_key = ?
+                    """,
+                    (idempotency_key,),
+                ).fetchone()
+            self._set_health(True)
+            if row is None:
+                return None
+            return {
+                "audit_id": row[0],
+                "operator_id": row[1],
+                "action": row[2],
+                "snapshot_id": row[3],
+                "result_status": row[4],
+                "signal_id": row[5],
+                "details": json.loads(row[6] or "{}"),
+            }
+        except (sqlite3.Error, json.JSONDecodeError) as exc:
+            logger.error(f"Control audit idempotency lookup failed: {exc}")
+            self._set_health(False, str(exc))
+            raise
 
     def finalize_control_audit(self, audit_id, result_status, signal_id=None, details=None) -> bool:
         """Update the audit row after command dispatch. Failure is reported, never hidden."""
@@ -588,7 +633,7 @@ class QualityMemory:
                 cursor.execute(
                     """
                     SELECT audit_id, timestamp, operator_id, action, reason, confirmation,
-                           snapshot_id, result_status, signal_id, details_json
+                           snapshot_id, idempotency_key, result_status, signal_id, details_json
                     FROM control_audit
                     ORDER BY timestamp DESC, id DESC
                     LIMIT ?
@@ -598,7 +643,7 @@ class QualityMemory:
                 records = []
                 for row in cursor.fetchall():
                     try:
-                        details = json.loads(row[9] or "{}")
+                        details = json.loads(row[10] or "{}")
                     except json.JSONDecodeError:
                         details = {"error": "audit details_json was not valid JSON"}
                     records.append(
@@ -610,8 +655,9 @@ class QualityMemory:
                             "reason": row[4],
                             "confirmation": row[5],
                             "snapshot_id": row[6],
-                            "result_status": row[7],
-                            "signal_id": row[8],
+                            "idempotency_key": row[7],
+                            "result_status": row[8],
+                            "signal_id": row[9],
                             "details": details,
                         }
                     )
