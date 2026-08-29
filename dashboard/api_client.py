@@ -1,6 +1,9 @@
 """Read-only client for the authoritative inspection API, plus audited control."""
 
+import os
+import re
 from typing import Any, Dict, Optional
+from urllib.parse import quote
 
 import requests
 
@@ -113,6 +116,13 @@ class InspectionApiClient:
         if not 1 <= limit <= 100:
             raise ValueError("dataset catalog limit must be between 1 and 100")
         return self.get("/api/dataset/catalog", offset=offset, limit=limit)
+
+    def dataset_image(self, filename: str) -> bytes:
+        if os.path.basename(filename) != filename or not re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9_.-]{0,254}", filename or ""
+        ):
+            raise ValueError("Invalid dataset image basename")
+        return self.get_bytes(f"/api/dataset/images/{quote(filename, safe='')}")
 
     def operations_control(
         self,

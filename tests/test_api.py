@@ -99,6 +99,17 @@ class TestAPI(unittest.TestCase):
             self.assertTrue(item["hash_verified"])
             self.assertEqual(os.path.basename(item["filename"]), item["filename"])
 
+    def test_dataset_preview_is_hash_verified_jpeg(self):
+        resp = self.client.get("/api/dataset/images/image_1548.jpg")
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.headers["content-type"].startswith("image/jpeg"))
+        self.assertTrue(resp.content.startswith(b"\xff\xd8\xff"))
+        self.assertEqual(len(resp.headers["x-dataset-sha256"]), 64)
+
+    def test_dataset_preview_rejects_unknown_image(self):
+        resp = self.client.get("/api/dataset/images/not-in-manifest.jpg")
+        self.assertEqual(resp.status_code, 404)
+
     def test_active_roll_discovery_is_authoritative(self):
         resp = self.client.get("/api/roll/active")
         self.assertEqual(resp.status_code, 200)

@@ -157,6 +157,22 @@ class TestInspectionApiClient(unittest.TestCase):
             timeout=5.0,
         )
 
+    def test_dataset_image_is_bounded_and_basename_checked(self):
+        client = InspectionApiClient("http://api.local", api_key="secret")
+        response = Mock(status_code=200)
+        response.headers = {"content-type": "image/jpeg"}
+        response.content = b"jpeg-bytes"
+        with patch.object(client.session, "get", return_value=response) as get:
+            payload = client.dataset_image("image_1548.jpg")
+        self.assertEqual(payload, b"jpeg-bytes")
+        get.assert_called_once_with(
+            "http://api.local/api/dataset/images/image_1548.jpg",
+            headers={"x-api-key": "secret"},
+            timeout=5.0,
+        )
+        with self.assertRaises(ValueError):
+            client.dataset_image("../secret.jpg")
+
     def test_operations_control_requires_idempotency_key(self):
         client = InspectionApiClient("http://api.local")
         with self.assertRaises(ValueError):

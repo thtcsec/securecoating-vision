@@ -39,6 +39,16 @@ def main():
         catalog.get("dataset_license"),
         f"samples={catalog.get('total')}",
     )
+    first_sample = (catalog.get("items") or [None])[0]
+    if not first_sample:
+        raise RuntimeError("Verified demo catalog is empty")
+    preview = c.get(f"/api/dataset/images/{first_sample['filename']}")
+    preview.raise_for_status()
+    if preview.headers.get("x-dataset-sha256") != first_sample.get("sha256"):
+        raise RuntimeError("Dataset preview hash header does not match catalog")
+    if not preview.content.startswith(b"\xff\xd8\xff"):
+        raise RuntimeError("Dataset preview is not a valid JPEG stream")
+    print("DATASET_PREVIEW", first_sample["filename"], len(preview.content), "bytes", "HASH_OK")
 
     t0 = time.time()
     with open(args.image, "rb") as f:

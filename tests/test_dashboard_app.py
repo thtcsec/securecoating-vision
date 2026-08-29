@@ -138,6 +138,7 @@ class TestDashboardApp(unittest.TestCase):
             app = AppTest.from_file(str(ROOT / "dashboard" / "app.py"), default_timeout=30)
             app.run()
             self.assertEqual(list(app.exception), [])
+            self.assertTrue(any("Bắt đầu trong 2 phút" in item.value for item in app.markdown))
             rendered = " ".join(item.value for item in app.markdown)
             self.assertIn("Line Operations", rendered)
             self.assertIn("HOLD_REQUIRED", rendered)

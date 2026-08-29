@@ -405,18 +405,24 @@ async def _read_upload_limited(upload: UploadFile) -> bytes:
     return bytes(payload)
 
 
-def _load_sample_image(sample_name: str) -> np.ndarray:
-    """Load an attributed real demo image by basename only."""
+def _demo_sample_path(sample_name: str) -> Path:
+    """Resolve one bounded demo basename without permitting host-path access."""
     safe_name = os.path.basename(sample_name)
     if safe_name != sample_name or len(sample_name) > 255:
         raise HTTPException(status_code=422, detail="sample_name must be a bounded basename")
-    path = os.path.join(TEST_SET_DIR, safe_name)
-    if not os.path.isfile(path):
+    path = Path(TEST_SET_DIR, safe_name)
+    if not path.is_file():
         raise HTTPException(
             status_code=404,
             detail=f"Sample '{safe_name}' not found under data/demo_real/images",
         )
-    image = cv2.imread(path)
+    return path
+
+
+def _load_sample_image(sample_name: str) -> np.ndarray:
+    """Load an attributed real demo image by basename only."""
+    path = _demo_sample_path(sample_name)
+    image = cv2.imread(str(path))
     if image is None:
         raise HTTPException(status_code=400, detail=f"Failed to read sample '{safe_name}'")
     return image
@@ -1169,6 +1175,31 @@ def get_dataset_catalog(
 ):
     """Return bounded dataset basenames; never return image payloads or host paths."""
     return _dataset_catalog(offset=offset, limit=limit)
+
+
+@app.get("/api/dataset/images/{filename}")
+def get_dataset_image(filename: str):
+    """Return one hash-verified attributed demo image; never expose host paths."""
+    path = _demo_sample_path(filename)
+    catalog = _dataset_catalog(offset=0, limit=100)
+    record = next(
+        (item for item in catalog["items"] if item.get("filename") == filename),
+        None,
+    )
+    if record is None or not record.get("hash_verified"):
+        raise HTTPException(status_code=409, detail="Dataset image provenance is not verified")
+    actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+    if not secrets.compare_digest(actual_hash, str(record.get("sha256") or "")):
+        raise HTTPException(status_code=409, detail="Dataset image changed after catalog verification")
+    return FileResponse(
+        path,
+        media_type="image/jpeg",
+        filename=None,
+        headers={
+            "Cache-Control": "private, max-age=300",
+            "X-Dataset-SHA256": actual_hash,
+        },
+    )
 
 
 @app.get("/api/inspections/{run_id}/image")

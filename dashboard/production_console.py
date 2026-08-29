@@ -68,6 +68,7 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
     certificate = traceability.get("certificate")
     audits = (snapshot.get("control_audit") or {}).get("records") or []
     recent = (quality.get("recent_inspections") or {}).get("records") or []
+    catalog = snapshot.get("dataset_catalog") or {}
     snapshot_ttl = int(policy.get("snapshot_ttl_seconds", 30))
     try:
         generated_at = datetime.fromisoformat(str(snapshot["generated_at_utc"]).replace("Z", "+00:00"))
@@ -161,9 +162,59 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
     if st.sidebar.button("Reload snapshot", width="stretch"):
         st.rerun()
 
-    operate, history_tab, diagnose, traceability_tab = st.tabs(
-        ["Operate", "Inspection History", "Diagnose", "Traceability"]
+    guide_tab, operate, history_tab, dataset_tab, diagnose, traceability_tab = st.tabs(
+        ["Guide", "Operate", "Inspection History", "Dataset Library", "Diagnose", "Traceability"]
     )
+
+    with guide_tab:
+        st.markdown("### Bắt đầu trong 2 phút")
+        st.info(
+            "App đang ở chế độ fail-closed: khi chưa có PLC, cảm biến và calibration thật, "
+            "kết quả sẽ là HOLD/DEGRADED. Đây là trạng thái an toàn, không phải app bị treo."
+        )
+        g1, g2 = st.columns(2)
+        with g1:
+            st.markdown(
+                """
+#### Luồng xử lý một ảnh
+
+1. **Acquired frame** — ảnh quang học nhận từ camera hoặc upload.
+2. **Model input** — hình học đầu vào đã resize/letterbox cho model.
+3. **Detection result** — ảnh kết quả có bounding box và confidence.
+4. **Safety gate** — kết hợp model, sensor, calibration, database và PLC để quyết định `PASS`, `REJECT` hoặc `HOLD`.
+
+> `HOLD` nghĩa là chưa đủ bằng chứng để tự động cho sản phẩm đi tiếp. Nó không đồng nghĩa với “không tìm thấy defect”.
+"""
+            )
+        with g2:
+            st.markdown(
+                """
+#### Nên mở tab nào?
+
+- **Operate:** trạng thái dây chuyền, PLC telemetry và control có xác nhận.
+- **Inspection History:** chọn một run và xem đủ ba ảnh cùng detection/log.
+- **Dataset Library:** danh sách, preview và provenance của ảnh demo thật.
+- **Diagnose:** lý do hệ thống đang `DEGRADED` hoặc `HOLD`.
+- **Traceability:** certificate, roll/batch identity và audit trail.
+"""
+            )
+        st.markdown("#### Tạo một inspection demo mới")
+        st.code(
+            "docker exec coating_inspection_api python scripts/smoke_live.py "
+            "--api-url http://localhost:8000",
+            language="powershell",
+        )
+        st.caption(
+            "Lệnh dùng ảnh CoatingVision thật đã đóng gói, tạo inspection mới và kiểm tra "
+            "cả ba artifact. Sau đó mở Inspection History; snapshot tự refresh khoảng 5 giây."
+        )
+        st.markdown("#### Hiểu đúng về dataset")
+        st.markdown(
+            "Ảnh gốc trong app là **ảnh quang học bề mặt điện cực đã được camera acquisition**. "
+            "Dataset không cung cấp một ảnh chụp toàn cảnh máy/cuộn điện cực trước bước scan. "
+            "Sáu ảnh trong Dataset Library là subset demo thật có DOI, giấy phép và SHA-256; "
+            "chúng không phải một test set độc lập để công bố metric."
+        )
 
     with operate:
         st.caption(
@@ -364,7 +415,6 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
                 st.dataframe(pd.DataFrame(event_rows), width="stretch", hide_index=True)
 
         with dataset_col:
-            catalog = snapshot.get("dataset_catalog") or {}
             st.markdown("##### Dataset catalog")
             st.caption(
                 "Metadata-only cached catalog; image payloads and host paths are not embedded."
@@ -408,6 +458,83 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
                     f"Showing {page_catalog.get('returned', len(items))} from offset "
                     f"{page_catalog.get('offset', 0)}; API page limit {page_catalog.get('limit', len(items))}."
                 )
+
+    with dataset_tab:
+        st.markdown("### Dataset Library")
+        source_type = "VERIFIED REAL OPTICAL" if catalog.get("provenance_verified") else "UNVERIFIED"
+        st.caption(
+            "Preview được tải theo trang qua API có authentication. Operations snapshot chỉ chứa metadata, "
+            "không nhúng bytes ảnh hoặc đường dẫn máy chủ."
+        )
+        d1, d2, d3 = st.columns(3)
+        with d1:
+            st.metric("Indexed images", int(catalog.get("total") or 0))
+        with d2:
+            st.metric("Provenance", source_type)
+        with d3:
+            st.metric("License", catalog.get("dataset_license") or "NOT RECORDED")
+        st.markdown(f"**Dataset:** {catalog.get('dataset_name') or 'Unknown dataset'}")
+        if catalog.get("dataset_source"):
+            st.caption(str(catalog["dataset_source"]))
+
+        gallery_page_size = 6
+        gallery_total = int(catalog.get("total") or 0)
+        gallery_pages = max(1, (gallery_total + gallery_page_size - 1) // gallery_page_size)
+        gallery_page = st.selectbox(
+            "Preview page",
+            options=list(range(1, gallery_pages + 1)),
+            format_func=lambda page: f"Page {page} / {gallery_pages}",
+            key="dataset_gallery_page",
+        )
+        if gallery_page == 1 and int(catalog.get("returned") or 0) <= gallery_page_size:
+            gallery_catalog = catalog
+        else:
+            gallery_catalog_cache = st.session_state.setdefault("dataset_gallery_catalog_cache", {})
+            if gallery_page not in gallery_catalog_cache:
+                try:
+                    gallery_catalog_cache[gallery_page] = api_client.dataset_catalog(
+                        offset=(gallery_page - 1) * gallery_page_size,
+                        limit=gallery_page_size,
+                    )
+                except Exception:
+                    gallery_catalog_cache[gallery_page] = None
+                while len(gallery_catalog_cache) > 8:
+                    gallery_catalog_cache.pop(next(iter(gallery_catalog_cache)))
+            gallery_catalog = gallery_catalog_cache.get(gallery_page) or {}
+
+        gallery_items = (gallery_catalog.get("items") or [])[:gallery_page_size]
+        dataset_image_cache = st.session_state.setdefault("dataset_image_cache", {})
+        if not gallery_items:
+            st.info("Không có ảnh dataset để preview trong page này.")
+        else:
+            for row_start in range(0, len(gallery_items), 3):
+                gallery_columns = st.columns(3)
+                for column, item in zip(gallery_columns, gallery_items[row_start:row_start + 3]):
+                    filename = str(item.get("filename") or "")
+                    with column:
+                        if filename and filename not in dataset_image_cache:
+                            try:
+                                dataset_image_cache[filename] = api_client.dataset_image(filename)
+                            except Exception:
+                                dataset_image_cache[filename] = None
+                            while len(dataset_image_cache) > 12:
+                                dataset_image_cache.pop(next(iter(dataset_image_cache)))
+                        if dataset_image_cache.get(filename):
+                            st.image(
+                                dataset_image_cache[filename],
+                                caption=filename,
+                                width="stretch",
+                            )
+                        else:
+                            st.error(f"Preview unavailable: {filename or 'unknown image'}")
+                        verified_label = "HASH VERIFIED" if item.get("hash_verified") else "UNVERIFIED"
+                        st.markdown(f"`{verified_label}` · `{item.get('source_type') or 'UNKNOWN'}`")
+                        st.caption(
+                            f"{item.get('source_id') or 'source id missing'} · "
+                            f"sha256 {str(item.get('sha256') or 'missing')[:12]}…"
+                        )
+            st.markdown("#### Dataset records")
+            st.dataframe(pd.DataFrame(gallery_items), width="stretch", hide_index=True)
 
     with diagnose:
         st.caption(
