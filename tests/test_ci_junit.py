@@ -65,6 +65,7 @@ class TestCiJunit(unittest.TestCase):
         self.assertIn("scripts/check_ci_junit.py", workflow)
         self.assertNotIn("skipped == 0", workflow)
         self.assertIn("SECURECOATING_ENV: test", workflow)
+        self.assertIn("OPENBLAS_NUM_THREADS: \"1\"", workflow)
 
 
 if __name__ == "__main__":

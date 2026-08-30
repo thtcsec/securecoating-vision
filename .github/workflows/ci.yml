@@ -18,6 +18,10 @@ jobs:
       SECURECOATING_ALLOW_UNAUTHENTICATED_DEMO: "true"
       SECURECOATING_ENABLE_SENSOR_SIMULATION: "true"
       SECURECOATING_INDUSTRIAL_MOCK_MODE: "true"
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      NUMEXPR_NUM_THREADS: "1"
     steps:
       - name: Check out repository
         uses: actions/checkout@v4

@@ -8,9 +8,16 @@ from dataclasses import fields
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
-from libad.demo_cases import DEMO_CASES, run_all_demo_cases, run_libad_demo_case
+from libad.demo_cases import (
+    DEMO_CASES,
+    _ensure_case_four_hold,
+    run_all_demo_cases,
+    run_libad_demo_case,
+)
 from libad.certificate import EvidenceCertificate
+from libad.evidence_gate import EvidenceContracts, decide_evidence_gate
 from libad.protocol import load_project_identity
+from libad.scorer import SampleScore
 
 
 class TestLibadDemoCases(unittest.TestCase):
@@ -41,6 +48,31 @@ class TestLibadDemoCases(unittest.TestCase):
             self.assertEqual(
                 cert["source_diff_sha256"], item["source_provenance"]["source_diff_sha256"]
             )
+
+    def test_case_four_holds_when_the_descriptor_skips_the_uncertainty_band(self):
+        score = SampleScore(
+            sample_id="DEMO_CASE_4",
+            vis_score=0.87,
+            xray_score=0.95,
+            fused_score=0.95,
+            vis_available=True,
+            xray_available=True,
+        )
+        contracts = EvidenceContracts()
+        live = decide_evidence_gate(score.vis_score, score.xray_score)
+        self.assertEqual(live.action, "PASS")
+        injected, decision = _ensure_case_four_hold(score, contracts, live)
+        self.assertEqual(decision.action, "HOLD")
+        self.assertEqual(decision.vis_state, "UNCERTAIN")
+        self.assertEqual(decision.xray_state, "NORMAL")
+        self.assertEqual(decision.contract_holds, [])
+        self.assertIn("uncertainty", decision.reason.lower())
+        self.assertEqual(
+            decision.details["protocol_fixture_score_source"],
+            "uncertainty_band_injection",
+        )
+        self.assertGreater(injected.vis_score, 1.0)
+        self.assertLess(injected.vis_score, 1.12)
 
     def test_public_title_is_the_registered_finalist_title_plus_tagline(self):
         identity = load_project_identity()
