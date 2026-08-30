@@ -80,10 +80,15 @@ PRODUCTION_SNAPSHOT = {
     "dataset_catalog": {
         "total": 88,
         "offset": 0,
-        "limit": 24,
-        "returned": 24,
+        "limit": 0,
+        "returned": 0,
         "items": [],
         "provenance_verified": True,
+        "library_scope": "checked_in_test_split",
+        "checked_in_count": 88,
+        "archive_count": 0,
+        "parent_archive_images": 2227,
+        "doi_url": "https://doi.org/10.6084/m9.figshare.29260121.v1",
         "dataset_name": "CoatingVision held-out test-split optical frames",
         "dataset_license": "CC BY 4.0",
         "dataset_source": "CoatingVision, Figshare DOI 10.6084/m9.figshare.29260121.v1",
@@ -124,6 +129,11 @@ class FakeOperationsClient:
             "returned": min(limit, max(0, 88 - offset)),
             "items": [],
             "provenance_verified": True,
+            "library_scope": "checked_in_test_split",
+            "checked_in_count": 88,
+            "archive_count": 0,
+            "parent_archive_images": 2227,
+            "doi_url": "https://doi.org/10.6084/m9.figshare.29260121.v1",
             "dataset_name": "CoatingVision held-out test-split optical frames",
             "dataset_license": "CC BY 4.0",
             "dataset_source": "CoatingVision, Figshare DOI 10.6084/m9.figshare.29260121.v1",
@@ -178,7 +188,7 @@ class TestDashboardApp(unittest.TestCase):
             self.assertNotIn("Bắt đầu", markdown)
             self.assertFalse(any("Submit control command" in item.label for item in app.button))
 
-            app.segmented_control(key="ops_view").set_value("Operate")
+            app.radio(key="ops_view").set_value("Operate")
             app.run()
             self.assertEqual(list(app.exception), [])
             labels = [item.label for item in app.button]
@@ -194,17 +204,23 @@ class TestDashboardApp(unittest.TestCase):
                 " ".join(item.value for item in app.markdown),
             )
 
-            app.segmented_control(key="ops_view").set_value("Dataset")
+            app.radio(key="ops_view").set_value("Dataset")
             app.run()
             self.assertEqual(list(app.exception), [])
             dataset_markdown = " ".join(item.value for item in app.markdown)
             self.assertIn("Dataset Library", dataset_markdown)
+            self.assertTrue(
+                any("original CoatingVision" in item.value for item in app.info)
+                or "Original frames" in dataset_markdown
+            )
             self.assertNotIn("Get started in 2 minutes", dataset_markdown)
-            page = next(item for item in app.selectbox if item.label == "Preview page")
-            page.set_value(2)
+            self.assertTrue(any(item.label == "Previous" for item in app.button))
+            self.assertTrue(any(item.label == "Next" for item in app.button))
+            next_page = next(item for item in app.button if item.label == "Next")
+            next_page.click()
             app.run()
             self.assertEqual(list(app.exception), [])
-            self.assertEqual(app.segmented_control(key="ops_view").value, "Dataset")
+            self.assertEqual(app.radio(key="ops_view").value, "Dataset")
             self.assertNotIn(
                 "Get started in 2 minutes",
                 " ".join(item.value for item in app.markdown),

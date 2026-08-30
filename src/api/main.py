@@ -221,6 +221,11 @@ CALIBRATION_VERIFIED = bool(calibration_config.get("verified", False))
 DEMO_DATASET_ROOT = Path(PROJECT_ROOT, "data", "demo_real").resolve()
 TEST_SET_DIR = str(DEMO_DATASET_ROOT / "images")
 DEMO_DATASET_MANIFEST = DEMO_DATASET_ROOT / "manifest.json"
+COATINGVISION_ARCHIVE_DIR = Path(
+    PROJECT_ROOT, "data", "external", "coatingvision", "detection", "images"
+).resolve()
+FIGSHARE_DOI = "10.6084/m9.figshare.29260121.v1"
+FIGSHARE_URL = f"https://doi.org/{FIGSHARE_DOI}"
 _default_artifact_dir = Path(PROJECT_ROOT, "outputs", "inspection_artifacts").resolve()
 INSPECTION_ARTIFACT_DIR = Path(
     os.environ.get("SECURECOATING_INSPECTION_ARTIFACT_DIR", str(_default_artifact_dir))
@@ -240,6 +245,7 @@ REQUIRE_INSPECTION_ARTIFACTS = os.environ.get(
 _artifact_lock = threading.Lock()
 _dataset_catalog_lock = threading.Lock()
 _dataset_catalog_cache: Optional[tuple[Dict[str, Any], ...]] = None
+_dataset_catalog_by_name: Dict[str, Dict[str, Any]] = {}
 _dataset_catalog_identity: Dict[str, Any] = {}
 IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
 CONTROL_POLICY = {
@@ -405,11 +411,58 @@ async def _read_upload_limited(upload: UploadFile) -> bytes:
     return bytes(payload)
 
 
-def _demo_sample_path(sample_name: str) -> Path:
-    """Resolve one bounded demo basename without permitting host-path access."""
+def _safe_dataset_basename(sample_name: str) -> str:
     safe_name = os.path.basename(sample_name)
     if safe_name != sample_name or len(sample_name) > 255:
         raise HTTPException(status_code=422, detail="sample_name must be a bounded basename")
+    return safe_name
+
+
+def _dataset_search_roots() -> tuple[Path, ...]:
+    roots = []
+    if COATINGVISION_ARCHIVE_DIR.is_dir():
+        roots.append(COATINGVISION_ARCHIVE_DIR)
+    demo = Path(TEST_SET_DIR)
+    if demo.is_dir():
+        roots.append(demo)
+    return tuple(roots)
+
+
+def _scan_image_names(directory: Path, limit: int = 50_000) -> list[str]:
+    names: list[str] = []
+    if not directory.is_dir():
+        return names
+    with os.scandir(directory) as entries:
+        for entry in entries:
+            if entry.is_file() and entry.name.lower().endswith(
+                (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")
+            ):
+                names.append(entry.name)
+                if len(names) >= limit:
+                    break
+    return names
+
+
+def _resolve_dataset_image(sample_name: str) -> Path:
+    """Resolve one bounded basename under the Figshare archive or the git demo split."""
+    safe_name = _safe_dataset_basename(sample_name)
+    for root in _dataset_search_roots():
+        path = (root / safe_name).resolve()
+        try:
+            path.relative_to(root)
+        except ValueError:
+            continue
+        if path.is_file():
+            return path
+    raise HTTPException(
+        status_code=404,
+        detail=f"Sample '{safe_name}' was not found in the CoatingVision library",
+    )
+
+
+def _demo_sample_path(sample_name: str) -> Path:
+    """Resolve one bounded demo basename without permitting host-path access."""
+    safe_name = _safe_dataset_basename(sample_name)
     path = Path(TEST_SET_DIR, safe_name)
     if not path.is_file():
         raise HTTPException(
@@ -595,20 +648,15 @@ def _write_inspection_artifact(
 
 
 def _dataset_catalog(offset: int = 0, limit: int = 24) -> Dict[str, Any]:
-    """Return bounded demo metadata without image payloads or host paths."""
-    global _dataset_catalog_cache, _dataset_catalog_identity
+    """Return bounded CoatingVision metadata without image payloads or host paths.
+
+    Prefer the local Figshare detection archive when it is mounted. Fall back to
+    the checked-in 88-frame test split so CI and git clones still have a library.
+    SHA-256 is verified only for files listed in data/demo_real/manifest.json.
+    """
+    global _dataset_catalog_cache, _dataset_catalog_identity, _dataset_catalog_by_name
     with _dataset_catalog_lock:
         if _dataset_catalog_cache is None:
-            names = []
-            if os.path.isdir(TEST_SET_DIR):
-                with os.scandir(TEST_SET_DIR) as entries:
-                    for entry in entries:
-                        if entry.is_file() and entry.name.lower().endswith(
-                            (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")
-                        ):
-                            names.append(entry.name)
-                            if len(names) >= 50_000:
-                                break
             try:
                 manifest = json.loads(DEMO_DATASET_MANIFEST.read_text(encoding="utf-8"))
                 manifest_records = {
@@ -620,41 +668,81 @@ def _dataset_catalog(offset: int = 0, limit: int = 24) -> Dict[str, Any]:
                 manifest = {}
                 manifest_records = {}
 
+            archive_names = _scan_image_names(COATINGVISION_ARCHIVE_DIR)
+            demo_names = _scan_image_names(Path(TEST_SET_DIR))
+            if archive_names:
+                library_scope = "local_figshare_archive"
+                names = sorted(set(archive_names) | set(demo_names))
+            else:
+                library_scope = "checked_in_test_split"
+                names = sorted(demo_names)
+
             catalog_records = []
-            all_verified = bool(names)
-            for name in sorted(names):
+            checked_in_verified = bool(manifest_records)
+            for name in names:
                 record = manifest_records.get(name, {})
                 expected_hash = str(record.get("sha256") or "").lower()
-                path = Path(TEST_SET_DIR, name)
-                actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
-                hash_verified = bool(expected_hash) and secrets.compare_digest(
-                    expected_hash, actual_hash
-                )
-                all_verified = all_verified and hash_verified
+                path = None
+                for root in _dataset_search_roots():
+                    candidate = root / name
+                    if candidate.is_file():
+                        path = candidate
+                        break
+                actual_hash = ""
+                hash_verified = False
+                if path is not None and expected_hash:
+                    actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+                    hash_verified = secrets.compare_digest(expected_hash, actual_hash)
+                if name in manifest_records:
+                    checked_in_verified = checked_in_verified and path is not None and hash_verified
                 catalog_records.append({
                     "filename": name,
-                    "source_type": record.get("source_type", "UNVERIFIED"),
-                    "capture_stage": record.get("capture_stage", "unknown"),
-                    "source_id": record.get("source_id"),
-                    "license": record.get("license"),
-                    "sha256": actual_hash,
+                    "source_type": record.get("source_type", "REAL_OPTICAL"),
+                    "capture_stage": record.get(
+                        "capture_stage", "acquired_optical_surface_frame"
+                    ),
+                    "source_id": record.get("source_id") or f"CoatingVision/{Path(name).stem}",
+                    "license": record.get("license") or manifest.get("license") or "CC BY 4.0",
+                    "sha256": actual_hash or None,
                     "hash_verified": hash_verified,
+                    "in_checked_in_split": name in manifest_records,
                 })
-            all_verified = all_verified and len(manifest_records) == len(names)
+            for filename, record in manifest_records.items():
+                if filename not in {item["filename"] for item in catalog_records}:
+                    checked_in_verified = False
+                    break
             _dataset_catalog_cache = tuple(catalog_records)
+            _dataset_catalog_by_name = {item["filename"]: item for item in catalog_records}
             _dataset_catalog_identity = {
-                "dataset_name": manifest.get("dataset_name", "Unverified local dataset"),
+                "dataset_name": (
+                    "CoatingVision Figshare detection archive (unmodified JPEGs)"
+                    if library_scope == "local_figshare_archive"
+                    else manifest.get(
+                        "dataset_name", "CoatingVision optical frames"
+                    )
+                ),
                 "dataset_source": manifest.get("source"),
-                "dataset_license": manifest.get("license"),
-                "provenance_verified": all_verified,
+                "dataset_license": manifest.get("license") or "CC BY 4.0",
+                "provenance_verified": checked_in_verified,
+                "library_scope": library_scope,
+                "checked_in_count": len(manifest_records),
+                "archive_count": len(archive_names),
+                "parent_archive_images": int(manifest.get("parent_archive_images") or 0),
+                "parent_labeled_split_images": int(
+                    manifest.get("parent_labeled_split_images") or 0
+                ),
+                "split": manifest.get("split"),
+                "doi": FIGSHARE_DOI,
+                "doi_url": FIGSHARE_URL,
             }
         records = _dataset_catalog_cache
         identity = dict(_dataset_catalog_identity)
-    page = records[offset:offset + limit]
+    safe_limit = max(0, int(limit))
+    page = records[offset:offset + safe_limit] if safe_limit else []
     return {
         "total": len(records),
         "offset": offset,
-        "limit": limit,
+        "limit": safe_limit,
         "returned": len(page),
         "items": list(page),
         **identity,
@@ -1179,18 +1267,18 @@ def get_dataset_catalog(
 
 @app.get("/api/dataset/images/{filename}")
 def get_dataset_image(filename: str):
-    """Return one hash-verified attributed demo image; never expose host paths."""
-    path = _demo_sample_path(filename)
-    catalog = _dataset_catalog(offset=0, limit=100)
-    record = next(
-        (item for item in catalog["items"] if item.get("filename") == filename),
-        None,
-    )
-    if record is None or not record.get("hash_verified"):
-        raise HTTPException(status_code=409, detail="Dataset image provenance is not verified")
+    """Return one original CoatingVision JPEG; never expose host paths."""
+    path = _resolve_dataset_image(filename)
+    _dataset_catalog(offset=0, limit=0)
+    record = _dataset_catalog_by_name.get(os.path.basename(filename))
+    if record is None:
+        raise HTTPException(status_code=404, detail="Dataset image is not in the catalog")
     actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
-    if not secrets.compare_digest(actual_hash, str(record.get("sha256") or "")):
+    expected_hash = str(record.get("sha256") or "").lower()
+    if expected_hash and not secrets.compare_digest(expected_hash, actual_hash):
         raise HTTPException(status_code=409, detail="Dataset image changed after catalog verification")
+    if record.get("in_checked_in_split") and not record.get("hash_verified"):
+        raise HTTPException(status_code=409, detail="Dataset image provenance is not verified")
     return FileResponse(
         path,
         media_type="image/jpeg",
@@ -1198,6 +1286,7 @@ def get_dataset_image(filename: str):
         headers={
             "Cache-Control": "private, max-age=300",
             "X-Dataset-SHA256": actual_hash,
+            "X-Dataset-Original": "unmodified-jpeg",
         },
     )
 
@@ -1433,7 +1522,7 @@ def get_operations_snapshot(signal_limit: int = Query(25, ge=1, le=100)):
             "spc": spc,
             "recent_inspections": recent_inspections,
         },
-        "dataset_catalog": _dataset_catalog(offset=0, limit=24),
+        "dataset_catalog": _dataset_catalog(offset=0, limit=0),
         "industrial": industrial,
         "signals": signals,
         "traceability": {

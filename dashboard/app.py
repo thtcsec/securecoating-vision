@@ -96,6 +96,29 @@ st.markdown("""
         color: #00E5FF !important;
         border-color: #00E5FF !important;
     }
+    section[data-testid="stSidebar"] div[role="radiogroup"] label {
+        background: #151B28;
+        border: 1px solid #222C3E;
+        border-radius: 8px;
+        padding: 8px 12px;
+        margin-bottom: 6px;
+    }
+    section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) {
+        background: #0E3A45;
+        border-color: #00E5FF;
+        color: #00E5FF;
+    }
+    .dataset-page-status {
+        text-align: center;
+        color: #FFFFFF;
+        font-size: 14px;
+        line-height: 1.35;
+        padding-top: 4px;
+    }
+    .dataset-page-status span {
+        color: #8C9BAE;
+        font-size: 12px;
+    }
     header[data-testid="stHeader"] { background: transparent; }
     div[data-testid="stToolbar"] { display: none; }
     div[data-testid="stStatusWidget"] { display: none; }

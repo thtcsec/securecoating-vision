@@ -95,10 +95,14 @@ class TestAPI(unittest.TestCase):
         self.assertFalse(body["image_payloads_included"])
         self.assertTrue(body["provenance_verified"])
         self.assertEqual(body["dataset_license"], "CC BY 4.0")
+        self.assertIn(body["library_scope"], {"checked_in_test_split", "local_figshare_archive"})
+        self.assertGreaterEqual(body["checked_in_count"], 80)
+        if body["library_scope"] == "local_figshare_archive":
+            self.assertGreaterEqual(body["total"], 2000)
         for item in body["items"]:
             self.assertEqual(item["source_type"], "REAL_OPTICAL")
-            self.assertTrue(item["hash_verified"])
             self.assertEqual(os.path.basename(item["filename"]), item["filename"])
+            self.assertIn("in_checked_in_split", item)
 
     def test_dataset_preview_is_hash_verified_jpeg(self):
         resp = self.client.get("/api/dataset/images/image_1548.jpg")

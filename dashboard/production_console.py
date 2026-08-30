@@ -49,6 +49,48 @@ def _snapshot_age_seconds(snapshot: Dict[str, Any]) -> float:
         return float("inf")
 
 
+OPS_VIEWS = ("Guide", "Operate", "History", "Dataset", "Diagnose", "Traceability")
+
+
+def _page_count(total: int, page_size: int) -> int:
+    return max(1, (max(0, int(total)) + page_size - 1) // page_size)
+
+
+def render_dataset_pager(total: int, page_size: int, state_key: str = "dataset_gallery_page") -> int:
+    """Prev/Next pager. Avoids a wrapping selectbox for 100+ pages."""
+    pages = _page_count(total, page_size)
+    page = int(st.session_state.get(state_key, 1) or 1)
+    page = min(max(1, page), pages)
+    st.session_state[state_key] = page
+
+    first_col, prev_col, status_col, next_col, last_col = st.columns([1, 1, 2.4, 1, 1])
+    with first_col:
+        if st.button("First", disabled=page <= 1, width="stretch", key=f"{state_key}_first"):
+            st.session_state[state_key] = 1
+            st.rerun()
+    with prev_col:
+        if st.button("Previous", disabled=page <= 1, width="stretch", key=f"{state_key}_prev"):
+            st.session_state[state_key] = page - 1
+            st.rerun()
+    with status_col:
+        start = (page - 1) * page_size + 1 if total else 0
+        end = min(page * page_size, total)
+        st.markdown(
+            f"<div class='dataset-page-status'>Page <b>{page}</b> / {pages}"
+            f"<br><span>Original frames {start}–{end} of {total}</span></div>",
+            unsafe_allow_html=True,
+        )
+    with next_col:
+        if st.button("Next", disabled=page >= pages, width="stretch", key=f"{state_key}_next"):
+            st.session_state[state_key] = page + 1
+            st.rerun()
+    with last_col:
+        if st.button("Last", disabled=page >= pages, width="stretch", key=f"{state_key}_last"):
+            st.session_state[state_key] = pages
+            st.rerun()
+    return int(st.session_state[state_key])
+
+
 def render_live_strip(snapshot: Dict[str, Any]) -> None:
     """Header and six metric cards. Safe to refresh on a timer without remounting views."""
     missing = [key for key in REQUIRED_SNAPSHOT_KEYS if key not in snapshot]
@@ -185,19 +227,16 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
         st.session_state["ops_force_reload"] = True
         st.rerun(scope="app")
 
-    # Streamlit tabs reset to the first pane on every rerun. A keyed segmented
-    # control plus single-view rendering keeps the operator on the selected surface.
-    view = st.segmented_control(
+    st.sidebar.markdown("<h3 style='color:#FFF; margin-top:18px;'>Views</h3>", unsafe_allow_html=True)
+    view = st.sidebar.radio(
         "Operations view",
-        options=("Guide", "Operate", "History", "Dataset", "Diagnose", "Traceability"),
-        default="Guide",
+        options=OPS_VIEWS,
         key="ops_view",
-        required=True,
         label_visibility="collapsed",
-        width="stretch",
     )
     if view is None:
         view = "Guide"
+    st.sidebar.caption("One view at a time. The live strip above stays on every page.")
 
     if view == "Guide":
         st.markdown("### Get started in 2 minutes")
@@ -227,7 +266,7 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
 
 - **Operate:** line disposition, PLC telemetry, confirm-audit control.
 - **History:** one run with acquired / model-input / overlay plus the decision log.
-- **Dataset:** paginated real optical frames with DOI, license, and SHA-256.
+- **Dataset:** original CoatingVision JPEGs with First / Previous / Next / Last paging, DOI, license, and SHA-256 for the git test split.
 - **Diagnose:** why the snapshot is `DEGRADED` or `HOLD`.
 - **Traceability:** certificate, roll/batch identity, and control audit.
 """
@@ -244,11 +283,13 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
         )
         st.markdown("#### What the dataset is")
         st.markdown(
-            "Frames in this app are **acquired optical surface images**, not factory-line "
-            "overview photographs. Dataset Library is the **held-out CoatingVision test split** "
-            "(DOI, CC BY 4.0, SHA-256 per file). The full detection archive (~2227 images) stays "
-            "outside git; 581 labeled train/val/test pairs are for training/eval only. "
-            "This library is not an independent factory metric set."
+            "Frames in this app are **acquired optical surface images** from "
+            "[CoatingVision](https://doi.org/10.6084/m9.figshare.29260121.v1) "
+            "(Sampath et al., Argonne; CC BY 4.0) — close-up coating JPEGs, not "
+            "synthetic renders and not factory-floor photographs. Open **Dataset** "
+            "to page through the original files. If the local Figshare archive is "
+            "mounted (`data/external/coatingvision`, ~2227 JPEGs) the library uses "
+            "that; otherwise it falls back to the 88-frame git test split."
         )
 
     elif view == "Operate":
@@ -373,33 +414,49 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
                 artifacts = selected.get("artifacts") or {
                     "overlay": {"available": True}
                 }
-                view_config = [
-                    ("raw", "1 · Acquired frame", "Bounded optical preview; no annotations"),
-                    ("input", "2 · Model input", "Letterboxed inference geometry"),
-                    ("overlay", "3 · Detection result", "Model detections on acquired frame"),
-                ]
-                image_columns = st.columns(3)
-                for column, (artifact_view, title, caption) in zip(image_columns, view_config):
-                    with column:
+
+                def _load_artifact(artifact_view: str):
+                    available = bool((artifacts.get(artifact_view) or {}).get("available"))
+                    cache_key = f"{run_id}:{artifact_view}"
+                    if available and cache_key not in image_cache:
+                        try:
+                            image_cache[cache_key] = api_client.inspection_image(run_id, artifact_view)
+                        except Exception:
+                            image_cache[cache_key] = None
+                        while len(image_cache) > 24:
+                            image_cache.pop(next(iter(image_cache)))
+                    return available, image_cache.get(cache_key)
+
+                hero, side = st.columns([2, 1])
+                with hero:
+                    st.markdown("**Original acquired frame**")
+                    available, payload = _load_artifact("raw")
+                    if available and payload:
+                        st.image(
+                            payload,
+                            caption="Unmodified optical JPEG retained for this run — not a synthetic canvas",
+                            width="stretch",
+                        )
+                    elif available:
+                        st.error("The API reported acquired-frame evidence, but fetch failed.")
+                    else:
+                        st.info("Original frame was not retained for this historical run.")
+                with side:
+                    for artifact_view, title, caption in (
+                        ("input", "Model input", "Letterboxed geometry the detector saw"),
+                        ("overlay", "Detection overlay", "Predicted boxes on the acquired frame"),
+                    ):
                         st.markdown(f"**{title}**")
-                        available = bool((artifacts.get(artifact_view) or {}).get("available"))
-                        cache_key = f"{run_id}:{artifact_view}"
-                        if available and cache_key not in image_cache:
-                            try:
-                                image_cache[cache_key] = api_client.inspection_image(run_id, artifact_view)
-                            except Exception:
-                                image_cache[cache_key] = None
-                            while len(image_cache) > 24:
-                                image_cache.pop(next(iter(image_cache)))
-                        if available and image_cache.get(cache_key):
-                            st.image(image_cache[cache_key], caption=caption, width="stretch")
+                        available, payload = _load_artifact(artifact_view)
+                        if available and payload:
+                            st.image(payload, caption=caption, width="stretch")
                         elif available:
                             st.error(f"The API reported {artifact_view} evidence, but fetch failed.")
                         else:
                             st.info("Not retained for this historical run.")
                 st.caption(
                     f"{selected.get('part_id')} · {selected.get('gate_action')} · "
-                    f"{selected_latency} ms · all views are bounded JPEG evidence previews"
+                    f"{selected_latency} ms · original / input / overlay are bounded JPEG evidence"
                 )
             else:
                 st.info("No retained inspection image bundle is available for this historical row.")
@@ -453,55 +510,79 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
 
     elif view == "Dataset":
         st.markdown("### Dataset Library")
+        library_scope = catalog.get("library_scope") or "checked_in_test_split"
         source_type = "VERIFIED REAL OPTICAL" if catalog.get("provenance_verified") else "UNVERIFIED"
-        st.caption(
-            "Previews load page-by-page through the authenticated API. The operations snapshot "
-            "carries metadata only — no image bytes and no host paths."
-        )
-        d1, d2, d3 = st.columns(3)
-        with d1:
-            st.metric("Indexed images", int(catalog.get("total") or 0))
-        with d2:
-            st.metric("Provenance", source_type)
-        with d3:
-            st.metric("License", catalog.get("dataset_license") or "NOT RECORDED")
-        st.markdown(f"**Dataset:** {catalog.get('dataset_name') or 'Unknown dataset'}")
-        if catalog.get("dataset_source"):
-            st.caption(str(catalog["dataset_source"]))
-
-        gallery_page_size = 6
-        gallery_total = int(catalog.get("total") or 0)
-        gallery_pages = max(1, (gallery_total + gallery_page_size - 1) // gallery_page_size)
-        gallery_page = st.selectbox(
-            "Preview page",
-            options=list(range(1, gallery_pages + 1)),
-            format_func=lambda page: f"Page {page} / {gallery_pages}",
-            key="dataset_gallery_page",
-        )
-        if gallery_page == 1 and int(catalog.get("returned") or 0) <= gallery_page_size:
-            gallery_catalog = catalog
+        doi_url = catalog.get("doi_url") or "https://doi.org/10.6084/m9.figshare.29260121.v1"
+        archive_count = int(catalog.get("archive_count") or 0)
+        checked_in = int(catalog.get("checked_in_count") or 0)
+        parent_archive = int(catalog.get("parent_archive_images") or 2227)
+        if library_scope == "local_figshare_archive":
+            scope_copy = (
+                f"This machine has the **local Figshare detection archive** "
+                f"({archive_count or parent_archive} unmodified JPEGs). "
+                f"Git also hashes the {checked_in or 88}-frame held-out test split."
+            )
         else:
-            gallery_catalog_cache = st.session_state.setdefault("dataset_gallery_catalog_cache", {})
-            if gallery_page not in gallery_catalog_cache:
-                try:
-                    gallery_catalog_cache[gallery_page] = api_client.dataset_catalog(
-                        offset=(gallery_page - 1) * gallery_page_size,
-                        limit=gallery_page_size,
-                    )
-                except Exception:
-                    gallery_catalog_cache[gallery_page] = None
-                while len(gallery_catalog_cache) > 8:
-                    gallery_catalog_cache.pop(next(iter(gallery_catalog_cache)))
-            gallery_catalog = gallery_catalog_cache.get(gallery_page) or {}
+            scope_copy = (
+                f"Full Figshare archive is **not mounted**. Showing the checked-in "
+                f"test split ({int(catalog.get('total') or 0)} original JPEGs). "
+                f"Parent public set is {parent_archive} images; 581 labeled pairs are train/eval only."
+            )
+        st.info(
+            "These are **original CoatingVision optical surface frames** (Sampath et al., "
+            f"Argonne National Laboratory, [Figshare DOI]({doi_url}), CC BY 4.0) — "
+            "close-up coating photographs, not synthetic canvases and not line overviews. "
+            + scope_copy
+        )
+        d1, d2, d3, d4 = st.columns(4)
+        with d1:
+            st.metric("Original frames here", int(catalog.get("total") or 0))
+        with d2:
+            st.metric("Figshare archive", archive_count or parent_archive)
+        with d3:
+            st.metric("Hashed test split", checked_in or int(catalog.get("total") or 0))
+        with d4:
+            st.metric("Provenance", source_type)
+        st.markdown(f"**Dataset:** {catalog.get('dataset_name') or 'Unknown dataset'}")
+        st.caption(str(catalog.get("dataset_source") or doi_url))
+
+        gallery_page_size = 12
+        gallery_total = int(catalog.get("total") or 0)
+        gallery_page = render_dataset_pager(gallery_total, gallery_page_size)
+        gallery_catalog_cache = st.session_state.setdefault("dataset_gallery_catalog_cache", {})
+        if gallery_page not in gallery_catalog_cache:
+            try:
+                gallery_catalog_cache[gallery_page] = api_client.dataset_catalog(
+                    offset=(gallery_page - 1) * gallery_page_size,
+                    limit=gallery_page_size,
+                )
+            except Exception:
+                gallery_catalog_cache[gallery_page] = None
+            while len(gallery_catalog_cache) > 12:
+                gallery_catalog_cache.pop(next(iter(gallery_catalog_cache)))
+        gallery_catalog = gallery_catalog_cache.get(gallery_page) or {}
 
         gallery_items = (gallery_catalog.get("items") or [])[:gallery_page_size]
         dataset_image_cache = st.session_state.setdefault("dataset_image_cache", {})
         if not gallery_items:
             st.info("No dataset images are available on this page.")
         else:
-            for row_start in range(0, len(gallery_items), 3):
-                gallery_columns = st.columns(3)
-                for column, item in zip(gallery_columns, gallery_items[row_start:row_start + 3]):
+            focus_name = st.session_state.get("dataset_focus_filename")
+            focus_item = next((item for item in gallery_items if item.get("filename") == focus_name), None)
+            if focus_item and dataset_image_cache.get(focus_name):
+                st.markdown("#### Original JPEG (unmodified)")
+                st.image(
+                    dataset_image_cache[focus_name],
+                    caption=(
+                        f"{focus_name} · {focus_item.get('source_id')} · "
+                        "this is the source optical frame, not a model overlay"
+                    ),
+                    width="stretch",
+                )
+
+            for row_start in range(0, len(gallery_items), 4):
+                gallery_columns = st.columns(4)
+                for column, item in zip(gallery_columns, gallery_items[row_start:row_start + 4]):
                     filename = str(item.get("filename") or "")
                     with column:
                         if filename and filename not in dataset_image_cache:
@@ -509,7 +590,7 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
                                 dataset_image_cache[filename] = api_client.dataset_image(filename)
                             except Exception:
                                 dataset_image_cache[filename] = None
-                            while len(dataset_image_cache) > 12:
+                            while len(dataset_image_cache) > 36:
                                 dataset_image_cache.pop(next(iter(dataset_image_cache)))
                         if dataset_image_cache.get(filename):
                             st.image(
@@ -519,13 +600,19 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
                             )
                         else:
                             st.error(f"Preview unavailable: {filename or 'unknown image'}")
-                        verified_label = "HASH VERIFIED" if item.get("hash_verified") else "UNVERIFIED"
-                        st.markdown(f"`{verified_label}` · `{item.get('source_type') or 'UNKNOWN'}`")
+                        if st.button("Open original", key=f"dataset_focus_{filename}", width="stretch"):
+                            st.session_state["dataset_focus_filename"] = filename
+                            st.rerun()
+                        if item.get("hash_verified"):
+                            badge = "HASH VERIFIED · test split"
+                        elif item.get("in_checked_in_split"):
+                            badge = "TEST SPLIT · UNVERIFIED"
+                        else:
+                            badge = "FIGSHARE ORIGINAL"
                         st.caption(
-                            f"{item.get('source_id') or 'source id missing'} · "
-                            f"sha256 {str(item.get('sha256') or 'missing')[:12]}…"
+                            f"{badge} · {item.get('source_id') or 'source id missing'}"
                         )
-            st.markdown("#### Dataset records")
+            st.markdown("#### Page records")
             st.dataframe(pd.DataFrame(gallery_items), width="stretch", hide_index=True)
 
     elif view == "Diagnose":
