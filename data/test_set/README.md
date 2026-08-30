@@ -2,7 +2,7 @@
 
 50 synthetic coating-surface fixtures retained for software tests and fault
 injection. These files are not real camera acquisitions and must not be used as
-portfolio evidence or independent performance evidence.
+independent performance evidence.
 
 ## Format
 - `images/` — Input images (640x640 JPEG, metallic coating surfaces with defects)

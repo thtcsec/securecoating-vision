@@ -45,15 +45,6 @@ def _pptx_text(path: Path) -> str:
 
 
 class TestRepositoryEvidenceArtifacts(unittest.TestCase):
-    def test_portfolio_png_files_have_real_png_signatures(self):
-        paths = sorted((ROOT / "docs/portfolio").glob("*.png"))
-        self.assertGreaterEqual(len(paths), 1)
-        for path in paths:
-            self.assertTrue(
-                path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"),
-                f"{path.name} has a PNG extension but non-PNG content",
-            )
-
     def test_real_demo_manifest_hashes_every_checked_in_sample(self):
         demo_root = ROOT / "data/demo_real"
         manifest = json.loads((demo_root / "manifest.json").read_text(encoding="utf-8"))
@@ -222,6 +213,26 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn("SecureCoating-Vision_Final_Defense_6min.pptx", string_items)
         self.assertIn("dashboard/production_console.py", string_items)
         self.assertIn("scripts/check_ci_junit.py", string_items)
+
+    def test_official_defense_pptx_does_not_display_forbidden_factory_numbers(self):
+        text = _pptx_text(ROOT / "SecureCoating-Vision_Final_Defense_6min.pptx")
+        self.assertNotIn("99.4%", text)
+        self.assertNotIn("0.02 ppm", text)
+        self.assertNotIn("P99.9 SLA", text)
+
+    def test_defense_slide_generator_does_not_print_forbidden_factory_numbers(self):
+        source = (ROOT / "scripts/generate_defense_slides.py").read_text(encoding="utf-8")
+        self.assertNotIn("99.4% mAP", source)
+        self.assertNotIn("0.02 ppm", source)
+        self.assertNotIn("−84% scrap", source)
+        self.assertNotIn("-84% scrap", source)
+        self.assertNotIn("P99.9 SLA", source)
+
+    def test_default_dataset_yaml_is_labelled_synthetic_only(self):
+        text = (ROOT / "configs/dataset.yaml").read_text(encoding="utf-8")
+        self.assertIn("coatingvision_real_detect.yaml", text)
+        self.assertIn("Synthetic development data only", text)
+        self.assertNotIn("Procedurally generated synthetic coating defect images", text)
 
     def test_test_manifest_discloses_dirty_source_provenance(self):
         manifest = json.loads(

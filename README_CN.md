@@ -1,5 +1,18 @@
 # SecureCoating-Vision（安全涂层视觉）
 
+<p align="center">
+  <img src="logo.png" alt="SecureCoating-Vision" width="450">
+</p>
+
+[![Track 4 Finalist](https://img.shields.io/badge/清华大学材料学院2026-赛道四全国总决赛入围-C8102E.svg)](README_CN.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+**队伍 71** · 队长 Trịnh Hoàng Tú — 胡志明市外语信息科技大学 (HUFLIT)  
+**学术顾问:** Kris Singh 教授 — SRII / 清华大学客座教授  
+**竞赛:** 2026 全球 AI+材料创新应用大赛 · 赛道四（AI + 材料检测与表征）
+
+注册英文标题与 [README](README.md) 一致，不另起第四个项目名。
+
 本项目是用于涂层缺陷分割、失效闭锁决策、卷材同步仿真、PLC 协议集成和质量追溯研究的**工业计算机视觉原型**，目前不是经过产线认证的生产系统。
 
 仓库中没有工厂标定证书、PLC 硬件在环验证、独立卷批测试集或安全机构批准。因此：
@@ -9,7 +22,7 @@
 - 不得把当前开发评测结果宣传为独立测试集、零漏检、ppm、六西格玛或标准认证结果；
 - 未训练模型、推理超时/异常、传感器缺失、标定未验证、数据库故障、PLC 通信失败和联锁锁存均必须输出 `HOLD`。
 
-LIBAD（VIS + 线内兼容 X-rayL）适配器不替换现有 RGB YOLO/ONNX 路径。当前仓库未包含官方数据集和 10 个官方划分，已跟踪的 demo/benchmark 使用确定性 `protocol_fixture`，不得与论文结果比较。DA-Core 属于论文作者；本地实现使用 numpy patch descriptor，并非作者的 DINOv3/DA-Core 官方实现。本仓库的贡献是证据门控的 PASS/REJECT/HOLD。热成像与轮廓仪仍是仿真接口。注册标题与英文 README 保持一致，不另起第四个项目名。
+LIBAD（VIS + 线内兼容 X-rayL）适配器不替换现有 RGB YOLO/ONNX 路径。当前仓库未包含官方数据集和 10 个官方划分，已跟踪的 demo/benchmark 使用确定性 `protocol_fixture`，不得与论文结果比较。DA-Core 属于论文作者；本地实现使用 numpy patch descriptor，并非作者的 DINOv3/DA-Core 官方实现。本仓库的贡献是证据门控的 PASS/REJECT/HOLD。热成像与轮廓仪仍是仿真接口。
 
 当前 `data/evaluation` 与训练验证集存在文件哈希重叠，因此其中的报告只能作为开发调试记录，不能作为泛化性能证明。英文 [README](README.md) 记录了真实的安全边界、配置、测试、训练和评测要求。
 

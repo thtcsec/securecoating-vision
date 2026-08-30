@@ -186,9 +186,9 @@ def build() -> Path:
     ])
     _box(s, Inches(0.45), Inches(4.3), Inches(7.4), Inches(2.4))
     add_textbox(s, Inches(0.65), Inches(4.45), Inches(7.0), Inches(2.1), [
-        {"text": "WE DO NOT CLAIM", "size": 12, "color": RED, "bold": True},
-        {"text": "99.4% mAP  ·  0.02 ppm escape  ·  −84% scrap  ·  production P99.9 SLA", "size": 15, "color": WHITE, "bold": True, "space_after": 8},
-        {"text": "Those numbers need independent roll-disjoint data, HIL, and a safety owner. This deck does not invent them.", "size": 14, "color": MUTED},
+        {"text": "WE DO NOT CLAIM FACTORY NUMBERS", "size": 12, "color": RED, "bold": True},
+        {"text": "Ask us what we actually measured.", "size": 18, "color": WHITE, "bold": True, "space_after": 8},
+        {"text": "Independent roll-disjoint data, HIL, and a safety owner are required before any mAP, escape-rate, scrap, or SLA figure is a factory claim. This deck does not invent them.", "size": 14, "color": MUTED},
     ])
     if coating:
         _box(s, Inches(8.15), Inches(0.55), Inches(4.7), Inches(6.2))

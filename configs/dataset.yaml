@@ -1,28 +1,25 @@
-# SecureCoating-Vision: YOLOv8 Dataset Configuration
-# This file defines the dataset structure for training YOLOv8 segmentation models.
-# Place your images/labels following the YOLO format in the paths below.
+# OPTIONAL synthetic-only YOLO template for `src/training/train_yolo.py --allow-synthetic`.
+# Do not treat this file as the competition training set.
+#
+# Real CoatingVision optical training/eval (Figshare DOI 10.6084/m9.figshare.29260121.v1,
+# CC BY 4.0, seed 71, 2 classes) uses:
+#   configs/coatingvision_real_detect.yaml
+#   scripts/train_coatingvision_real.py
+#   scripts/prepare_coatingvision_detection_dataset.py
 
-# Root dataset path (absolute or relative to where training script runs)
 path: data/coating_defects
-
-# Train/Val/Test splits
 train: images/train
 val: images/val
 test: images/test
-
-# Number of classes
 nc: 4
-
-# Class names matching defect categories
 names:
   0: scratch
   1: void
   2: blister
   3: delamination
 
-# Dataset metadata
 metadata:
-  description: "CoatingVision 2026 - Surface coating defect segmentation"
+  description: "Optional synthetic coating-defect set for local trainer smoke tests"
   version: "1.0"
-  source: "Procedurally generated synthetic coating defect images"
+  source: "Synthetic development data only (train_yolo.py --allow-synthetic). Not CoatingVision. Not LIBAD."
   annotation_format: "YOLO segmentation (polygon masks)"

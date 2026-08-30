@@ -1,5 +1,16 @@
 # SecureCoating-Vision
 
+<p align="center">
+  <img src="logo.png" alt="SecureCoating-Vision" width="450">
+</p>
+
+[![Track 4 Finalist](https://img.shields.io/badge/Tsinghua%20MSE%202026-Track%204%20Finalist-C8102E.svg)](README.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+**Team 71** · Trịnh Hoàng Tú — HUFLIT  
+**Advisor:** Prof. Kris Singh — SRII / Visiting Professor, Tsinghua University  
+**Competition:** 2026 Global AI + Materials Innovation Application Competition · Track 4 (AI + Materials Testing and Characterization)
+
 **Registered title:** SecureCoating Vision: A High-Throughput and Zero-Trust Edge-Cloud Pipeline for Inline Battery Electrode Defect Inspection and Traceable Quality Decisions
 
 **Tagline:** Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing
