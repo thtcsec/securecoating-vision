@@ -13,7 +13,8 @@ sys.path.insert(0, os.path.join(ROOT, "src"))
 from inference.onnx_engine import InferenceEngine  # noqa: E402
 
 ONNX_PATH = os.path.join(ROOT, "outputs", "model.onnx")
-TEST_IMG = os.path.join(ROOT, "data", "test_set", "images", "defect_val_00000.jpg")
+TEST_IMG = os.path.join(ROOT, "data", "demo_real", "images", "image_1548.jpg")
+REAL_CLASS_NAMES = {0: "surface_crack", 1: "delamination_crack"}
 
 
 import importlib.util
@@ -24,7 +25,13 @@ ORT_AVAILABLE = importlib.util.find_spec("onnxruntime") is not None
 class TestOnnxEngine(unittest.TestCase):
     @unittest.skipUnless(ORT_AVAILABLE and os.path.isfile(ONNX_PATH), "onnxruntime package or outputs/model.onnx not present")
     def test_model_loads(self):
-        engine = InferenceEngine(ONNX_PATH, imgsz=640, conf_thresh=0.35)
+        engine = InferenceEngine(
+            ONNX_PATH,
+            imgsz=512,
+            conf_thresh=0.35,
+            num_classes=2,
+            class_names=REAL_CLASS_NAMES,
+        )
         self.assertTrue(engine.is_loaded)
         self.assertIn("ExecutionProvider", engine.active_provider)
 
@@ -32,8 +39,14 @@ class TestOnnxEngine(unittest.TestCase):
         ORT_AVAILABLE and os.path.isfile(ONNX_PATH) and os.path.isfile(TEST_IMG),
         "onnxruntime package, ONNX model, or test image missing",
     )
-    def test_infer_detects_scratch_sample(self):
-        engine = InferenceEngine(ONNX_PATH, imgsz=640, conf_thresh=0.35)
+    def test_infer_detects_real_coating_crack_sample(self):
+        engine = InferenceEngine(
+            ONNX_PATH,
+            imgsz=512,
+            conf_thresh=0.35,
+            num_classes=2,
+            class_names=REAL_CLASS_NAMES,
+        )
         image = cv2.imread(TEST_IMG)
         self.assertIsNotNone(image)
         result = engine.infer(image)
@@ -42,7 +55,7 @@ class TestOnnxEngine(unittest.TestCase):
         self.assertGreaterEqual(result["num_defects"], 1)
         self.assertGreater(result["latency_ms"], 0.0)
         class_names = {d["class_name"] for d in result["detections"]}
-        self.assertIn("scratch", class_names)
+        self.assertIn("surface_crack", class_names)
 
     def test_missing_model_is_not_loaded(self):
         engine = InferenceEngine(

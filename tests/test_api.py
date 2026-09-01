@@ -11,9 +11,12 @@ import hashlib
 import tempfile
 import atexit
 import shutil
+import time
+from pathlib import Path
 from unittest.mock import patch
 
 import httpx
+from fastapi import HTTPException
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(ROOT)
@@ -25,16 +28,24 @@ API_TEST_TEMP_DIR = tempfile.mkdtemp(prefix="securecoating_api_test_")
 atexit.register(shutil.rmtree, API_TEST_TEMP_DIR, ignore_errors=True)
 os.environ.setdefault("SECURECOATING_DB_PATH", os.path.join(API_TEST_TEMP_DIR, "quality.db"))
 os.environ.setdefault(
+    "SECURECOATING_DATASET_CATALOG_CACHE",
+    os.path.join(API_TEST_TEMP_DIR, "catalog_cache.json"),
+)
+os.environ.setdefault(
     "SECURECOATING_INSPECTION_ARTIFACT_DIR",
     os.path.join(API_TEST_TEMP_DIR, "inspection_artifacts"),
 )
 
 # Import after cwd so config paths resolve
 from api.main import app  # noqa: E402
+import api.main as api_main  # noqa: E402
 
 ONNX_PATH = os.path.join(ROOT, "outputs", "model.onnx")
 TEST_IMG = os.path.join(ROOT, "data", "test_set", "images", "defect_val_00000.jpg")
 REAL_DEMO_IMG = os.path.join(ROOT, "data", "demo_real", "images", "image_1548.jpg")
+COATINGVISION_MASK_1548 = os.path.join(
+    ROOT, "data", "external", "coatingvision", "segmentation", "masks", "image_1548.png"
+)
 
 
 class ASGITestClient:
@@ -69,12 +80,16 @@ class TestAPI(unittest.TestCase):
         self.assertIn(body["status"], {"HEALTHY", "DEGRADED"})
         self.assertIn("onnx_available", body)
         self.assertIn("industrial_interlock_latched", body)
+        self.assertIn("calibration_verified", body)
+        self.assertIn("industrial_mock_mode", body)
         model_ready = bool(body.get("onnx_available") or body.get("yolo_available"))
         if resp.status_code == 200:
             self.assertEqual(body["status"], "HEALTHY")
             self.assertTrue(model_ready)
         else:
             self.assertEqual(body["status"], "DEGRADED")
+            if body.get("simulation_mode"):
+                self.assertFalse(body["calibration_verified"])
             if not model_ready:
                 self.assertEqual(resp.status_code, 503)
 
@@ -103,6 +118,28 @@ class TestAPI(unittest.TestCase):
             self.assertEqual(item["source_type"], "REAL_OPTICAL")
             self.assertEqual(os.path.basename(item["filename"]), item["filename"])
             self.assertIn("in_checked_in_split", item)
+            self.assertIn("has_published_mask", item)
+            self.assertIn("published_classes", item)
+            self.assertIsInstance(item["published_classes"], list)
+            self.assertIn("has_published_classes", item)
+        self.assertIn("classification_label_count", body)
+        self.assertIn("classification_flag_counts", body)
+        self.assertIsInstance(body["classification_flag_counts"], dict)
+        bad_flag = self.client.get(
+            "/api/dataset/catalog", params={"offset": 0, "limit": 1, "class_flag": "../secret"}
+        )
+        self.assertEqual(bad_flag.status_code, 422)
+        if body["classification_flag_counts"].get("Delamination"):
+            filtered = self.client.get(
+                "/api/dataset/catalog",
+                params={"offset": 0, "limit": 3, "class_flag": "Delamination"},
+            )
+            self.assertEqual(filtered.status_code, 200)
+            filtered_body = filtered.json()
+            self.assertLessEqual(filtered_body["returned"], 3)
+            self.assertEqual(filtered_body["class_flag"], "Delamination")
+            for item in filtered_body["items"]:
+                self.assertIn("Delamination", item["published_classes"])
 
     def test_dataset_preview_is_hash_verified_jpeg(self):
         resp = self.client.get("/api/dataset/images/image_1548.jpg")
@@ -110,8 +147,26 @@ class TestAPI(unittest.TestCase):
         self.assertTrue(resp.headers["content-type"].startswith("image/jpeg"))
         self.assertTrue(resp.content.startswith(b"\xff\xd8\xff"))
         self.assertEqual(len(resp.headers["x-dataset-sha256"]), 64)
-
-    def test_dataset_preview_rejects_unknown_image(self):
+        for view in ("mask", "blend", "heatmap"):
+            evidence = self.client.get(
+                "/api/dataset/images/image_1548.jpg", params={"view": view}
+            )
+            if os.path.isfile(COATINGVISION_MASK_1548):
+                self.assertEqual(evidence.status_code, 200)
+                self.assertTrue(evidence.content.startswith(b"\xff\xd8\xff"))
+                self.assertEqual(evidence.headers["x-dataset-view"], view)
+                self.assertEqual(
+                    evidence.headers["x-dataset-label-source"],
+                    "published-segmentation-mask",
+                )
+            else:
+                self.assertEqual(evidence.status_code, 404)
+        thumb = self.client.get(
+            "/api/dataset/images/image_1548.jpg", params={"view": "thumb"}
+        )
+        self.assertEqual(thumb.status_code, 200)
+        self.assertTrue(thumb.content.startswith(b"\xff\xd8\xff"))
+        self.assertEqual(thumb.headers["x-dataset-view"], "thumb")
         resp = self.client.get("/api/dataset/images/not-in-manifest.jpg")
         self.assertEqual(resp.status_code, 404)
 
@@ -150,6 +205,41 @@ class TestAPI(unittest.TestCase):
         self.assertIn("latency_ms", body)
         self.assertIn("run_id", body)
         self.assertTrue(str(body["run_id"]).startswith("RUN_"))
+
+    def test_simulated_inspections_advance_roll_motion(self):
+        before = api_main.web_synchronizer.current_pos_m
+        resp = self.client.post(
+            "/api/inspect",
+            data={"part_id": "PART_MOTION_ADVANCE"},
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertGreater(api_main.web_synchronizer.current_pos_m, before)
+
+    def test_corrupt_named_sample_returns_http_error_not_name_error(self):
+        with patch.object(api_main, "_demo_sample_path", return_value=api_main.Path("broken.jpg")), patch.object(
+            api_main.cv2, "imread", return_value=None
+        ):
+            with self.assertRaises(HTTPException) as raised:
+                api_main._load_sample_image("broken.jpg")
+        self.assertEqual(raised.exception.status_code, 400)
+
+    def test_chunked_request_body_is_limited_before_form_parsing(self):
+        async def run_request():
+            async def chunks():
+                yield b"x" * (api_main.MAX_REQUEST_SIZE + 1)
+
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(
+                transport=transport, base_url="http://testserver"
+            ) as client:
+                return await client.post(
+                    "/api/inspect",
+                    content=chunks(),
+                    headers={"content-type": "application/octet-stream"},
+                )
+
+        response = asyncio.run(run_request())
+        self.assertEqual(response.status_code, 413)
 
     def test_inspect_rejects_non_active_batch(self):
         resp = self.client.post(
@@ -203,6 +293,18 @@ class TestAPI(unittest.TestCase):
         }
         response_ids = {record["defect_id"] for record in body["defects_found"]}
         self.assertTrue(response_ids.issubset(ledger_ids))
+        for view in ("mask", "blend", "heatmap"):
+            evidence = self.client.get(
+                f"/api/inspections/{body['run_id']}/image",
+                params={"view": view},
+            )
+            if os.path.isfile(COATINGVISION_MASK_1548):
+                self.assertEqual(evidence.status_code, 200)
+                self.assertTrue(evidence.content.startswith(b"\xff\xd8\xff"))
+            else:
+                self.assertEqual(evidence.status_code, 404)
+        self.assertEqual(body.get("sample_name"), "image_1548.jpg")
+        self.assertIsInstance(body.get("published_classes"), list)
 
     @unittest.skipUnless(os.path.isfile(TEST_IMG), "test image missing")
     def test_inspect_upload(self):
@@ -231,6 +333,12 @@ class TestAPI(unittest.TestCase):
             )
             self.assertEqual(view_response.status_code, 200)
             self.assertTrue(view_response.content.startswith(b"\xff\xd8\xff"))
+        for view in ("mask", "blend", "heatmap"):
+            view_response = self.client.get(
+                f"/api/inspections/{body['run_id']}/image",
+                params={"view": view},
+            )
+            self.assertEqual(view_response.status_code, 404)
         invalid_view = self.client.get(
             f"/api/inspections/{body['run_id']}/image",
             params={"view": "ground_truth"},
@@ -333,6 +441,32 @@ class TestAPI(unittest.TestCase):
             "Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing",
         )
         self.assertIn("does not claim DA-Core", body["citation"]["da_core_attribution"])
+        samples = self.client.get("/api/libad/samples")
+        self.assertEqual(samples.status_code, 200)
+        sample_body = samples.json()
+        self.assertIn("official_dataset_present", sample_body)
+        self.assertFalse(sample_body["comparable_to_paper"])
+        if not sample_body.get("official_dataset_present"):
+            self.assertEqual(sample_body["total"], 0)
+            self.assertEqual(sample_body["items"], [])
+        missing = self.client.get(
+            "/api/libad/samples/not-a-sample/image", params={"view": "vis_a"}
+        )
+        self.assertEqual(missing.status_code, 404)
+
+    def test_dataset_catalog_disk_cache_reloads_without_full_rebuild(self):
+        first = self.client.get("/api/dataset/catalog", params={"offset": 0, "limit": 1})
+        self.assertEqual(first.status_code, 200)
+        total = first.json()["total"]
+        api_main._dataset_catalog_cache = None
+        api_main._dataset_catalog_by_name = {}
+        api_main._dataset_catalog_identity = {}
+        started = time.perf_counter()
+        second = self.client.get("/api/dataset/catalog", params={"offset": 0, "limit": 1})
+        elapsed = time.perf_counter() - started
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(second.json()["total"], total)
+        self.assertLess(elapsed, 8.0)
 
     def test_libad_demo_case_four_is_hold(self):
         resp = self.client.get("/api/libad/demo/4")
@@ -360,6 +494,7 @@ class TestAPI(unittest.TestCase):
         for key in (
             "readiness", "roll", "quality", "industrial", "signals",
             "traceability", "control_audit", "control_policy", "line_disposition",
+            "throughput",
         ):
             self.assertIn(key, body)
         self.assertIn("stats", body["quality"])
@@ -367,6 +502,27 @@ class TestAPI(unittest.TestCase):
         self.assertIn("recent_inspections", body["quality"])
         self.assertIn("EMERGENCY_STOP", body["control_policy"]["actions"])
         self.assertNotIn("PLC_PARAMETER_WRITE", body["control_policy"]["actions"])
+        self.assertEqual(body["throughput"]["evidence_class"], "MEASURED_LOCAL_INFERENCE_ONLY")
+        self.assertFalse(body["throughput"]["factory_line_qualified"])
+        self.assertEqual(body.get("snapshot_scope", "full"), "full")
+        self.assertIn("dataset_catalog", body)
+        self.assertIn("certificate_status", body["traceability"])
+
+    def test_operations_snapshot_live_scope_omits_catalog_and_certificate(self):
+        resp = self.client.get("/api/operations/snapshot", params={"scope": "live"})
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["snapshot_scope"], "live")
+        self.assertNotIn("dataset_catalog", body)
+        self.assertEqual(body["traceability"]["certificate_status"], "DEFERRED_TO_FULL_SNAPSHOT")
+        self.assertIsNone(body["traceability"]["certificate"])
+        self.assertIn("readiness", body)
+        self.assertIn("line_disposition", body)
+        self.assertIn("quality", body)
+
+    def test_operations_snapshot_rejects_unknown_scope(self):
+        resp = self.client.get("/api/operations/snapshot", params={"scope": "partial"})
+        self.assertEqual(resp.status_code, 422)
 
     def test_operations_control_rejects_wrong_confirmation_without_dispatch(self):
         before = self.client.get("/api/industrial/state").json()
@@ -542,6 +698,86 @@ class TestAPI(unittest.TestCase):
         self.assertIsNone(outcome["acknowledged"])
         self.assertTrue(outcome["reset_probe_accepted"])
         self.assertIsNone(outcome["signal_id"])
+
+    def test_published_mask_renders_heatmap_without_claiming_model_confidence(self):
+        import cv2
+        import numpy as np
+
+        with tempfile.TemporaryDirectory() as tmp:
+            mask_dir = Path(tmp, "masks").resolve()
+            mask_dir.mkdir()
+            binary = np.zeros((48, 64), dtype=np.uint8)
+            binary[10:30, 16:48] = 255
+            self.assertTrue(cv2.imwrite(str(mask_dir / "frame.png"), binary))
+            optical = np.full((48, 64, 3), 90, dtype=np.uint8)
+            with patch.object(api_main, "COATINGVISION_SEGMENTATION_MASK_DIR", mask_dir):
+                evidence = api_main._segmentation_evidence(optical, "frame.jpg")
+            self.assertIsNotNone(evidence)
+            self.assertEqual(set(evidence), {"mask", "blend", "heatmap"})
+            self.assertTrue(np.any(evidence["mask"]))
+            self.assertTrue(np.all(evidence["mask"][15, 30] == (255, 0, 255)))
+            self.assertTrue(np.any(evidence["heatmap"][15, 30] != optical[15, 30]))
+            unmatched = api_main._segmentation_evidence(optical, "missing.jpg")
+            self.assertIsNone(unmatched)
+
+    def test_ai_overlay_fills_predicted_regions(self):
+        import numpy as np
+
+        canvas = np.zeros((40, 50, 3), dtype=np.uint8)
+        seg_mask = np.zeros((40, 50), dtype=np.uint8)
+        seg_mask[5:20, 8:28] = 1
+        overlay = api_main._draw_ai_overlay(
+            canvas,
+            [{"bbox": [8, 5, 20, 15], "class_name": "scratch", "confidence": 0.91}],
+            seg_mask,
+            50,
+        )
+        self.assertGreater(int(overlay.sum()), 0)
+        self.assertTrue(np.any(overlay[10, 15] > 0))
+
+    def test_classification_csv_parses_published_flags_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            csv_path = Path(tmp) / "labels.csv"
+            csv_path.write_text(
+                "original_file_name,file_name,Surface_Crack,Delamination,Pinhole,unclassified\n"
+                "a.png,image_1.jpg,1,0,1,0\n"
+                "b.png,image_2.jpg,0,0,0,1\n"
+                "bad,../secret.jpg,1,0,0,0\n",
+                encoding="utf-8",
+            )
+            labels = api_main._parse_classification_csv(csv_path)
+            self.assertEqual(labels["image_1.jpg"], ["Surface_Crack", "Pinhole"])
+            self.assertEqual(labels["image_2.jpg"], ["unclassified"])
+            self.assertNotIn("../secret.jpg", labels)
+            self.assertEqual(
+                api_main._parse_classification_csv(csv_path.with_name("missing.csv")),
+                {},
+            )
+
+    def test_inspect_persists_published_classes_for_demo_sample(self):
+        if not os.path.isfile(REAL_DEMO_IMG):
+            self.skipTest("demo sample missing")
+        resp = self.client.post(
+            "/api/inspect",
+            data={
+                "batch_id": "BATCH_2026_MSE_01",
+                "part_id": "PART_PUBLISHED_CLASS",
+                "sample_name": "image_1548.jpg",
+            },
+        )
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["sample_name"], "image_1548.jpg")
+        self.assertIsInstance(body["published_classes"], list)
+        snapshot = self.client.get("/api/operations/snapshot").json()
+        persisted = next(
+            row
+            for row in snapshot["quality"]["recent_inspections"]["records"]
+            if row["run_id"] == body["run_id"]
+        )
+        self.assertEqual(persisted["sample_name"], "image_1548.jpg")
+        if persisted["published_classes"] is not None:
+            self.assertIsInstance(persisted["published_classes"], list)
 
 
 if __name__ == "__main__":

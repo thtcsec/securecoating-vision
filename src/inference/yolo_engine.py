@@ -22,12 +22,14 @@ class YOLOEngine:
         conf_thresh: float = 0.35,
         iou_thresh: float = 0.45,
         device: str = "auto",
+        num_classes: int = 4,
     ):
         self.model_path = model_path
         self.imgsz = imgsz
         self.conf_thresh = conf_thresh
         self.iou_thresh = iou_thresh
         self.device = device
+        self.num_classes = int(num_classes)
         self.model = None
         self._model_loaded = False
         self.class_names: Dict[int, str] = {
@@ -76,6 +78,11 @@ class YOLOEngine:
                     int(class_id): str(class_name)
                     for class_id, class_name in self.model.names.items()
                 }
+            if len(self.class_names) != self.num_classes:
+                raise RuntimeError(
+                    f"YOLO artifact exposes {len(self.class_names)} classes; "
+                    f"expected {self.num_classes}"
+                )
             # Warmup so first user request is fast
             dummy = np.zeros((self.imgsz, self.imgsz, 3), dtype=np.uint8)
             self.model.predict(

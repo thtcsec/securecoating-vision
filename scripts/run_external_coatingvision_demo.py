@@ -1,4 +1,4 @@
-"""Run the project's trained YOLO segmentation model on a real CoatingVision image.
+"""Run the project's trained YOLO detector on a real CoatingVision image.
 
 This utility is intentionally evidence-first: the input is a CC BY 4.0 image
 from the CoatingVision dataset, and the output includes the exact raw model

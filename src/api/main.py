@@ -4,7 +4,7 @@ SecureCoating-Vision: FastAPI REST API
 Research REST API for fail-closed multi-sensor coating inspection experiments.
 
 Integrates:
-- ONNX Runtime inference engine (YOLOv8-seg)
+- Ultralytics/ONNX object detection for real optical coating images
 - Multi-source sensor fusion (RGB + Thermal + 3D Height)
 - Fail-safe graceful degradation
 - Industrial protocol signaling (OPC UA / Modbus TCP)
@@ -12,7 +12,7 @@ Integrates:
 
 Endpoints:
 - GET  /health                    -> System health check
-- GET  /api/operations/snapshot   -> Single-timestamp operations snapshot
+- GET  /api/operations/snapshot   -> Single-timestamp operations snapshot (scope=full|live)
 - POST /api/operations/control    -> Authenticated confirm-audit control
 - POST /api/inspect               -> Run full inspection pipeline
 - GET  /api/batch/{id}/stats      -> Batch quality statistics
@@ -34,6 +34,7 @@ import asyncio
 import base64
 import hashlib
 import json
+import csv
 import threading
 from pathlib import Path
 from datetime import datetime, timezone
@@ -45,7 +46,7 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File, F
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any, Literal
 import numpy as np
@@ -63,9 +64,7 @@ logger = logging.getLogger("SecureCoatingVision.API")
 SRC_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
-# Ensure working directory is project root for config file access
 PROJECT_ROOT = os.path.dirname(SRC_DIR)
-os.chdir(PROJECT_ROOT)
 from inference.predictor import CoatingPredictor
 from inference.postprocess import extract_defects_from_mask, grade_coating
 from inference.sensor_fusion import SensorFusionManager
@@ -204,9 +203,15 @@ async def inspection_backpressure(request: Request, call_next):
             inspection_capacity.release()
 
 # --- Configuration Loading ---
-CONFIG_PATH = os.environ.get("MODEL_CONFIG", "configs/model.yaml")
-APP_CONFIG_PATH = os.environ.get("APP_CONFIG", "configs/app.yaml")
-CALIBRATION_CONFIG_PATH = os.environ.get("CALIBRATION_CONFIG", "configs/calibration.yaml")
+def _project_path(value: str) -> str:
+    return value if os.path.isabs(value) else os.path.join(PROJECT_ROOT, value)
+
+
+CONFIG_PATH = _project_path(os.environ.get("MODEL_CONFIG", "configs/model.yaml"))
+APP_CONFIG_PATH = _project_path(os.environ.get("APP_CONFIG", "configs/app.yaml"))
+CALIBRATION_CONFIG_PATH = _project_path(
+    os.environ.get("CALIBRATION_CONFIG", "configs/calibration.yaml")
+)
 
 with open(CONFIG_PATH, "r") as f:
     model_config = yaml.safe_load(f)
@@ -224,6 +229,18 @@ DEMO_DATASET_MANIFEST = DEMO_DATASET_ROOT / "manifest.json"
 COATINGVISION_ARCHIVE_DIR = Path(
     PROJECT_ROOT, "data", "external", "coatingvision", "detection", "images"
 ).resolve()
+COATINGVISION_SEGMENTATION_MASK_DIR = Path(
+    PROJECT_ROOT, "data", "external", "coatingvision", "segmentation", "masks"
+).resolve()
+COATINGVISION_CLASSIFICATION_LABELS = Path(
+    PROJECT_ROOT, "data", "external", "coatingvision", "classification", "labels.csv"
+).resolve()
+CLASSIFICATION_FLAG_COLUMNS = (
+    "Surface_Crack",
+    "Delamination",
+    "Pinhole",
+    "unclassified",
+)
 FIGSHARE_DOI = "10.6084/m9.figshare.29260121.v1"
 FIGSHARE_URL = f"https://doi.org/{FIGSHARE_DOI}"
 _default_artifact_dir = Path(PROJECT_ROOT, "outputs", "inspection_artifacts").resolve()
@@ -247,6 +264,15 @@ _dataset_catalog_lock = threading.Lock()
 _dataset_catalog_cache: Optional[tuple[Dict[str, Any], ...]] = None
 _dataset_catalog_by_name: Dict[str, Dict[str, Any]] = {}
 _dataset_catalog_identity: Dict[str, Any] = {}
+_DATASET_CATALOG_DISK_CACHE = Path(
+    os.environ.get(
+        "SECURECOATING_DATASET_CATALOG_CACHE",
+        str(Path(PROJECT_ROOT, "data", ".dataset_catalog_cache.json")),
+    )
+)
+_DATASET_CATALOG_CACHE_VERSION = 2
+_classification_lock = threading.Lock()
+_classification_by_name: Optional[Dict[str, List[str]]] = None
 IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
 CONTROL_POLICY = {
     "endpoint": "/api/operations/control",
@@ -443,6 +469,121 @@ def _scan_image_names(directory: Path, limit: int = 50_000) -> list[str]:
     return names
 
 
+def _path_stat_token(path: Path) -> str:
+    try:
+        stat = os.stat(path, follow_symlinks=True)
+        return f"{int(stat.st_mtime_ns)}:{int(stat.st_size)}:{int(path.is_dir())}"
+    except OSError:
+        return "missing"
+
+
+def _catalog_fingerprint() -> Dict[str, str]:
+    return {
+        "version": str(_DATASET_CATALOG_CACHE_VERSION),
+        "archive": _path_stat_token(COATINGVISION_ARCHIVE_DIR),
+        "masks": _path_stat_token(COATINGVISION_SEGMENTATION_MASK_DIR),
+        "classes": _path_stat_token(COATINGVISION_CLASSIFICATION_LABELS),
+        "demo": _path_stat_token(Path(TEST_SET_DIR)),
+        "manifest": _path_stat_token(DEMO_DATASET_MANIFEST),
+    }
+
+
+def _load_dataset_catalog_disk_cache() -> Optional[tuple[list[Dict[str, Any]], Dict[str, Any]]]:
+    try:
+        payload = json.loads(_DATASET_CATALOG_DISK_CACHE.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    if payload.get("version") != _DATASET_CATALOG_CACHE_VERSION:
+        return None
+    if payload.get("fingerprint") != _catalog_fingerprint():
+        return None
+    records = payload.get("records")
+    identity = payload.get("identity")
+    if not isinstance(records, list) or not isinstance(identity, dict):
+        return None
+    cleaned: list[Dict[str, Any]] = []
+    for item in records:
+        if not isinstance(item, dict):
+            return None
+        filename = item.get("filename")
+        if not isinstance(filename, str) or os.path.basename(filename) != filename:
+            return None
+        cleaned.append(item)
+    return cleaned, identity
+
+
+def _store_dataset_catalog_disk_cache(
+    records: tuple[Dict[str, Any], ...],
+    identity: Dict[str, Any],
+) -> None:
+    payload = {
+        "version": _DATASET_CATALOG_CACHE_VERSION,
+        "fingerprint": _catalog_fingerprint(),
+        "records": list(records),
+        "identity": identity,
+    }
+    try:
+        cache_dir = _DATASET_CATALOG_DISK_CACHE.parent
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        tmp_path = cache_dir / f"{_DATASET_CATALOG_DISK_CACHE.name}.tmp"
+        tmp_path.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
+        os.replace(tmp_path, _DATASET_CATALOG_DISK_CACHE)
+    except OSError:
+        logger.warning(
+            "Dataset catalog disk cache was not written; memory cache remains authoritative"
+        )
+
+
+def _parse_classification_csv(path: Path) -> Dict[str, List[str]]:
+    mapping: Dict[str, List[str]] = {}
+    if not path.is_file():
+        return mapping
+    try:
+        with path.open(newline="", encoding="utf-8") as handle:
+            reader = csv.DictReader(handle)
+            for row in reader:
+                filename = os.path.basename(str(row.get("file_name") or ""))
+                if not filename or filename != str(row.get("file_name") or ""):
+                    continue
+                flags = [
+                    column
+                    for column in CLASSIFICATION_FLAG_COLUMNS
+                    if str(row.get(column, "")).strip() in {"1", "true", "True"}
+                ]
+                mapping[filename] = flags
+    except (OSError, csv.Error, UnicodeError):
+        return {}
+    return mapping
+
+
+def _classification_labels_by_name() -> Dict[str, List[str]]:
+    """Load published CoatingVision multi-label flags. Missing CSV is empty, not invented."""
+    global _classification_by_name
+    with _classification_lock:
+        if _classification_by_name is not None:
+            return _classification_by_name
+        _classification_by_name = _parse_classification_csv(
+            COATINGVISION_CLASSIFICATION_LABELS
+        )
+        return _classification_by_name
+
+
+def _published_classes_for_sample(sample_name: Optional[str]) -> Optional[List[str]]:
+    """Return published flags only when a CSV row exists for the attributed basename."""
+    if not sample_name:
+        return None
+    class_map = _classification_labels_by_name()
+    if sample_name not in class_map:
+        return None
+    return [
+        flag
+        for flag in class_map[sample_name]
+        if flag in CLASSIFICATION_FLAG_COLUMNS
+    ]
+
+
 def _resolve_dataset_image(sample_name: str) -> Path:
     """Resolve one bounded basename under the Figshare archive or the git demo split."""
     safe_name = _safe_dataset_basename(sample_name)
@@ -477,7 +618,7 @@ def _load_sample_image(sample_name: str) -> np.ndarray:
     path = _demo_sample_path(sample_name)
     image = cv2.imread(str(path))
     if image is None:
-        raise HTTPException(status_code=400, detail=f"Failed to read sample '{safe_name}'")
+        raise HTTPException(status_code=400, detail=f"Failed to read sample '{path.name}'")
     return image
 
 
@@ -499,9 +640,15 @@ def _synthetic_optical(h: int, w: int, simulate_defect: Optional[str]) -> np.nda
     return optical
 
 
-MAX_UPLOAD_SIZE = int(os.environ.get("SECURECOATING_MAX_UPLOAD_BYTES", 10 * 1024 * 1024))
+MAX_UPLOAD_SIZE = max(
+    64 * 1024,
+    min(int(os.environ.get("SECURECOATING_MAX_UPLOAD_BYTES", 10 * 1024 * 1024)), 50 * 1024 * 1024),
+)
 MAX_REQUEST_SIZE = MAX_UPLOAD_SIZE + 1024 * 1024  # bounded multipart envelope overhead
-MAX_IMAGE_PIXELS = int(os.environ.get("SECURECOATING_MAX_IMAGE_PIXELS", 8_000_000))
+MAX_IMAGE_PIXELS = max(
+    1,
+    min(int(os.environ.get("SECURECOATING_MAX_IMAGE_PIXELS", 8_000_000)), 50_000_000),
+)
 ALLOWED_IMAGE_FORMATS = {"JPEG", "PNG", "BMP", "TIFF"}
 ALLOWED_IMAGE_MIME_TYPES = {
     "image/jpeg", "image/png", "image/bmp", "image/tiff", "application/octet-stream"
@@ -509,7 +656,58 @@ ALLOWED_IMAGE_MIME_TYPES = {
 Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 
 
-ARTIFACT_VIEWS = ("raw", "input", "overlay")
+class RequestBodyLimitMiddleware:
+    """Bound streamed/chunked request bodies before multipart parsing."""
+
+    def __init__(self, app, max_bytes: int):
+        self.app = app
+        self.max_bytes = int(max_bytes)
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") != "http" or scope.get("method") not in {"POST", "PUT", "PATCH"}:
+            await self.app(scope, receive, send)
+            return
+        payload = bytearray()
+        more_body = True
+        while more_body:
+            message = await receive()
+            if message.get("type") == "http.request":
+                payload.extend(message.get("body", b""))
+                if len(payload) > self.max_bytes:
+                    response = JSONResponse(
+                        status_code=413,
+                        content={"detail": "Request body exceeds the configured safety limit"},
+                    )
+                    await response(scope, receive, send)
+                    return
+                more_body = bool(message.get("more_body", False))
+            elif message.get("type") == "http.disconnect":
+                return
+
+        replayed = False
+
+        async def replay_receive():
+            nonlocal replayed
+            if replayed:
+                return {"type": "http.request", "body": b"", "more_body": False}
+            replayed = True
+            return {"type": "http.request", "body": bytes(payload), "more_body": False}
+
+        await self.app(scope, replay_receive, send)
+
+
+app.add_middleware(RequestBodyLimitMiddleware, max_bytes=MAX_REQUEST_SIZE)
+
+
+ARTIFACT_VIEWS = ("raw", "mask", "blend", "heatmap", "input", "overlay")
+_ARTIFACT_FILE_SUFFIXES = ("_raw", "_mask", "_blend", "_heatmap", "_input")
+_AI_OVERLAY_COLORS = (
+    (0, 220, 255),
+    (40, 90, 255),
+    (0, 210, 160),
+    (90, 70, 255),
+    (0, 160, 255),
+)
 
 
 def _inspection_artifact_path(run_id: str, view: str = "overlay") -> Path:
@@ -559,17 +757,129 @@ def _encode_artifact_jpeg(image: np.ndarray) -> Optional[bytes]:
     return encoded.tobytes()
 
 
-def _write_inspection_artifact(
-    image: np.ndarray,
-    defects: list[Dict[str, Any]],
-    run_id: str,
-) -> bool:
-    """Persist bounded raw/input/overlay previews as one run-scoped bundle."""
-    raw_preview = _bounded_preview(image)
-    canvas = raw_preview.copy()
-    height, width = image.shape[:2]
-    scale = canvas.shape[1] / width
+def _segmentation_mask_path(sample_name: Optional[str]) -> Optional[Path]:
+    """Resolve a published CoatingVision mask by bounded source basename."""
+    if not sample_name or not COATINGVISION_SEGMENTATION_MASK_DIR.is_dir():
+        return None
+    try:
+        safe_name = _safe_dataset_basename(sample_name)
+    except HTTPException:
+        return None
+    candidate = (
+        COATINGVISION_SEGMENTATION_MASK_DIR / f"{Path(safe_name).stem}.png"
+    ).resolve()
+    try:
+        candidate.relative_to(COATINGVISION_SEGMENTATION_MASK_DIR)
+    except ValueError:
+        return None
+    return candidate if candidate.is_file() else None
 
+
+def _verified_uploaded_sample_name(filename: Optional[str], payload: bytes) -> Optional[str]:
+    """Recognize an upload as a dataset sample only after exact byte comparison."""
+    if not filename:
+        return None
+    try:
+        safe_name = _safe_dataset_basename(os.path.basename(filename))
+        source_path = _resolve_dataset_image(safe_name)
+    except HTTPException:
+        return None
+    source_digest = hashlib.sha256(source_path.read_bytes()).digest()
+    upload_digest = hashlib.sha256(payload).digest()
+    if not secrets.compare_digest(source_digest, upload_digest):
+        return None
+    return safe_name
+
+
+def _published_label_heatmap(raw_preview: np.ndarray, binary: np.ndarray) -> np.ndarray:
+    """Distance-transform heatmap of a published mask. Not model confidence."""
+    distance = cv2.distanceTransform(binary.astype(np.uint8), cv2.DIST_L2, 5)
+    peak = float(distance.max())
+    if peak > 0:
+        normalized = np.clip(distance / peak * 255.0, 0, 255).astype(np.uint8)
+    else:
+        normalized = np.zeros(binary.shape, dtype=np.uint8)
+    colormap = getattr(cv2, "COLORMAP_TURBO", cv2.COLORMAP_JET)
+    heat = cv2.applyColorMap(normalized, colormap)
+    heat[~binary] = 0
+    blended = cv2.addWeighted(raw_preview, 0.42, heat, 0.58, 0)
+    contours, _ = cv2.findContours(
+        binary.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+    )
+    cv2.drawContours(blended, contours, -1, (255, 255, 255), 1)
+    return blended
+
+
+def _segmentation_evidence(
+    image: np.ndarray,
+    sample_name: Optional[str],
+) -> Optional[Dict[str, np.ndarray]]:
+    """Render published mask, magenta blend, and label heatmap for replay."""
+    mask_path = _segmentation_mask_path(sample_name)
+    if mask_path is None:
+        return None
+    published = cv2.imread(str(mask_path), cv2.IMREAD_UNCHANGED)
+    if published is None:
+        return None
+    if published.ndim == 2:
+        binary = published > 0
+    else:
+        # Published PNGs may carry a zero alpha channel; label color channels
+        # remain authoritative, so alpha is deliberately excluded here.
+        binary = np.any(published[:, :, :3] > 0, axis=2)
+    raw_preview = _bounded_preview(image)
+    if binary.shape != raw_preview.shape[:2]:
+        binary = cv2.resize(
+            binary.astype(np.uint8),
+            (raw_preview.shape[1], raw_preview.shape[0]),
+            interpolation=cv2.INTER_NEAREST,
+        ).astype(bool)
+    mask_visual = np.zeros_like(raw_preview)
+    mask_visual[binary] = (255, 0, 255)
+    blend = raw_preview.copy()
+    if np.any(binary):
+        blend[binary] = cv2.addWeighted(
+            raw_preview[binary], 0.35, mask_visual[binary], 0.65, 0
+        )
+        contours, _ = cv2.findContours(
+            binary.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        )
+        cv2.drawContours(blend, contours, -1, (0, 255, 255), 2)
+    return {
+        "mask": mask_visual,
+        "blend": blend,
+        "heatmap": _published_label_heatmap(raw_preview, binary),
+    }
+
+
+def _draw_ai_overlay(
+    raw_preview: np.ndarray,
+    defects: list[Dict[str, Any]],
+    seg_mask: Optional[np.ndarray],
+    source_width: int,
+) -> np.ndarray:
+    """Fill predicted regions, then draw boxes. This is model output, not GT."""
+    canvas = raw_preview.copy()
+    scale = canvas.shape[1] / max(1, int(source_width))
+    if seg_mask is not None and getattr(seg_mask, "size", 0):
+        mask_preview = cv2.resize(
+            seg_mask.astype(np.uint8),
+            (canvas.shape[1], canvas.shape[0]),
+            interpolation=cv2.INTER_NEAREST,
+        )
+        class_ids = [int(class_id) for class_id in np.unique(mask_preview) if int(class_id) > 0]
+        for class_id in class_ids:
+            region = mask_preview == class_id
+            if not np.any(region):
+                continue
+            color = _AI_OVERLAY_COLORS[(class_id - 1) % len(_AI_OVERLAY_COLORS)]
+            tint = np.zeros_like(canvas)
+            tint[region] = color
+            canvas[region] = cv2.addWeighted(canvas[region], 0.58, tint[region], 0.42, 0)
+            contours, _ = cv2.findContours(
+                region.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+            )
+            cv2.drawContours(canvas, contours, -1, color, 2)
     for defect in defects:
         bbox = defect.get("bbox") or []
         if len(bbox) != 4:
@@ -594,12 +904,30 @@ def _write_inspection_artifact(
             1,
             cv2.LINE_AA,
         )
+    return canvas
+
+
+def _write_inspection_artifact(
+    image: np.ndarray,
+    defects: list[Dict[str, Any]],
+    run_id: str,
+    sample_name: Optional[str] = None,
+    seg_mask: Optional[np.ndarray] = None,
+) -> bool:
+    """Persist replay views; mask/blend/heatmap are optional published-label evidence."""
+    raw_preview = _bounded_preview(image)
+    width = image.shape[1]
+    canvas = _draw_ai_overlay(raw_preview, defects, seg_mask, width)
 
     encoded_artifacts = {
         "raw": _encode_artifact_jpeg(raw_preview),
         "input": _encode_artifact_jpeg(_model_input_preview(image)),
         "overlay": _encode_artifact_jpeg(canvas),
     }
+    segmentation = _segmentation_evidence(image, sample_name)
+    if segmentation is not None:
+        for view, frame in segmentation.items():
+            encoded_artifacts[view] = _encode_artifact_jpeg(frame)
     if any(payload is None for payload in encoded_artifacts.values()):
         return False
 
@@ -607,7 +935,7 @@ def _write_inspection_artifact(
         INSPECTION_ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
         targets = {
             view: _inspection_artifact_path(run_id, view)
-            for view in ARTIFACT_VIEWS
+            for view in encoded_artifacts
         }
         temporaries = {
             view: target.with_suffix(target.suffix + ".tmp")
@@ -615,12 +943,12 @@ def _write_inspection_artifact(
         }
         committed = []
         try:
-            for view in ARTIFACT_VIEWS:
+            for view in encoded_artifacts:
                 with open(temporaries[view], "wb") as handle:
                     handle.write(encoded_artifacts[view])
                     handle.flush()
                     os.fsync(handle.fileno())
-            for view in ARTIFACT_VIEWS:
+            for view in encoded_artifacts:
                 os.replace(temporaries[view], targets[view])
                 committed.append(targets[view])
         except OSError:
@@ -638,7 +966,7 @@ def _write_inspection_artifact(
         )
         overlays = [
             path for path in overlays
-            if not path.stem.endswith(("_raw", "_input"))
+            if not path.stem.endswith(_ARTIFACT_FILE_SUFFIXES)
         ]
         for expired_overlay in overlays[MAX_INSPECTION_ARTIFACTS:]:
             expired_run_id = expired_overlay.stem
@@ -647,7 +975,11 @@ def _write_inspection_artifact(
     return True
 
 
-def _dataset_catalog(offset: int = 0, limit: int = 24) -> Dict[str, Any]:
+def _dataset_catalog(
+    offset: int = 0,
+    limit: int = 24,
+    class_flag: Optional[str] = None,
+) -> Dict[str, Any]:
     """Return bounded CoatingVision metadata without image payloads or host paths.
 
     Prefer the local Figshare detection archive when it is mounted. Fall back to
@@ -656,6 +988,19 @@ def _dataset_catalog(offset: int = 0, limit: int = 24) -> Dict[str, Any]:
     """
     global _dataset_catalog_cache, _dataset_catalog_identity, _dataset_catalog_by_name
     with _dataset_catalog_lock:
+        if _dataset_catalog_cache is None:
+            disk = _load_dataset_catalog_disk_cache()
+            if disk is not None:
+                catalog_records, identity = disk
+                _dataset_catalog_cache = tuple(catalog_records)
+                _dataset_catalog_by_name = {
+                    item["filename"]: item for item in catalog_records
+                }
+                _dataset_catalog_identity = identity
+                logger.info(
+                    "Dataset catalog loaded from disk cache: total=%s",
+                    len(catalog_records),
+                )
         if _dataset_catalog_cache is None:
             try:
                 manifest = json.loads(DEMO_DATASET_MANIFEST.read_text(encoding="utf-8"))
@@ -669,7 +1014,12 @@ def _dataset_catalog(offset: int = 0, limit: int = 24) -> Dict[str, Any]:
                 manifest_records = {}
 
             archive_names = _scan_image_names(COATINGVISION_ARCHIVE_DIR)
+            segmentation_mask_names = _scan_image_names(
+                COATINGVISION_SEGMENTATION_MASK_DIR
+            )
             demo_names = _scan_image_names(Path(TEST_SET_DIR))
+            mask_stems = {Path(name).stem for name in segmentation_mask_names}
+            class_map = _classification_labels_by_name()
             if archive_names:
                 library_scope = "local_figshare_archive"
                 names = sorted(set(archive_names) | set(demo_names))
@@ -706,13 +1056,35 @@ def _dataset_catalog(offset: int = 0, limit: int = 24) -> Dict[str, Any]:
                     "sha256": actual_hash or None,
                     "hash_verified": hash_verified,
                     "in_checked_in_split": name in manifest_records,
+                    "has_published_mask": Path(name).stem in mask_stems,
+                    "published_classes": list(class_map.get(name, [])),
+                    "has_published_classes": name in class_map,
                 })
+            catalog_names = {item["filename"] for item in catalog_records}
             for filename, record in manifest_records.items():
-                if filename not in {item["filename"] for item in catalog_records}:
+                if filename not in catalog_names:
                     checked_in_verified = False
                     break
             _dataset_catalog_cache = tuple(catalog_records)
             _dataset_catalog_by_name = {item["filename"]: item for item in catalog_records}
+            flag_counts = {column: 0 for column in CLASSIFICATION_FLAG_COLUMNS}
+            empty_positive = 0
+            multi_label = 0
+            labeled_frames = 0
+            for item in catalog_records:
+                flags = [
+                    flag
+                    for flag in (item.get("published_classes") or [])
+                    if flag in CLASSIFICATION_FLAG_COLUMNS
+                ]
+                if item.get("has_published_classes"):
+                    labeled_frames += 1
+                    if not flags:
+                        empty_positive += 1
+                    if len(flags) > 1:
+                        multi_label += 1
+                    for flag in flags:
+                        flag_counts[flag] += 1
             _dataset_catalog_identity = {
                 "dataset_name": (
                     "CoatingVision Figshare detection archive (unmodified JPEGs)"
@@ -727,6 +1099,14 @@ def _dataset_catalog(offset: int = 0, limit: int = 24) -> Dict[str, Any]:
                 "library_scope": library_scope,
                 "checked_in_count": len(manifest_records),
                 "archive_count": len(archive_names),
+                "segmentation_mask_count": len(segmentation_mask_names),
+                "segmentation_available": bool(segmentation_mask_names),
+                "classification_label_count": len(class_map),
+                "classification_available": bool(class_map),
+                "classification_flag_counts": flag_counts,
+                "classification_empty_positive_count": empty_positive,
+                "classification_multi_label_count": multi_label,
+                "classification_labeled_frame_count": labeled_frames,
                 "parent_archive_images": int(manifest.get("parent_archive_images") or 0),
                 "parent_labeled_split_images": int(
                     manifest.get("parent_labeled_split_images") or 0
@@ -735,8 +1115,34 @@ def _dataset_catalog(offset: int = 0, limit: int = 24) -> Dict[str, Any]:
                 "doi": FIGSHARE_DOI,
                 "doi_url": FIGSHARE_URL,
             }
+            _store_dataset_catalog_disk_cache(
+                _dataset_catalog_cache, _dataset_catalog_identity
+            )
         records = _dataset_catalog_cache
         identity = dict(_dataset_catalog_identity)
+    applied_flag = None
+    if class_flag:
+        flag = str(class_flag).strip()
+        if flag.lower() == "none":
+            applied_flag = "none"
+            records = tuple(
+                item
+                for item in records
+                if item.get("has_published_classes")
+                and not (item.get("published_classes") or [])
+            )
+        elif flag in CLASSIFICATION_FLAG_COLUMNS:
+            applied_flag = flag
+            records = tuple(
+                item
+                for item in records
+                if flag in (item.get("published_classes") or [])
+            )
+        else:
+            raise HTTPException(
+                status_code=422,
+                detail="class_flag is not a published CoatingVision classification column",
+            )
     safe_limit = max(0, int(limit))
     page = records[offset:offset + safe_limit] if safe_limit else []
     return {
@@ -745,10 +1151,33 @@ def _dataset_catalog(offset: int = 0, limit: int = 24) -> Dict[str, Any]:
         "limit": safe_limit,
         "returned": len(page),
         "items": list(page),
+        "class_flag": applied_flag,
         **identity,
-        "truncated_at_source": len(records) >= 50_000,
+        "truncated_at_source": len(_dataset_catalog_cache or ()) >= 50_000,
         "image_payloads_included": False,
     }
+
+
+def _warm_dataset_catalog() -> None:
+    """Build the catalog cache before the first dashboard snapshot waits on it."""
+    try:
+        catalog = _dataset_catalog(offset=0, limit=0)
+        logger.info(
+            "Dataset catalog ready: total=%s masks=%s classes=%s",
+            catalog.get("total"),
+            catalog.get("segmentation_mask_count"),
+            catalog.get("classification_label_count"),
+        )
+    except Exception:
+        logger.exception("Dataset catalog warmup failed; first request will rebuild it")
+
+
+if ENVIRONMENT != "test":
+    threading.Thread(
+        target=_warm_dataset_catalog,
+        name="dataset-catalog-warmup",
+        daemon=True,
+    ).start()
 
 
 def _attach_confidences(defects: list, detections: list) -> list:
@@ -801,7 +1230,7 @@ def _attach_confidences(defects: list, detections: list) -> list:
 
 
 # --- Initialize Core Engines ---
-# 1. Predictor (ONNX YOLOv8-seg primary, PyTorch fusion fallback)
+# 1. Predictor (real optical detector with PyTorch and ONNX runtimes)
 predictor = CoatingPredictor(model_config)
 
 # 2. Sensor Fusion Manager
@@ -834,6 +1263,7 @@ db_path = os.environ.get(
     "SECURECOATING_DB_PATH",
     app_config.get("paths", {}).get("db_path", "data/quality_history.db"),
 )
+db_path = _project_path(db_path)
 quality_mem = QualityMemory(db_path)
 
 # 5. Industrial Protocol Manager (OPC UA / Modbus TCP)
@@ -848,7 +1278,11 @@ if ENVIRONMENT == "production" and industrial_config.get("mock_mode", True):
 industrial_mgr = IndustrialProtocolManager(industrial_config)
 
 # 6. Web Motion & Continuous Roll Synchronizer
-web_synchronizer = WebSynchronizer()
+web_synchronizer = WebSynchronizer(
+    initial_line_speed_m_s=float(
+        app_config.get("inspection", {}).get("validated_demo_line_speed_m_s", 0.08)
+    )
+)
 
 # 7. Physics-Informed Battery Electrode Metrology
 electrode_metrology = ElectrodeMetrologyEngine(pixel_to_mm_ratio=PIXEL_SIZE_MM)
@@ -864,7 +1298,7 @@ multi_stage_pipeline = MultiStageIndustrialPipeline(
     industrial_manager=industrial_mgr,
     web_synchronizer=web_synchronizer,
     pixel_to_mm_ratio=PIXEL_SIZE_MM,
-    calibration_verified=CALIBRATION_VERIFIED or SIMULATION_MODE,
+    calibration_verified=CALIBRATION_VERIFIED,
     fov_width_mm=float(calibration_config["fov_width_mm"]),
     fov_length_m=float(calibration_config["fov_length_m"]),
 )
@@ -886,6 +1320,8 @@ class InspectionResponse(BaseModel):
     engine: str
     model_version: str = "2.0.0"
     detections: list = Field(default_factory=list)
+    sample_name: Optional[str] = None
+    published_classes: list = Field(default_factory=list)
 
 
 class HealthResponse(BaseModel):
@@ -919,6 +1355,9 @@ def _build_health_payload():
         and (predictor.yolo_available or predictor.onnx_available)
         and industrial_mgr.transport_ready
         and CONTROL_AUTH_READY
+        and CALIBRATION_VERIFIED
+        and not SIMULATION_MODE
+        and not industrial_mgr.mock_mode
     )
     payload = {
         "status": "HEALTHY" if ready else "DEGRADED",
@@ -940,15 +1379,26 @@ def _build_health_payload():
         "industrial_interlock_latched": industrial_state["interlock_latched"],
         "traceability_ok": quality_mem.healthy,
         "simulation_mode": SIMULATION_MODE,
+        "calibration_verified": CALIBRATION_VERIFIED,
+        "industrial_mock_mode": industrial_mgr.mock_mode,
         "industrial_transport_ready": industrial_mgr.transport_ready,
         "control_auth_ready": CONTROL_AUTH_READY,
+        "model_artifact_sha256": model_config.get("model", {}).get("weights_sha256"),
+        "onnx_artifact_sha256": model_config.get("model", {}).get("onnx_sha256"),
+        "model_evidence_report": "reports/coatingvision_real_test_metrics.json",
+        "trained_model_ready": bool(predictor.yolo_available or predictor.onnx_available),
     }
     return payload, ready
 
 
-def _build_roll_certificate_payload(roll_id: str, batch_id: str, electrode_type: str) -> Dict[str, Any]:
+def _build_roll_certificate_payload(
+    roll_id: str,
+    batch_id: str,
+    electrode_type: str,
+    roll_snapshot: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     """Build a certificate from the current roll/batch snapshot without inventing missing stats."""
-    snapshot = web_synchronizer.get_roll_snapshot(roll_id, batch_id=batch_id)
+    snapshot = roll_snapshot or web_synchronizer.get_roll_snapshot(roll_id, batch_id=batch_id)
     if snapshot is None:
         raise HTTPException(
             status_code=404,
@@ -1011,6 +1461,7 @@ async def inspect(
     3. camera simulation canvas (+ optional simulate_defect overlay)
     """
     using_real_image = False
+    artifact_sample_name = None
     active_batch_id = web_synchronizer.roll.batch_id
     batch_id = batch_id or active_batch_id
     _validate_identifier(batch_id, "batch_id")
@@ -1036,15 +1487,22 @@ async def inspect(
     if image is not None and image.filename:
         raw_bytes = await _read_upload_limited(image)
         optical = _decode_upload(raw_bytes)
+        artifact_sample_name = _verified_uploaded_sample_name(image.filename, raw_bytes)
         using_real_image = True
     elif sample_name:
         optical = _load_sample_image(sample_name)
+        artifact_sample_name = _safe_dataset_basename(sample_name)
         using_real_image = True
     else:
         optical = _synthetic_optical(1024, 1024, simulate_defect)
 
     h, w = optical.shape[:2]
-    frame_ctx = web_synchronizer.advance_motion(dt_seconds=0.0)
+    # Development simulation advances by observed frame cadence. Production has
+    # no authoritative encoder adapter in this repository, so it must not invent
+    # motion; coordinates remain unverified until hardware supplies FrameContext.
+    frame_ctx = web_synchronizer.advance_motion(
+        dt_seconds=None if SIMULATION_MODE else 0.0
+    )
 
     # 2. Multi-source sensor fusion
     effective_thermal_online = thermal_online if SIMULATION_MODE else False
@@ -1072,7 +1530,12 @@ async def inspect(
 
     # 5. Postprocess: extract physical defect measurements
     seg_mask = result.get("segmentation_mask", np.zeros((h, w), dtype=np.uint8))
-    defects = extract_defects_from_mask(seg_mask, height, pixel_to_mm_ratio=PIXEL_SIZE_MM)
+    defects = extract_defects_from_mask(
+        seg_mask,
+        height,
+        pixel_to_mm_ratio=PIXEL_SIZE_MM,
+        class_names=predictor.class_names,
+    )
 
     # Camera-sim only: if synthetic overlay was not detected, plant a visible region
     # so grading/PLC demo still works without claiming false ONNX detections.
@@ -1107,7 +1570,11 @@ async def inspect(
         safety_reasons.append("PLC safety interlock is already latched")
     if not industrial_mgr.transport_ready:
         safety_reasons.append("Industrial transport security/readback configuration is not ready")
-    if not (CALIBRATION_VERIFIED or SIMULATION_MODE):
+    if SIMULATION_MODE:
+        safety_reasons.append("Development simulation cannot authorize an automatic line decision")
+    if industrial_mgr.mock_mode:
+        safety_reasons.append("Simulated PLC transport cannot acknowledge an automatic line decision")
+    if not CALIBRATION_VERIFIED:
         safety_reasons.append("Factory coordinate calibration is missing or unverified")
 
     # 8. Persist the inspection before issuing any normal PLC gate command.
@@ -1117,6 +1584,14 @@ async def inspect(
     primary_class = defects[0]["class_name"] if defects else "none"
     detections = result.get("detections", [])
     defects = _attach_confidences(defects, detections)
+    numeric_confidences = [
+        float(detection["confidence"])
+        for detection in detections
+        if isinstance(detection, dict)
+        and isinstance(detection.get("confidence"), (int, float, np.number))
+    ]
+    peak_confidence = max(numeric_confidences, default=None)
+    published_classes = _published_classes_for_sample(artifact_sample_name)
     run_id = f"RUN_{uuid.uuid4().hex[:12].upper()}"
     for defect in defects:
         defect["run_id"] = run_id
@@ -1139,10 +1614,19 @@ async def inspect(
         system_state=result_state,
         inspection_valid=not safety_reasons,
         error_reason="; ".join(safety_reasons) or None,
+        peak_confidence=peak_confidence,
+        sample_name=artifact_sample_name,
+        published_classes=published_classes,
     )
     if trace_written:
         try:
-            artifact_written = _write_inspection_artifact(optical, defects, run_id)
+            artifact_written = _write_inspection_artifact(
+                optical,
+                defects,
+                run_id,
+                sample_name=artifact_sample_name,
+                seg_mask=seg_mask,
+            )
         except (OSError, ValueError, cv2.error) as exc:
             artifact_written = False
             logger.error("Inspection artifact write failed: %s", exc)
@@ -1153,7 +1637,7 @@ async def inspect(
         try:
             for defect in defects:
                 bbox = defect.get("bbox") or []
-                if (CALIBRATION_VERIFIED or SIMULATION_MODE) and len(bbox) == 4:
+                if CALIBRATION_VERIFIED and len(bbox) == 4:
                     box_x, box_y, box_w, box_h = bbox
                     coordinate = web_synchronizer.map_defect_to_physical_coordinate(
                         frame_ctx,
@@ -1167,7 +1651,7 @@ async def inspect(
                     web_synchronizer.record_defect_on_roll(defect, coordinate)
                 else:
                     web_synchronizer.record_unlocalized_defect(defect, frame_ctx)
-        except (KeyError, TypeError, ValueError) as exc:
+        except (KeyError, TypeError, ValueError, OverflowError) as exc:
             logger.error("Defect-ledger write failed: %s", exc)
             safety_reasons.append("Defect-ledger write failed; automatic gate decision forbidden")
     if not trace_written:
@@ -1196,7 +1680,9 @@ async def inspect(
         error_reason="; ".join(safety_reasons) or None,
     ):
         safety_reasons.append("Traceability finalization failed; HOLD latched")
-        hold_signal = industrial_mgr.trigger_hold(part_id, batch_id, safety_reasons)
+        hold_signal = await run_in_threadpool(
+            industrial_mgr.trigger_hold, part_id, batch_id, safety_reasons
+        )
         final_gate_action = "HOLD"
         industrial_result.update({
             "gate_action": "HOLD",
@@ -1235,6 +1721,8 @@ async def inspect(
         "engine": result.get("engine", "unknown"),
         "model_version": result.get("model_version", predictor.model_version),
         "detections": sanitized_detections,
+        "sample_name": artifact_sample_name,
+        "published_classes": published_classes or [],
     }
 
 
@@ -1260,29 +1748,70 @@ def list_demo_samples(
 def get_dataset_catalog(
     offset: int = Query(0, ge=0, le=10_000),
     limit: int = Query(24, ge=1, le=100),
+    class_flag: Optional[str] = Query(None, max_length=32),
 ):
     """Return bounded dataset basenames; never return image payloads or host paths."""
-    return _dataset_catalog(offset=offset, limit=limit)
+    return _dataset_catalog(offset=offset, limit=limit, class_flag=class_flag)
 
 
 @app.get("/api/dataset/images/{filename}")
-def get_dataset_image(filename: str):
-    """Return one original CoatingVision JPEG; never expose host paths."""
+def get_dataset_image(
+    filename: str,
+    view: Literal["original", "mask", "blend", "heatmap", "thumb"] = Query("original"),
+):
+    """Return original or published segmentation evidence without host paths."""
     path = _resolve_dataset_image(filename)
     _dataset_catalog(offset=0, limit=0)
     record = _dataset_catalog_by_name.get(os.path.basename(filename))
     if record is None:
         raise HTTPException(status_code=404, detail="Dataset image is not in the catalog")
-    actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+    raw_bytes = path.read_bytes()
+    actual_hash = hashlib.sha256(raw_bytes).hexdigest()
     expected_hash = str(record.get("sha256") or "").lower()
     if expected_hash and not secrets.compare_digest(expected_hash, actual_hash):
         raise HTTPException(status_code=409, detail="Dataset image changed after catalog verification")
     if record.get("in_checked_in_split") and not record.get("hash_verified"):
         raise HTTPException(status_code=409, detail="Dataset image provenance is not verified")
-    return FileResponse(
-        path,
+    if view == "thumb":
+        optical = cv2.imdecode(np.frombuffer(raw_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
+        if optical is None:
+            raise HTTPException(status_code=422, detail="Dataset thumbnail could not be decoded")
+        encoded = _encode_artifact_jpeg(_bounded_preview(optical, max_edge=280))
+        if encoded is None:
+            raise HTTPException(status_code=500, detail="Could not encode dataset thumbnail")
+        return Response(
+            content=encoded,
+            media_type="image/jpeg",
+            headers={
+                "Cache-Control": "private, max-age=300",
+                "X-Dataset-SHA256": actual_hash,
+                "X-Dataset-View": "thumb",
+            },
+        )
+    if view != "original":
+        optical = cv2.imdecode(np.frombuffer(raw_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
+        evidence = _segmentation_evidence(optical, filename) if optical is not None else None
+        if evidence is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Published segmentation evidence is unavailable for {filename}",
+            )
+        encoded = _encode_artifact_jpeg(evidence[view])
+        if encoded is None:
+            raise HTTPException(status_code=500, detail="Could not encode segmentation evidence")
+        return Response(
+            content=encoded,
+            media_type="image/jpeg",
+            headers={
+                "Cache-Control": "private, max-age=300",
+                "X-Dataset-SHA256": actual_hash,
+                "X-Dataset-View": view,
+                "X-Dataset-Label-Source": "published-segmentation-mask",
+            },
+        )
+    return Response(
+        content=raw_bytes,
         media_type="image/jpeg",
-        filename=None,
         headers={
             "Cache-Control": "private, max-age=300",
             "X-Dataset-SHA256": actual_hash,
@@ -1294,7 +1823,7 @@ def get_dataset_image(filename: str):
 @app.get("/api/inspections/{run_id}/image")
 def get_inspection_image(
     run_id: str,
-    view: Literal["raw", "input", "overlay"] = Query("overlay"),
+    view: Literal["raw", "mask", "blend", "heatmap", "input", "overlay"] = Query("overlay"),
 ):
     """Return one authenticated bounded view for the active roll/batch identity."""
     try:
@@ -1425,8 +1954,16 @@ def _consume_fresh_snapshot(snapshot_id: str) -> None:
 
 
 @app.get("/api/operations/snapshot")
-def get_operations_snapshot(signal_limit: int = Query(25, ge=1, le=100)):
-    """Return one read-only operations snapshot for the production dashboard."""
+def get_operations_snapshot(
+    signal_limit: int = Query(25, ge=1, le=100),
+    scope: Literal["full", "live"] = Query("full"),
+):
+    """Return one read-only operations snapshot for the production dashboard.
+
+    `scope=live` skips catalog identity and certificate materialization so the
+    5-second live strip can refresh without repeating those scans. Control and
+    Traceability still use a full snapshot from first load or Reload.
+    """
     health, ready = _build_health_payload()
     roll = web_synchronizer.get_roll_snapshot(web_synchronizer.roll.roll_id)
     if roll is None:
@@ -1468,6 +2005,35 @@ def get_operations_snapshot(signal_limit: int = Query(25, ge=1, le=100)):
     signals = industrial_mgr.get_signal_history(limit=signal_limit)
     control_audit = quality_mem.get_recent_control_audits(limit=25)
 
+    fov_length_m = float(calibration_config["fov_length_m"])
+    line_speed_m_s = float(roll["summary"].get("line_speed_m_s") or 0.0)
+    required_frame_rate_fps = (
+        line_speed_m_s / fov_length_m if fov_length_m > 0.0 else None
+    )
+    avg_inference_latency_ms = stats.get("avg_latency_ms")
+    estimated_inference_capacity_fps = (
+        1000.0 / float(avg_inference_latency_ms)
+        if isinstance(avg_inference_latency_ms, (int, float))
+        and float(avg_inference_latency_ms) > 0.0
+        else None
+    )
+    throughput = {
+        "evidence_class": "MEASURED_LOCAL_INFERENCE_ONLY",
+        "validated_demo_line_speed_m_s": line_speed_m_s,
+        "fov_length_m": fov_length_m,
+        "required_frame_rate_fps": (
+            round(required_frame_rate_fps, 3)
+            if required_frame_rate_fps is not None else None
+        ),
+        "average_inference_latency_ms": avg_inference_latency_ms,
+        "estimated_inference_capacity_fps": (
+            round(estimated_inference_capacity_fps, 3)
+            if estimated_inference_capacity_fps is not None else None
+        ),
+        "factory_line_qualified": False,
+        "note": "Excludes camera exposure, transport, PLC acknowledgement, and factory HIL qualification.",
+    }
+
     if health["system_state"] == "EMERGENCY":
         disposition = "EMERGENCY_STOP"
     elif not ready:
@@ -1491,24 +2057,33 @@ def get_operations_snapshot(signal_limit: int = Query(25, ge=1, le=100)):
         readiness_reasons.append("traceability_not_ready")
     if not (health["yolo_available"] or health["onnx_available"]):
         readiness_reasons.append("trained_model_not_ready")
+    if health["simulation_mode"]:
+        readiness_reasons.append("development_simulation_only")
+    if health["industrial_mock_mode"]:
+        readiness_reasons.append("simulated_plc_transport")
+    if not health["calibration_verified"]:
+        readiness_reasons.append("factory_calibration_unverified")
     if not health["control_auth_ready"]:
         readiness_reasons.append("operator_control_auth_not_ready")
 
     certificate_payload = None
     certificate_error = None
-    try:
-        certificate_payload = _build_roll_certificate_payload(
-            roll_id,
-            batch_id,
-            web_synchronizer.roll.coating_type,
-        )
-    except HTTPException as exc:
-        certificate_error = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+    if scope == "full":
+        try:
+            certificate_payload = _build_roll_certificate_payload(
+                roll_id,
+                batch_id,
+                web_synchronizer.roll.coating_type,
+                roll_snapshot=roll,
+            )
+        except HTTPException as exc:
+            certificate_error = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
 
     snapshot_id = f"OPS_{uuid.uuid4().hex[:12].upper()}"
     snapshot = {
         "schema_version": "1.1",
         "snapshot_id": snapshot_id,
+        "snapshot_scope": scope,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "consistency": "single_api_response_non_transactional_components",
         "surface": "operations",
@@ -1516,23 +2091,31 @@ def get_operations_snapshot(signal_limit: int = Query(25, ge=1, le=100)):
         "ready": ready,
         "line_disposition": disposition,
         "readiness_reasons": readiness_reasons,
+        "throughput": throughput,
         "roll": roll,
         "quality": {
             "stats": stats,
             "spc": spc,
             "recent_inspections": recent_inspections,
         },
-        "dataset_catalog": _dataset_catalog(offset=0, limit=0),
         "industrial": industrial,
         "signals": signals,
-        "traceability": {
-            "certificate_status": "OK" if certificate_payload is not None else "UNAVAILABLE",
-            "certificate": certificate_payload,
-            "certificate_error": certificate_error,
-        },
         "control_audit": control_audit,
         "control_policy": CONTROL_POLICY,
     }
+    if scope == "full":
+        snapshot["dataset_catalog"] = _dataset_catalog(offset=0, limit=0)
+        snapshot["traceability"] = {
+            "certificate_status": "OK" if certificate_payload is not None else "UNAVAILABLE",
+            "certificate": certificate_payload,
+            "certificate_error": certificate_error,
+        }
+    else:
+        snapshot["traceability"] = {
+            "certificate_status": "DEFERRED_TO_FULL_SNAPSHOT",
+            "certificate": None,
+            "certificate_error": None,
+        }
     _register_control_snapshot(snapshot_id)
     return snapshot
 
@@ -1840,7 +2423,7 @@ def run_multi_stage_pipeline(
 @app.get("/api/libad/protocol")
 def libad_protocol():
     """Disclose the LIBAD validation-extension contract without replacing RGB inference."""
-    from libad.dataset import dataset_status
+    from libad.dataset import dataset_status, list_official_samples
     from libad.protocol import LIBAD_CITATION, LIBAD_PAPER_RESULT_NOTE, load_project_identity
 
     identity = load_project_identity()
@@ -1855,10 +2438,54 @@ def libad_protocol():
             "Evidence-gated PASS/REJECT/HOLD. DA-Core is the LIBAD authors' baseline, "
             "not a SecureCoating-Vision algorithm."
         ),
-        "existing_rgb_path": "unchanged YOLOv8-seg/ONNX surface localization",
+        "existing_rgb_path": "two-class YOLO26n/ONNX real-optical surface localization",
         "simulated_adapters": ["thermal", "profilometry"],
         "real_multimodal_lane": ["vis", "xray_l"],
+        "mounted_samples": list_official_samples(offset=0, limit=0),
     }
+
+
+@app.get("/api/libad/samples")
+def libad_official_samples(
+    offset: int = Query(0, ge=0, le=10_000),
+    limit: int = Query(12, ge=1, le=50),
+):
+    """Page official VIS+X-ray triples. Empty when the release is not mounted; never fixtures."""
+    from libad.dataset import list_official_samples
+
+    return list_official_samples(offset=offset, limit=limit)
+
+
+@app.get("/api/libad/samples/{sample_id}/image")
+def libad_official_sample_image(
+    sample_id: str,
+    view: Literal["vis_a", "vis_b", "xray_l"] = Query("vis_a"),
+):
+    """Return one official grayscale view as a bounded JPEG. 404 if unmounted or unknown."""
+    from libad.dataset import load_official_sample_view
+
+    try:
+        frame = load_official_sample_view(sample_id, view)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if frame.ndim == 2:
+        preview = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+    else:
+        preview = frame
+    encoded = _encode_artifact_jpeg(_bounded_preview(preview, max_edge=640))
+    if encoded is None:
+        raise HTTPException(status_code=500, detail="Could not encode official multimodal view")
+    return Response(
+        content=encoded,
+        media_type="image/jpeg",
+        headers={
+            "Cache-Control": "private, max-age=300",
+            "X-Multimodal-View": view,
+            "X-Multimodal-Source": "official-release",
+        },
+    )
 
 
 @app.get("/api/libad/demo/{case_id}")

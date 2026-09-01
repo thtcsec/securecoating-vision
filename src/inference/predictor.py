@@ -3,6 +3,8 @@ import time
 import logging
 import numpy as np
 import cv2
+import hashlib
+import re
 import torch
 import torch.nn as nn
 
@@ -48,8 +50,8 @@ class SimpleFusionNetwork(nn.Module):
 class CoatingPredictor:
     """
     Inference priority:
-      1. Ultralytics YOLOv8-seg (.pt) on CUDA — lowest latency on RTX
-      2. ONNX Runtime YOLOv8-seg — portable / submission path
+      1. Configured Ultralytics detector (.pt) on CUDA — primary runtime
+      2. Matching ONNX detector — portable / submission path
       3. PyTorch SimpleFusionNetwork stub
     """
 
@@ -69,7 +71,14 @@ class CoatingPredictor:
             self.device = torch.device(requested_device)
         self.requested_device = self.device.type
 
-        self.num_classes = self.config.get("model", {}).get("num_classes", 5)
+        self.num_classes = int(self.config.get("model", {}).get("num_classes", 5))
+        self.artifact_num_classes = int(
+            self.config.get("model", {}).get("artifact_num_classes", self.num_classes - 1)
+        )
+        if self.artifact_num_classes <= 0:
+            raise ValueError("model.artifact_num_classes must be positive")
+        raw_names = self.config.get("model", {}).get("class_names", {}) or {}
+        self.class_names = {int(key): str(value) for key, value in raw_names.items()}
         self.model_version = str(self.config.get("model", {}).get("version", "2.0.0"))
         self.model = SimpleFusionNetwork(in_channels=5, num_classes=self.num_classes)
         self.model.to(self.device)
@@ -120,6 +129,17 @@ class CoatingPredictor:
                 return os.path.abspath(path)
         return os.path.abspath(os.path.join(_PROJECT_ROOT, configured or defaults[0]))
 
+    def _verify_artifact(self, path: str, config_key: str) -> None:
+        expected = str(self.config.get("model", {}).get(config_key, "")).lower()
+        if not re.fullmatch(r"[0-9a-f]{64}", expected):
+            raise RuntimeError(f"model.{config_key} must contain a SHA-256 digest")
+        digest = hashlib.sha256()
+        with open(path, "rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        if digest.hexdigest() != expected:
+            raise RuntimeError(f"Model artifact hash mismatch: {path}")
+
     def _init_yolo_engine(self):
         try:
             from inference.yolo_engine import YOLOEngine
@@ -141,6 +161,7 @@ class CoatingPredictor:
                     ),
                 ],
             )
+            self._verify_artifact(path, "weights_sha256")
             conf = self.config.get("inference", {}).get("confidence_threshold", 0.35)
             iou = self.config.get("inference", {}).get("nms_threshold", 0.45)
             imgsz = int(self.config.get("inference", {}).get("imgsz", 640))
@@ -150,6 +171,7 @@ class CoatingPredictor:
                 conf_thresh=conf,
                 iou_thresh=iou,
                 device=self.requested_device,
+                num_classes=self.artifact_num_classes,
             )
         except Exception as e:
             logger.info(f"YOLO engine not available: {e}")
@@ -163,6 +185,7 @@ class CoatingPredictor:
                 self.config.get("model", {}).get("onnx_path", "outputs/model.onnx"),
                 [os.path.join(_PROJECT_ROOT, "outputs", "model.onnx")],
             )
+            self._verify_artifact(onnx_path, "onnx_sha256")
             conf = self.config.get("inference", {}).get("confidence_threshold", 0.35)
             iou = self.config.get("inference", {}).get("nms_threshold", 0.45)
             imgsz = int(self.config.get("inference", {}).get("imgsz", 640))
@@ -172,6 +195,8 @@ class CoatingPredictor:
                 conf_thresh=conf,
                 iou_thresh=iou,
                 device=self.requested_device,
+                num_classes=self.artifact_num_classes,
+                class_names=self.class_names,
             )
             if self.onnx_engine.is_loaded:
                 # Warmup CUDA kernels so first API call is not multi-second

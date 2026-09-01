@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import base64
 import html
 import json
 from datetime import datetime, timezone
 import uuid
-from typing import Any, Dict
+from typing import Any, Dict, Iterable, Optional
 
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+
+from dashboard.multimodal_lane import render_multimodal_lane
 
 
 REQUIRED_SNAPSHOT_KEYS = (
@@ -41,6 +44,140 @@ def _metric_card(label: str, value: str, border: str = "#00F2FE", extra_class: s
     )
 
 
+def _format_kv_value(value: Any) -> str:
+    if value is None or value == "":
+        return "NO DATA"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, dict):
+        if not value:
+            return "NO DATA"
+        return ", ".join(f"{key}={_format_kv_value(item)}" for key, item in value.items())
+    if isinstance(value, (list, tuple)):
+        if not value:
+            return "NO DATA"
+        return ", ".join(_format_kv_value(item) for item in value)
+    return str(value)
+
+
+def _kv_panel(title: str, rows: Any) -> None:
+    if not isinstance(rows, dict):
+        rows = {"value": rows}
+    items: list[str] = []
+    for key, value in rows.items():
+        items.append(
+            "<p><b>"
+            + html.escape(str(key))
+            + ":</b> <code>"
+            + html.escape(_format_kv_value(value))
+            + "</code></p>"
+        )
+    st.markdown(
+        '<div class="scada-panel"><h5 style="color:#FFF; margin-top:0;">'
+        + html.escape(title)
+        + "</h5>"
+        + "".join(items)
+        + "</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def _evidence_title(title: str, chip: str) -> None:
+    st.markdown(
+        (
+            f'<div class="evidence-title"><b>{html.escape(title)}</b>'
+            f'<span class="evidence-chip">{html.escape(chip)}</span></div>'
+        ),
+        unsafe_allow_html=True,
+    )
+
+
+def _jpeg_data_uri(payload: bytes) -> str:
+    return "data:image/jpeg;base64," + base64.standard_b64encode(payload).decode("ascii")
+
+
+def _replay_grid(panels: Iterable[Dict[str, Any]], columns: int = 2) -> None:
+    """One HTML grid so replay does not inherit Streamlit image-widget chrome."""
+    panel_list = list(panels)
+    count = max(1, min(int(columns), 3))
+    cells: list[str] = []
+    for panel in panel_list:
+        title = html.escape(str(panel.get("title") or ""))
+        chip = html.escape(str(panel.get("chip") or ""))
+        payload = panel.get("payload")
+        empty = html.escape(str(panel.get("empty") or "No evidence"))
+        if isinstance(payload, (bytes, bytearray)) and payload.startswith(b"\xff\xd8\xff"):
+            body = f'<img src="{_jpeg_data_uri(bytes(payload))}" alt="{title}" />'
+        else:
+            body = f'<div class="replay-empty">{empty}</div>'
+        cells.append(
+            '<div class="replay-cell">'
+            f'<div class="evidence-title"><b>{title}</b>'
+            f'<span class="evidence-chip">{chip}</span></div>{body}</div>'
+        )
+    st.markdown(
+        f'<div class="replay-grid" style="grid-template-columns:repeat({count},minmax(0,1fr));">'
+        f'{"".join(cells)}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _class_chips(labels: Optional[list[Any]], present: bool = False) -> str:
+    flags = [str(label) for label in (labels or []) if label]
+    if flags:
+        return "".join(
+            f'<span class="class-chip">{html.escape(flag.replace("_", " "))}</span>'
+            for flag in flags
+        )
+    if present:
+        return '<span class="class-chip">NO POSITIVE FLAG</span>'
+    return '<span class="class-chip">NO PUBLISHED CLASS ROW</span>'
+
+
+def _ai_class_chips(defect_name: Any) -> str:
+    name = str(defect_name or "").strip()
+    if name and name.lower() not in {"none", "null"}:
+        return f'<span class="class-chip">{html.escape(name.replace("_", " "))}</span>'
+    return '<span class="class-chip">NO AI DETECTION</span>'
+
+
+def _mix_bars(counts: Dict[str, Any], denominator: int) -> str:
+    total = max(1, int(denominator))
+    rows = []
+    for name, raw in counts.items():
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            value = 0
+        pct = min(100.0, round(100.0 * value / total, 1))
+        rows.append(
+            '<div class="mix-row">'
+            f'<div>{html.escape(str(name).replace("_", " "))}</div>'
+            f'<div class="mix-track"><span class="mix-fill" style="width:{pct}%;"></span></div>'
+            f'<div>{value} · {pct}%</div></div>'
+        )
+    return "".join(rows)
+
+
+def _gallery_grid(cards: Iterable[Dict[str, Any]]) -> None:
+    cells: list[str] = []
+    for card in cards:
+        filename = html.escape(str(card.get("filename") or ""))
+        selected = " selected" if card.get("selected") else ""
+        payload = card.get("payload")
+        badge = html.escape(str(card.get("badge") or ""))
+        if isinstance(payload, (bytes, bytearray)) and payload.startswith(b"\xff\xd8\xff"):
+            body = f'<img src="{_jpeg_data_uri(bytes(payload))}" alt="{filename}" />'
+        else:
+            body = '<div class="replay-empty">Preview unavailable</div>'
+        cells.append(
+            f'<div class="gallery-card{selected}">{body}'
+            f'<div class="gallery-name">{filename}</div>'
+            f'<div class="evidence-chip">{badge}</div></div>'
+        )
+    st.markdown(f'<div class="gallery-grid">{"".join(cells)}</div>', unsafe_allow_html=True)
+
+
 def _snapshot_age_seconds(snapshot: Dict[str, Any]) -> float:
     try:
         generated_at = datetime.fromisoformat(str(snapshot["generated_at_utc"]).replace("Z", "+00:00"))
@@ -49,7 +186,15 @@ def _snapshot_age_seconds(snapshot: Dict[str, Any]) -> float:
         return float("inf")
 
 
-OPS_VIEWS = ("Guide", "Operate", "History", "Dataset", "Diagnose", "Traceability")
+OPS_VIEWS = (
+    "Guide",
+    "Operate",
+    "History",
+    "Dataset",
+    "Diagnose",
+    "Traceability",
+    "Multimodal",
+)
 
 
 def _page_count(total: int, page_size: int) -> int:
@@ -138,6 +283,7 @@ def render_live_strip(snapshot: Dict[str, Any]) -> None:
     inspected = summary.get("inspected_length_m")
     total_len = summary.get("total_roll_length_m")
     line_speed = summary.get("line_speed_m_s")
+    simulation_mode = bool(readiness.get("simulation_mode"))
 
     pass_class = ""
     if isinstance(pass_rate, (int, float)):
@@ -149,12 +295,23 @@ def render_live_strip(snapshot: Dict[str, Any]) -> None:
         if spc_status == "IN CONTROL"
         else ("status-warning" if spc_status == "WARNING" else "status-danger")
     )
-    sys_class = "status-optimal" if sys_state == "OPTIMAL" else "status-warning"
+    model_ready = bool(
+        readiness.get("yolo_available")
+        or readiness.get("onnx_available")
+        or readiness.get("trained_model_ready")
+    )
+    engine_name = str(readiness.get("primary_engine") or "NONE").strip() or "NONE"
+    if model_ready:
+        engine_label = html.escape(engine_name)
+        engine_class = "status-optimal"
+    else:
+        engine_label = "NO MODEL"
+        engine_class = "status-danger"
 
     m1, m2, m3 = st.columns(3)
     with m1:
         _metric_card(
-            "Line Velocity",
+            "Validated Demo Speed" if simulation_mode else "Line Velocity",
             "NO DATA" if line_speed is None else f"{float(line_speed):.2f} <span style='font-size:14px; color:#8C9BAE;'>m/s</span>",
         )
     with m2:
@@ -181,7 +338,11 @@ def render_live_strip(snapshot: Dict[str, Any]) -> None:
     with m5:
         _metric_card("SPC Quality State", html.escape(str(spc_status)), "#FF1744", spc_class)
     with m6:
-        _metric_card("Fail-Safe Health", html.escape(str(sys_state)), "#00E5FF", sys_class)
+        _metric_card("Inference Engine", engine_label, "#00E5FF", engine_class)
+    st.caption(
+        "Inference Engine is YOLO/ONNX load status, not a PASS authorization. "
+        f"Line sensors and the safety gate remain fail-closed independently (system_state={sys_state})."
+    )
 
 
 def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None:
@@ -222,28 +383,33 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
         f"snapshot: {snapshot['snapshot_id']}",
         language="text",
     )
-    st.sidebar.caption("Identity is taken from the API snapshot. Recipe sliders are not part of production.")
+    st.sidebar.caption(
+        "Identity is taken from the API snapshot. Recipe sliders are not part of production. "
+        "This rail can be restored with the cyan chevron at the top-left if it is collapsed."
+    )
     if st.sidebar.button("Reload snapshot", width="stretch", key="ops_reload"):
         st.session_state["ops_force_reload"] = True
         st.rerun(scope="app")
 
-    st.sidebar.markdown("<h3 style='color:#FFF; margin-top:18px;'>Views</h3>", unsafe_allow_html=True)
-    view = st.sidebar.radio(
+    st.markdown('<div class="view-rail-label">Views</div>', unsafe_allow_html=True)
+    view = st.radio(
         "Operations view",
         options=OPS_VIEWS,
+        index=2,
         key="ops_view",
+        horizontal=True,
         label_visibility="collapsed",
     )
     if view is None:
         view = "Guide"
-    st.sidebar.caption("One view at a time. The live strip above stays on every page.")
+    st.caption("Views stay on this rail if the left identity panel is collapsed. The live strip above stays on every page.")
 
     if view == "Guide":
         st.markdown("### Get started in 2 minutes")
         st.info(
-            "This runtime is fail-closed. Without a real PLC, plant sensors, and verified "
-            "calibration, the gate stays HOLD and health stays DEGRADED. That is a safe "
-            "state, not a frozen app."
+            "This runtime is fail-closed. Development simulation, a mock PLC, or unverified "
+            "calibration always keeps the line disposition at HOLD_REQUIRED. Detection "
+            "evidence remains visible, but it cannot authorize a physical line decision."
         )
         g1, g2 = st.columns(2)
         with g1:
@@ -251,10 +417,12 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
                 """
 #### Image path
 
-1. **Acquired frame** — optical surface frame from camera or upload.
-2. **Model input** — resized/letterboxed geometry the model actually saw.
-3. **Detection result** — predicted boxes and confidences on the acquired frame.
-4. **Safety gate** — model + sensors + calibration + database + PLC decide `PASS`, `REJECT`, or `HOLD`.
+1. **Original capture** — optical surface JPEG, retained unchanged.
+2. **Published mask** — CoatingVision pixel label, shown only when the file bytes match the public set.
+3. **Label heatmap** — distance transform of that published mask, not model confidence.
+4. **AI overlay** — predicted regions and boxes on the same capture.
+5. **Published vs AI class** — Argonne CoatingVision flags beside the local detector class; they are not fused.
+6. **Safety gate** — model + sensors + calibration + database + PLC decide `PASS`, `REJECT`, or `HOLD`.
 
 > `HOLD` means there is not enough evidence for an automatic release. It is not the same as “no defect found”.
 """
@@ -265,10 +433,13 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
 #### Which view to open
 
 - **Operate:** line disposition, PLC telemetry, confirm-audit control.
-- **History:** one run with acquired / model-input / overlay plus the decision log.
-- **Dataset:** original CoatingVision JPEGs with First / Previous / Next / Last paging, DOI, license, and SHA-256 for the git test split.
+- **History:** original → published mask → label heatmap → AI overlay, then published class vs AI class.
+- **Dataset:** original CoatingVision JPEGs, published pixel masks, and published classification flags.
 - **Diagnose:** why the snapshot is `DEGRADED` or `HOLD`.
 - **Traceability:** certificate, roll/batch identity, and control audit.
+- **Multimodal:** VIS + X-ray evidence lane. Official electrode release only; this console does not substitute a protocol fixture.
+
+The left identity rail is not the view switcher. Collapsing it hides roll/batch identity only.
 """
             )
         st.markdown("#### Create a live inspection")
@@ -279,7 +450,7 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
         )
         st.caption(
             "Uses a packed CoatingVision optical frame, writes a new inspection, and checks "
-            "all three JPEG artifacts. Then open History; the snapshot refreshes about every 5 seconds."
+            "retained JPEG artifacts. Then open History; the snapshot refreshes about every 5 seconds."
         )
         st.markdown("#### What the dataset is")
         st.markdown(
@@ -324,7 +495,10 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
 """,
                 unsafe_allow_html=True,
             )
-            st.json(industrial.get("modbus_registers") or {"status": "NO DATA"})
+            _kv_panel(
+                "Modbus registers",
+                industrial.get("modbus_registers") or {"status": "NO DATA"},
+            )
         with insp_col:
             st.markdown("##### Recent inspections")
             if not recent:
@@ -379,7 +553,7 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
                     if result.get("detail"):
                         st.error(result["detail"])
                     else:
-                        st.json(result)
+                        _kv_panel("Control audit result", result)
                         if result.get("mock_mode"):
                             st.warning("PLC delivery is SIMULATED in this runtime. This is not a hardware ACK.")
                         if result.get("status") in {"UNCONFIRMED", "RESET_BLOCKED"}:
@@ -387,11 +561,22 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
 
     elif view == "History":
         st.caption(
-            "Persisted inspection history is authoritative for the active batch. Bounded acquired, "
-            "model-input, and overlay previews are loaded on demand; the event table below is a "
-            "reconstruction from persisted fields, not raw PLC logs."
+            "Persisted inspection history is authoritative for the active batch. "
+            "Published-label views appear only when the acquired bytes match a CoatingVision file. "
+            "The event table below is a reconstruction from persisted fields, not raw PLC logs."
         )
-        st.markdown("##### Inspection result")
+        st.markdown("### Visual inspection replay")
+        st.markdown(
+            """
+<div class="vision-flow">
+  <div class="vision-step"><div class="vision-step-no">01 · REAL CAPTURE</div><div class="vision-step-title">Original optical JPEG</div><div class="vision-step-copy">Unmodified CoatingVision or camera frame</div></div>
+  <div class="vision-step"><div class="vision-step-no">02 · PUBLISHED LABEL</div><div class="vision-step-title">Pixel mask</div><div class="vision-step-copy">Official segmentation geometry, not AI</div></div>
+  <div class="vision-step"><div class="vision-step-no">03 · LABEL HEATMAP</div><div class="vision-step-title">Mask intensity</div><div class="vision-step-copy">Distance transform of the published mask</div></div>
+  <div class="vision-step"><div class="vision-step-no">04 · AI INFERENCE</div><div class="vision-step-title">Predicted regions</div><div class="vision-step-copy">Model overlay on the same capture</div></div>
+</div>
+""",
+            unsafe_allow_html=True,
+        )
         if not recent:
             st.info("No persisted inspection is available for the active batch.")
         else:
@@ -409,6 +594,19 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
                 selected_latency = f"{float(selected.get('latency_ms')):.2f}"
             except (TypeError, ValueError):
                 selected_latency = "NO DATA"
+            selected_defects = [
+                defect
+                for defect in (roll.get("defect_records") or [])
+                if defect.get("run_id") == run_id
+            ]
+            top_defect = max(
+                selected_defects,
+                key=lambda item: float(item.get("confidence") or 0.0),
+                default={},
+            )
+            defect_name = top_defect.get("class_name") or selected.get("defect_class") or "none"
+            published_flags = selected.get("published_classes")
+            has_published_row = isinstance(published_flags, list)
             if selected.get("image_available") and run_id:
                 image_cache = st.session_state.setdefault("inspection_image_cache", {})
                 artifacts = selected.get("artifacts") or {
@@ -423,49 +621,91 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
                             image_cache[cache_key] = api_client.inspection_image(run_id, artifact_view)
                         except Exception:
                             image_cache[cache_key] = None
-                        while len(image_cache) > 24:
+                        while len(image_cache) > 40:
                             image_cache.pop(next(iter(image_cache)))
                     return available, image_cache.get(cache_key)
 
-                hero, side = st.columns([2, 1])
-                with hero:
-                    st.markdown("**Original acquired frame**")
-                    available, payload = _load_artifact("raw")
-                    if available and payload:
-                        st.image(
-                            payload,
-                            caption="Unmodified optical JPEG retained for this run — not a synthetic canvas",
-                            width="stretch",
-                        )
-                    elif available:
-                        st.error("The API reported acquired-frame evidence, but fetch failed.")
-                    else:
-                        st.info("Original frame was not retained for this historical run.")
-                with side:
-                    for artifact_view, title, caption in (
-                        ("input", "Model input", "Letterboxed geometry the detector saw"),
-                        ("overlay", "Detection overlay", "Predicted boxes on the acquired frame"),
-                    ):
-                        st.markdown(f"**{title}**")
-                        available, payload = _load_artifact(artifact_view)
-                        if available and payload:
-                            st.image(payload, caption=caption, width="stretch")
-                        elif available:
-                            st.error(f"The API reported {artifact_view} evidence, but fetch failed.")
-                        else:
-                            st.info("Not retained for this historical run.")
+                def _payload(view_name: str):
+                    available, payload = _load_artifact(view_name)
+                    return payload if available else None
+
+                _replay_grid(
+                    [
+                        {
+                            "title": "1. Original capture",
+                            "chip": "REAL JPEG",
+                            "payload": _payload("raw"),
+                            "empty": "Original frame was not retained for this historical run.",
+                        },
+                        {
+                            "title": "2. Published mask",
+                            "chip": "PIXEL LABEL",
+                            "payload": _payload("mask"),
+                            "empty": "No published pixel mask is linked to this acquired frame.",
+                        },
+                        {
+                            "title": "3. Label heatmap",
+                            "chip": "PUBLISHED",
+                            "payload": _payload("heatmap"),
+                            "empty": "Label heatmap is unavailable unless the acquired bytes match CoatingVision.",
+                        },
+                        {
+                            "title": "4. AI overlay",
+                            "chip": "MODEL",
+                            "payload": _payload("overlay"),
+                            "empty": "Detection overlay was not retained for this run.",
+                        },
+                    ]
+                )
                 st.caption(
-                    f"{selected.get('part_id')} · {selected.get('gate_action')} · "
-                    f"{selected_latency} ms · original / input / overlay are bounded JPEG evidence"
+                    "Heatmap is a distance transform of the published CoatingVision mask. "
+                    "It is not a model-confidence map. AI overlay is the independent prediction."
+                )
+                input_payload = _payload("input")
+                if input_payload:
+                    with st.expander("Model input (letterboxed tensor)", expanded=False):
+                        st.markdown(
+                            f'<img src="{_jpeg_data_uri(input_payload)}" alt="Model input" '
+                            f'style="max-width:360px;border-radius:8px;border:1px solid #26344A;" />',
+                            unsafe_allow_html=True,
+                        )
+
+                confidence = top_defect.get("confidence", selected.get("peak_confidence"))
+                confidence_text = (
+                    f"{float(confidence) * 100:.1f}%" if isinstance(confidence, (int, float)) else "NO DATA"
+                )
+                gate_action = html.escape(str(selected.get("gate_action") or "UNKNOWN"))
+                verdict_color = "#00E676" if gate_action == "PASS" else ("#FF1744" if gate_action == "REJECT" else "#FFB300")
+                sample_note = (
+                    f" · sample {html.escape(str(selected.get('sample_name')))}"
+                    if selected.get("sample_name")
+                    else ""
+                )
+                st.markdown(
+                    f"""
+<div class="ai-verdict" style="border-left-color:{verdict_color};">
+  <div class="ai-verdict-label">AI RESULT → SAFETY GATE</div>
+  <div class="ai-verdict-main">{html.escape(str(defect_name)).upper()} · {confidence_text} → {gate_action}</div>
+  <div class="ai-verdict-detail">Model {html.escape(str(selected.get('model_version') or 'UNKNOWN'))} · inference {selected_latency} ms · run {html.escape(str(run_id))}{sample_note}. Detection is visible even when the independent safety gate holds the line.</div>
+</div>
+""",
+                    unsafe_allow_html=True,
                 )
             else:
                 st.info("No retained inspection image bundle is available for this historical row.")
 
-            selected_defects = [
-                defect
-                for defect in (roll.get("defect_records") or [])
-                if defect.get("run_id") == run_id
-            ]
+            st.markdown(
+                '<div class="metric-label">PUBLISHED COATINGVISION CLASS</div>'
+                + _class_chips(published_flags if has_published_row else None, has_published_row)
+                + '<div class="metric-label" style="margin-top:10px;">AI DETECTOR CLASS</div>'
+                + _ai_class_chips(defect_name),
+                unsafe_allow_html=True,
+            )
+            st.caption(
+                "Published flags are Argonne CoatingVision classification labels. "
+                "AI class names are the local detector map. They are shown side by side, not fused."
+            )
+
             if selected_defects:
                 st.markdown("##### Matched detections")
                 detection_columns = [
@@ -511,9 +751,11 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
     elif view == "Dataset":
         st.markdown("### Dataset Library")
         library_scope = catalog.get("library_scope") or "checked_in_test_split"
-        source_type = "VERIFIED REAL OPTICAL" if catalog.get("provenance_verified") else "UNVERIFIED"
+        source_type = "VERIFIED" if catalog.get("provenance_verified") else "UNVERIFIED"
         doi_url = catalog.get("doi_url") or "https://doi.org/10.6084/m9.figshare.29260121.v1"
         archive_count = int(catalog.get("archive_count") or 0)
+        mask_count = int(catalog.get("segmentation_mask_count") or 0)
+        class_count = int(catalog.get("classification_label_count") or 0)
         checked_in = int(catalog.get("checked_in_count") or 0)
         parent_archive = int(catalog.get("parent_archive_images") or 2227)
         if library_scope == "local_figshare_archive":
@@ -534,86 +776,189 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
             "close-up coating photographs, not synthetic canvases and not line overviews. "
             + scope_copy
         )
-        d1, d2, d3, d4 = st.columns(4)
+        d1, d2, d3 = st.columns(3)
         with d1:
-            st.metric("Original frames here", int(catalog.get("total") or 0))
+            _metric_card("Original frames", str(int(catalog.get("total") or 0)))
         with d2:
-            st.metric("Figshare archive", archive_count or parent_archive)
+            _metric_card("Figshare archive", str(archive_count or parent_archive), "#00E676")
         with d3:
-            st.metric("Hashed test split", checked_in or int(catalog.get("total") or 0))
+            _metric_card("Hashed test split", str(checked_in or int(catalog.get("total") or 0)), "#E040FB")
+        d4, d5, d6 = st.columns(3)
         with d4:
-            st.metric("Provenance", source_type)
+            _metric_card(
+                "Published masks",
+                str(mask_count) if mask_count else "NOT MOUNTED",
+                "#FFB300",
+            )
+        with d5:
+            _metric_card(
+                "Published class rows",
+                str(class_count) if class_count else "NOT MOUNTED",
+                "#7C4DFF",
+            )
+        with d6:
+            _metric_card("Provenance", source_type, "#00E5FF")
         st.markdown(f"**Dataset:** {catalog.get('dataset_name') or 'Unknown dataset'}")
         st.caption(str(catalog.get("dataset_source") or doi_url))
 
+        mix_counts = catalog.get("classification_flag_counts") or {}
+        mix_total = int(catalog.get("total") or 0)
+        if mix_counts and mix_total:
+            st.markdown("#### Published class mix")
+            st.markdown(_mix_bars(mix_counts, mix_total), unsafe_allow_html=True)
+            st.caption(
+                f"Multi-label flags can sum above 100%. "
+                f"{int(catalog.get('classification_multi_label_count') or 0)} frames have more than one flag; "
+                f"{int(catalog.get('classification_empty_positive_count') or 0)} labeled rows have no positive flag. "
+                "The detector class map is independent (surface_crack / delamination_crack on 581 box-labeled pairs)."
+            )
+
+        filter_labels = {
+            "All published flags": None,
+            "Surface Crack": "Surface_Crack",
+            "Delamination": "Delamination",
+            "Pinhole": "Pinhole",
+            "unclassified": "unclassified",
+            "No positive flag": "none",
+        }
+        selected_filter = st.selectbox(
+            "Show frames with",
+            list(filter_labels.keys()),
+            key="dataset_class_filter",
+        )
+        class_flag = filter_labels[selected_filter]
+        if st.session_state.get("dataset_class_filter_applied") != class_flag:
+            st.session_state["dataset_class_filter_applied"] = class_flag
+            st.session_state.pop("dataset_gallery_catalog_cache", None)
+            st.session_state["dataset_page"] = 1
+
         gallery_page_size = 12
-        gallery_total = int(catalog.get("total") or 0)
-        gallery_page = render_dataset_pager(gallery_total, gallery_page_size)
         gallery_catalog_cache = st.session_state.setdefault("dataset_gallery_catalog_cache", {})
+        if 1 not in gallery_catalog_cache:
+            try:
+                gallery_catalog_cache[1] = api_client.dataset_catalog(
+                    offset=0,
+                    limit=gallery_page_size,
+                    class_flag=class_flag,
+                )
+            except Exception:
+                gallery_catalog_cache[1] = None
+        probe_catalog = gallery_catalog_cache.get(1) or {}
+        gallery_total = int(probe_catalog.get("total") or 0)
+        gallery_page = render_dataset_pager(gallery_total, gallery_page_size)
         if gallery_page not in gallery_catalog_cache:
             try:
                 gallery_catalog_cache[gallery_page] = api_client.dataset_catalog(
                     offset=(gallery_page - 1) * gallery_page_size,
                     limit=gallery_page_size,
+                    class_flag=class_flag,
                 )
             except Exception:
                 gallery_catalog_cache[gallery_page] = None
             while len(gallery_catalog_cache) > 12:
                 gallery_catalog_cache.pop(next(iter(gallery_catalog_cache)))
-        gallery_catalog = gallery_catalog_cache.get(gallery_page) or {}
+        gallery_catalog = gallery_catalog_cache.get(gallery_page) or probe_catalog
 
         gallery_items = (gallery_catalog.get("items") or [])[:gallery_page_size]
         dataset_image_cache = st.session_state.setdefault("dataset_image_cache", {})
         if not gallery_items:
             st.info("No dataset images are available on this page.")
         else:
-            focus_name = st.session_state.get("dataset_focus_filename")
+            focus_options = [str(item.get("filename") or "") for item in gallery_items if item.get("filename")]
+            default_focus = st.session_state.get("dataset_focus_filename")
+            if default_focus not in focus_options:
+                default_focus = focus_options[0]
+            focus_name = st.selectbox(
+                "Focus frame",
+                focus_options,
+                index=focus_options.index(default_focus),
+                key="dataset_focus_select",
+            )
+            st.session_state["dataset_focus_filename"] = focus_name
             focus_item = next((item for item in gallery_items if item.get("filename") == focus_name), None)
+            if focus_name and focus_name not in dataset_image_cache:
+                try:
+                    dataset_image_cache[focus_name] = api_client.dataset_image(focus_name)
+                except Exception:
+                    dataset_image_cache[focus_name] = None
             if focus_item and dataset_image_cache.get(focus_name):
-                st.markdown("#### Original JPEG (unmodified)")
-                st.image(
-                    dataset_image_cache[focus_name],
-                    caption=(
-                        f"{focus_name} · {focus_item.get('source_id')} · "
-                        "this is the source optical frame, not a model overlay"
+                st.markdown("#### Pixel-level evidence explorer")
+                focus_evidence_cache = st.session_state.setdefault(
+                    "dataset_focus_evidence_cache", {}
+                )
+                for evidence_view in ("mask", "heatmap"):
+                    cache_key = f"{focus_name}:{evidence_view}"
+                    if cache_key not in focus_evidence_cache:
+                        try:
+                            focus_evidence_cache[cache_key] = api_client.dataset_image(
+                                focus_name, evidence_view
+                            )
+                        except Exception:
+                            focus_evidence_cache[cache_key] = None
+                    while len(focus_evidence_cache) > 24:
+                        focus_evidence_cache.pop(next(iter(focus_evidence_cache)))
+                _replay_grid(
+                    [
+                        {
+                            "title": "1. Original optical JPEG",
+                            "chip": "SOURCE",
+                            "payload": dataset_image_cache[focus_name],
+                            "empty": "Original JPEG is unavailable.",
+                        },
+                        {
+                            "title": "2. Published pixel mask",
+                            "chip": "LABEL",
+                            "payload": focus_evidence_cache.get(f"{focus_name}:mask"),
+                            "empty": "No segmentation label for this frame.",
+                        },
+                        {
+                            "title": "3. Label heatmap",
+                            "chip": "PUBLISHED",
+                            "payload": focus_evidence_cache.get(f"{focus_name}:heatmap"),
+                            "empty": "No published heatmap for this frame.",
+                        },
+                    ],
+                    columns=3,
+                )
+                st.markdown(
+                    '<div class="metric-label">PUBLISHED CLASSIFICATION</div>'
+                    + _class_chips(
+                        focus_item.get("published_classes"),
+                        bool(focus_item.get("has_published_classes")),
                     ),
-                    width="stretch",
+                    unsafe_allow_html=True,
+                )
+                st.caption(
+                    "Heatmap and class flags come from the official CoatingVision labels, not from the detector."
                 )
 
-            for row_start in range(0, len(gallery_items), 4):
-                gallery_columns = st.columns(4)
-                for column, item in zip(gallery_columns, gallery_items[row_start:row_start + 4]):
-                    filename = str(item.get("filename") or "")
-                    with column:
-                        if filename and filename not in dataset_image_cache:
-                            try:
-                                dataset_image_cache[filename] = api_client.dataset_image(filename)
-                            except Exception:
-                                dataset_image_cache[filename] = None
-                            while len(dataset_image_cache) > 36:
-                                dataset_image_cache.pop(next(iter(dataset_image_cache)))
-                        if dataset_image_cache.get(filename):
-                            st.image(
-                                dataset_image_cache[filename],
-                                caption=filename,
-                                width="stretch",
-                            )
-                        else:
-                            st.error(f"Preview unavailable: {filename or 'unknown image'}")
-                        if st.button("Open original", key=f"dataset_focus_{filename}", width="stretch"):
-                            st.session_state["dataset_focus_filename"] = filename
-                            st.rerun()
-                        if item.get("hash_verified"):
-                            badge = "HASH VERIFIED · test split"
-                        elif item.get("in_checked_in_split"):
-                            badge = "TEST SPLIT · UNVERIFIED"
-                        else:
-                            badge = "FIGSHARE ORIGINAL"
-                        st.caption(
-                            f"{badge} · {item.get('source_id') or 'source id missing'}"
-                        )
-            st.markdown("#### Page records")
-            st.dataframe(pd.DataFrame(gallery_items), width="stretch", hide_index=True)
+            gallery_cards = []
+            for item in gallery_items:
+                filename = str(item.get("filename") or "")
+                thumb_key = f"{filename}:thumb"
+                if filename and thumb_key not in dataset_image_cache:
+                    try:
+                        dataset_image_cache[thumb_key] = api_client.dataset_image(filename, "thumb")
+                    except Exception:
+                        dataset_image_cache[thumb_key] = dataset_image_cache.get(filename)
+                    while len(dataset_image_cache) > 48:
+                        dataset_image_cache.pop(next(iter(dataset_image_cache)))
+                if item.get("hash_verified"):
+                    badge = "HASH VERIFIED"
+                elif item.get("in_checked_in_split"):
+                    badge = "TEST SPLIT"
+                else:
+                    badge = "FIGSHARE"
+                gallery_cards.append(
+                    {
+                        "filename": filename,
+                        "payload": dataset_image_cache.get(thumb_key) or dataset_image_cache.get(filename),
+                        "selected": filename == focus_name,
+                        "badge": badge,
+                    }
+                )
+            st.markdown("#### Library page")
+            _gallery_grid(gallery_cards)
 
     elif view == "Diagnose":
         st.caption(
@@ -622,21 +967,23 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
         )
         d1, d2 = st.columns(2)
         with d1:
-            st.markdown("##### Readiness")
-            st.json(
+            _kv_panel(
+                "Readiness",
                 {
                     "ready": snapshot.get("ready"),
                     "line_disposition": disposition,
                     "readiness_reasons": reasons,
                     "simulation_mode": readiness.get("simulation_mode"),
+                    "calibration_verified": readiness.get("calibration_verified"),
+                    "industrial_mock_mode": readiness.get("industrial_mock_mode"),
                     "industrial_transport_ready": readiness.get("industrial_transport_ready"),
                     "traceability_ok": readiness.get("traceability_ok"),
                     "industrial_interlock_latched": readiness.get("industrial_interlock_latched"),
-                }
+                },
             )
         with d2:
-            st.markdown("##### Sensors and model")
-            st.json(
+            _kv_panel(
+                "Sensors and model",
                 {
                     "sensors": readiness.get("sensors"),
                     "system_state": readiness.get("system_state"),
@@ -644,10 +991,15 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
                     "onnx_available": readiness.get("onnx_available"),
                     "yolo_available": readiness.get("yolo_available"),
                     "device": readiness.get("device"),
-                }
+                    "model_artifact_sha256": readiness.get("model_artifact_sha256"),
+                    "onnx_artifact_sha256": readiness.get("onnx_artifact_sha256"),
+                },
             )
-        st.markdown("##### OPC UA nodes reported by the API")
-        st.json(industrial.get("opc_ua_nodes") or {"status": "NO DATA"})
+        _kv_panel("Throughput evidence", snapshot.get("throughput") or {"status": "NO DATA"})
+        _kv_panel(
+            "OPC UA nodes reported by the API",
+            industrial.get("opc_ua_nodes") or {"status": "NO DATA"},
+        )
 
     elif view == "Traceability":
         st.caption(
@@ -721,3 +1073,6 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
             st.info("No control-audit rows are present yet.")
         else:
             st.dataframe(pd.DataFrame(audits), width="stretch", hide_index=True)
+
+    elif view == "Multimodal":
+        render_multimodal_lane(api_client)

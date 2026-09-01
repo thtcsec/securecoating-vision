@@ -54,7 +54,34 @@ PRODUCTION_SNAPSHOT = {
             "avg_latency_ms": None,
         },
         "spc": {"status": "NO DATA", "message": "No inspection data is available for this batch."},
-        "recent_inspections": {"status": "OK", "count": 0, "records": []},
+        "recent_inspections": {
+            "status": "OK",
+            "count": 1,
+            "records": [
+                {
+                    "timestamp": "2026-08-28T16:00:00+00:00",
+                    "part_id": "PART_HIST",
+                    "run_id": "RUN_TESTHIST0001",
+                    "gate_action": "HOLD",
+                    "system_state": "DEGRADED",
+                    "defect_class": "surface_crack",
+                    "latency_ms": 12.3,
+                    "inspection_valid": False,
+                    "error_reason": "test fixture",
+                    "has_defect": True,
+                    "max_length_mm": 0.0,
+                    "max_area_mm2": 0.0,
+                    "peak_height_um": 0.0,
+                    "fallback_active": False,
+                    "model_version": "2.0.0",
+                    "roll_id": "ROLL_2026_CATL_001",
+                    "peak_confidence": 0.81,
+                    "sample_name": "image_1.jpg",
+                    "published_classes": ["Surface_Crack"],
+                    "image_available": False,
+                }
+            ],
+        },
     },
     "industrial": {
         "modbus_registers": {"HR_1001": 0, "HR_1005_estop": 0},
@@ -93,6 +120,15 @@ PRODUCTION_SNAPSHOT = {
         "dataset_license": "CC BY 4.0",
         "dataset_source": "CoatingVision, Figshare DOI 10.6084/m9.figshare.29260121.v1",
         "image_payloads_included": False,
+        "classification_flag_counts": {
+            "Surface_Crack": 70,
+            "Delamination": 8,
+            "Pinhole": 12,
+            "unclassified": 2,
+        },
+        "classification_empty_positive_count": 1,
+        "classification_multi_label_count": 10,
+        "classification_labeled_frame_count": 88,
     },
     "control_policy": {
         "endpoint": "/api/operations/control",
@@ -108,10 +144,21 @@ PRODUCTION_SNAPSHOT = {
 
 class FakeOperationsClient:
     def __init__(self, *args, **kwargs):
-        pass
+        self.timeout_seconds = 5.0
+        self.snapshot_timeout_seconds = 45.0
 
-    def operations_snapshot(self, signal_limit=25):
-        return PRODUCTION_SNAPSHOT
+    def operations_snapshot(self, signal_limit=25, timeout_seconds=None, scope="full"):
+        payload = dict(PRODUCTION_SNAPSHOT)
+        payload["snapshot_scope"] = scope
+        if scope == "live":
+            payload = dict(payload)
+            payload.pop("dataset_catalog", None)
+            payload["traceability"] = {
+                "certificate_status": "DEFERRED_TO_FULL_SNAPSHOT",
+                "certificate": None,
+                "certificate_error": None,
+            }
+        return payload
 
     def operations_control(self, **kwargs):
         return {
@@ -121,7 +168,7 @@ class FakeOperationsClient:
             "acknowledged": False,
         }
 
-    def dataset_catalog(self, offset=0, limit=24):
+    def dataset_catalog(self, offset=0, limit=24, class_flag=None):
         return {
             "total": 88,
             "offset": offset,
@@ -138,6 +185,36 @@ class FakeOperationsClient:
             "dataset_license": "CC BY 4.0",
             "dataset_source": "CoatingVision, Figshare DOI 10.6084/m9.figshare.29260121.v1",
             "image_payloads_included": False,
+            "classification_label_count": 0,
+            "class_flag": class_flag,
+        }
+
+    def libad_samples(self, offset=0, limit=12):
+        return {
+            "official_dataset_present": False,
+            "total": 0,
+            "items": [],
+            "source": "not_mounted",
+            "comparable_to_paper": False,
+        }
+
+    def libad_protocol(self):
+        return {
+            "citation": {
+                "title": "LIBAD: A Multimodal Anomaly Detection Benchmark for Li-Ion Battery Electrode Manufacturing",
+                "url": "https://arxiv.org/abs/2608.07958",
+                "dataset_url": "https://huggingface.co/datasets/Evenrose/LIBAD",
+            },
+            "paper_result_note": "Paper-table metrics are not claimed from this fixture.",
+            "dataset": {
+                "official_dataset_present": False,
+                "official_protocol_complete": False,
+                "comparable_to_paper": False,
+                "comparability_blockers": [
+                    "Official LIBAD dataset directory is absent or empty"
+                ],
+            },
+            "local_contribution": "Evidence-gated PASS/REJECT/HOLD.",
         }
 
 
@@ -150,6 +227,9 @@ class TestDashboardApp(unittest.TestCase):
         self.assertIn("render_operator_views", source)
         self.assertIn("ops_force_reload", source)
         self.assertIn("animation-duration: 0s", source)
+        self.assertIn("stSidebarCollapsedControl", source)
+        self.assertIn('scope="live"', source)
+        self.assertIn("_retain_full_snapshot_fields", source)
         self.assertNotIn("render_production_console(snapshot, api_client)", source)
 
     def test_production_dashboard_stops_without_local_stateful_fallback(self):
@@ -181,12 +261,29 @@ class TestDashboardApp(unittest.TestCase):
             app.run()
             self.assertEqual(list(app.exception), [])
             markdown = " ".join(item.value for item in app.markdown)
-            self.assertIn("Get started in 2 minutes", markdown)
+            self.assertIn("Visual inspection replay", markdown)
+            self.assertIn("REAL CAPTURE", markdown)
+            self.assertIn("PUBLISHED LABEL", markdown)
+            self.assertIn("LABEL HEATMAP", markdown)
+            self.assertIn("replay-grid", markdown)
             self.assertIn("Line Operations", markdown)
             self.assertIn("HOLD_REQUIRED", markdown)
             self.assertIn("NO DATA", markdown)
+            self.assertIn("Inference Engine", markdown)
+            self.assertIn("NO MODEL", markdown)
+            self.assertIn("PUBLISHED COATINGVISION CLASS", markdown)
+            self.assertIn("AI DETECTOR CLASS", markdown)
+            self.assertIn("Surface Crack", markdown)
             self.assertNotIn("Bắt đầu", markdown)
             self.assertFalse(any("Submit control command" in item.label for item in app.button))
+
+            app.radio(key="ops_view").set_value("Guide")
+            app.run()
+            self.assertEqual(list(app.exception), [])
+            self.assertIn(
+                "Get started in 2 minutes",
+                " ".join(item.value for item in app.markdown),
+            )
 
             app.radio(key="ops_view").set_value("Operate")
             app.run()
@@ -209,6 +306,8 @@ class TestDashboardApp(unittest.TestCase):
             self.assertEqual(list(app.exception), [])
             dataset_markdown = " ".join(item.value for item in app.markdown)
             self.assertIn("Dataset Library", dataset_markdown)
+            self.assertIn("Published class mix", dataset_markdown)
+            self.assertIn("mix-row", dataset_markdown)
             self.assertTrue(
                 any("original CoatingVision" in item.value for item in app.info)
                 or "Original frames" in dataset_markdown
@@ -225,6 +324,25 @@ class TestDashboardApp(unittest.TestCase):
                 "Get started in 2 minutes",
                 " ".join(item.value for item in app.markdown),
             )
+
+            app.radio(key="ops_view").set_value("Multimodal")
+            app.run()
+            self.assertEqual(list(app.exception), [])
+            multimodal_markdown = " ".join(item.value for item in app.markdown)
+            self.assertIn("External multimodal lane", multimodal_markdown)
+            self.assertIn("NOT MOUNTED", multimodal_markdown)
+            self.assertIn("arxiv.org/abs/2608.07958", multimodal_markdown)
+            self.assertNotIn("Get started in 2 minutes", multimodal_markdown)
+
+            app.radio(key="ops_view").set_value("Diagnose")
+            app.run()
+            self.assertEqual(list(app.exception), [])
+            diagnose_markdown = " ".join(item.value for item in app.markdown)
+            diagnose_captions = " ".join(item.value for item in app.caption)
+            self.assertIn("Readiness", diagnose_markdown)
+            self.assertIn("Sensors and model", diagnose_markdown)
+            self.assertIn("Throughput evidence", diagnose_markdown)
+            self.assertIn("Views stay on this rail", diagnose_captions)
 
     def test_dashboard_renders_without_exceptions_in_explicit_sandbox(self):
         with tempfile.TemporaryDirectory() as directory, patch.dict(

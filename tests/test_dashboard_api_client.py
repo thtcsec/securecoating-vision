@@ -82,8 +82,27 @@ class TestInspectionApiClient(unittest.TestCase):
             "http://api.local/api/operations/snapshot",
             params={"signal_limit": 10},
             headers={},
+            timeout=45.0,
+        )
+
+    def test_operations_snapshot_live_refresh_can_use_short_timeout(self):
+        client = InspectionApiClient("http://api.local")
+        response = Mock(status_code=200)
+        response.json.return_value = {"snapshot_id": "OPS_1", "schema_version": "1.1"}
+        with patch.object(client.session, "get", return_value=response) as get:
+            client.operations_snapshot(signal_limit=10, timeout_seconds=5.0, scope="live")
+        get.assert_called_once_with(
+            "http://api.local/api/operations/snapshot",
+            params={"signal_limit": 10, "scope": "live"},
+            headers={},
             timeout=5.0,
         )
+
+    def test_operations_snapshot_rejects_unknown_scope(self):
+        client = InspectionApiClient("http://api.local")
+        with patch.object(client.session, "get") as get, self.assertRaises(ValueError):
+            client.operations_snapshot(scope="partial")
+        get.assert_not_called()
 
     def test_operations_control_posts_confirmation_fields(self):
         client = InspectionApiClient("http://api.local", api_key="secret")
@@ -119,7 +138,7 @@ class TestInspectionApiClient(unittest.TestCase):
         client = InspectionApiClient("http://api.local", api_key="secret")
         response = Mock(status_code=200)
         response.headers = {"content-type": "image/jpeg"}
-        response.content = b"jpeg-bytes"
+        response.iter_content.return_value = [b"jpeg-bytes"]
         with patch.object(client.session, "get", return_value=response) as get:
             payload = client.inspection_image("RUN_0123456789AB", "raw")
         self.assertEqual(payload, b"jpeg-bytes")
@@ -127,7 +146,13 @@ class TestInspectionApiClient(unittest.TestCase):
             "http://api.local/api/inspections/RUN_0123456789AB/image?view=raw",
             headers={"x-api-key": "secret"},
             timeout=5.0,
+            stream=True,
         )
+        with patch.object(client.session, "get", return_value=response):
+            self.assertEqual(
+                client.inspection_image("RUN_0123456789AB", "heatmap"),
+                b"jpeg-bytes",
+            )
 
     def test_inspection_image_rejects_unknown_view(self):
         client = InspectionApiClient("http://api.local")
@@ -138,7 +163,7 @@ class TestInspectionApiClient(unittest.TestCase):
         client = InspectionApiClient("http://api.local")
         response = Mock(status_code=200)
         response.headers = {"content-type": "image/jpeg"}
-        response.content = b"x" * 11
+        response.iter_content.return_value = [b"x" * 11]
         with patch.object(client.session, "get", return_value=response):
             with self.assertRaises(ValueError):
                 client.get_bytes("/image", max_bytes=10)
@@ -157,11 +182,25 @@ class TestInspectionApiClient(unittest.TestCase):
             timeout=5.0,
         )
 
+    def test_dataset_catalog_sends_class_flag_filter(self):
+        client = InspectionApiClient("http://api.local")
+        response = Mock(status_code=200)
+        response.json.return_value = {"total": 21, "items": [], "class_flag": "Delamination"}
+        with patch.object(client.session, "get", return_value=response) as get:
+            payload = client.dataset_catalog(offset=0, limit=12, class_flag="Delamination")
+        self.assertEqual(payload["class_flag"], "Delamination")
+        get.assert_called_once_with(
+            "http://api.local/api/dataset/catalog",
+            params={"offset": 0, "limit": 12, "class_flag": "Delamination"},
+            headers={},
+            timeout=5.0,
+        )
+
     def test_dataset_image_is_bounded_and_basename_checked(self):
         client = InspectionApiClient("http://api.local", api_key="secret")
         response = Mock(status_code=200)
         response.headers = {"content-type": "image/jpeg"}
-        response.content = b"jpeg-bytes"
+        response.iter_content.return_value = [b"jpeg-bytes"]
         with patch.object(client.session, "get", return_value=response) as get:
             payload = client.dataset_image("image_1548.jpg")
         self.assertEqual(payload, b"jpeg-bytes")
@@ -169,9 +208,27 @@ class TestInspectionApiClient(unittest.TestCase):
             "http://api.local/api/dataset/images/image_1548.jpg",
             headers={"x-api-key": "secret"},
             timeout=5.0,
+            stream=True,
+        )
+        with patch.object(client.session, "get", return_value=response) as get:
+            self.assertEqual(client.dataset_image("image_1548.jpg", "heatmap"), b"jpeg-bytes")
+        get.assert_called_once_with(
+            "http://api.local/api/dataset/images/image_1548.jpg?view=heatmap",
+            headers={"x-api-key": "secret"},
+            timeout=5.0,
+            stream=True,
         )
         with self.assertRaises(ValueError):
             client.dataset_image("../secret.jpg")
+        with self.assertRaises(ValueError):
+            client.dataset_image("image_1548.jpg", "prediction")
+
+    def test_libad_sample_image_rejects_path_and_unknown_view(self):
+        client = InspectionApiClient("http://api.local")
+        with self.assertRaises(ValueError):
+            client.libad_sample_image("../secret", "vis_a")
+        with self.assertRaises(ValueError):
+            client.libad_sample_image("unit1", "fixture")
 
     def test_operations_control_requires_idempotency_key(self):
         client = InspectionApiClient("http://api.local")

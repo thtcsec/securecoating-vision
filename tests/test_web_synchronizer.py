@@ -122,6 +122,14 @@ class TestWebSynchronizerRefactored(unittest.TestCase):
         self.assertEqual(record["bbox"], [10, 20, 30, 40])
         self.assertEqual(record["confidence"], 0.91)
 
+    def test_roll_ledger_capacity_fails_closed(self):
+        sync = WebSynchronizer(roll_metadata=self.metadata, max_defect_ledger=1)
+        context = sync.advance_motion(dt_seconds=0.0)
+        sync.record_unlocalized_defect({"class_name": "scratch"}, context)
+        with self.assertRaises(OverflowError):
+            sync.record_unlocalized_defect({"class_name": "void"}, context)
+        self.assertEqual(len(sync.roll_defect_map), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

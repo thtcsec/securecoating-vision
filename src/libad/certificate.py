@@ -15,9 +15,13 @@ from typing import Any, Dict, Optional
 from libad.protocol import load_project_identity, sha256_json
 
 
+_CONFIGURED_FACTORY_SECRET = os.environ.get("SECURECOATING_FACTORY_SECRET", "").encode("utf-8")
+_PROCESS_FACTORY_SECRET = _CONFIGURED_FACTORY_SECRET or secrets.token_bytes(32)
+
+
 def _factory_secret() -> bytes:
-    configured = os.environ.get("SECURECOATING_FACTORY_SECRET", "").encode("utf-8")
-    return configured or secrets.token_bytes(32)
+    """Return one stable process key; production startup requires a configured key."""
+    return _PROCESS_FACTORY_SECRET
 
 
 @dataclass

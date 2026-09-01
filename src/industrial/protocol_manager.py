@@ -28,6 +28,7 @@ from datetime import datetime
 from enum import Enum
 import asyncio
 import os
+from functools import wraps
 
 # Try to import pymodbus & asyncua for real industrial communication
 try:
@@ -45,6 +46,15 @@ except ImportError:
     asyncua_available = False
 
 logger = logging.getLogger("SecureCoatingVision.Industrial")
+
+
+def _serialized_plc_command(method):
+    """Serialize one complete command/ACK/state/history transaction."""
+    @wraps(method)
+    def wrapped(self, *args, **kwargs):
+        with self._command_lock:
+            return method(self, *args, **kwargs)
+    return wrapped
 
 
 def _event_loop_is_running() -> bool:
@@ -167,6 +177,9 @@ class IndustrialProtocolManager:
         self.signal_history: List[IndustrialSignal] = []
         self._signal_counter = 0
         self._lock = threading.RLock()
+        # State reads use _lock; every PLC command transaction additionally uses
+        # this owner lock from sequence allocation through ACK and history commit.
+        self._command_lock = threading.RLock()
         self._interlock_reason = ""
         if not self.mock_mode:
             # Process memory cannot prove the PLC's state after startup/restart.
@@ -224,6 +237,18 @@ class IndustrialProtocolManager:
         command_id: int,
     ) -> tuple[bool, Dict[str, Any]]:
         """Send through exactly one configured command owner and await its explicit ACK."""
+        if not self.transport_ready:
+            logger.warning(
+                "PLC command not dispatched because the configured transport is not ready "
+                "(channel=%s, action=%s)",
+                self.command_channel,
+                action.value,
+            )
+            return False, {
+                "command_channel": self.command_channel.upper(),
+                "configuration_error": True,
+                "transport_ready": False,
+            }
         if self.command_channel == "opc_ua":
             confirmed = self._write_opc_ua(part_id, action, defect_info, command_id)
             return confirmed, {"command_channel": "OPC_UA", "opc_ua_confirmed": confirmed}
@@ -277,7 +302,7 @@ class IndustrialProtocolManager:
             class_name = defect.get("class_name", "unknown")
             
             # Critical defect: always reject
-            if class_name == "delamination" and area > 1.0:
+            if class_name in {"delamination", "delamination_crack"} and area > 1.0:
                 reasons.append(f"Critical delamination detected ({area:.1f} mm²)")
                 max_severity = max(max_severity, 1.0)
                 
@@ -305,6 +330,7 @@ class IndustrialProtocolManager:
             "defect_density_pct": round(density * 100, 3)
         }
 
+    @_serialized_plc_command
     def trigger_reject(
         self,
         part_id: str,
@@ -392,6 +418,7 @@ class IndustrialProtocolManager:
 
         return signal
 
+    @_serialized_plc_command
     def trigger_pass(self, part_id: str, batch_id: str) -> IndustrialSignal:
         """Record a PASS signal (gate remains open, part continues on line)."""
         start_time = time.time()
@@ -434,16 +461,18 @@ class IndustrialProtocolManager:
 
         with self._lock:
             self.signal_history.append(signal)
+            self.signal_history = self.signal_history[-500:]
 
         return signal
 
+    @_serialized_plc_command
     def trigger_hold(
         self,
         part_id: str,
         batch_id: str,
         reasons: Optional[List[str]] = None,
     ) -> IndustrialSignal:
-        """Latch HOLD and request the fail-safe state on both PLC channels."""
+        """Latch HOLD and request the fail-safe state through the command owner."""
         start_time = time.time()
         reasons = list(reasons or ["Safety interlock requested HOLD"])
         with self._lock:
@@ -539,6 +568,14 @@ class IndustrialProtocolManager:
                 await client.set_security_string(security)
                 await client.connect()
                 try:
+                    sequence_node = client.get_node(self.opc_node_command_sequence)
+                    ack_node = client.get_node(self.opc_node_ack_sequence)
+                    previous_sequence = int(await sequence_node.read_value())
+                    previous_ack = int(await ack_node.read_value())
+                    if command_id in (previous_sequence, previous_ack):
+                        raise RuntimeError(
+                            "OPC UA stale sequence collision; retry with a new command ID"
+                        )
                     for node_id, expected in command_values:
                         node = client.get_node(node_id)
                         await node.write_value(expected)
@@ -547,13 +584,11 @@ class IndustrialProtocolManager:
                             raise RuntimeError(
                                 f"OPC UA readback mismatch for {node_id}: expected {expected}, got {actual}"
                             )
-                    sequence_node = client.get_node(self.opc_node_command_sequence)
                     await sequence_node.write_value(
                         opc_ua_types.Variant(command_id, opc_ua_types.VariantType.UInt16)
                     )
                     if int(await sequence_node.read_value()) != command_id:
                         raise RuntimeError("OPC UA command sequence readback mismatch")
-                    ack_node = client.get_node(self.opc_node_ack_sequence)
                     ack_deadline = time.monotonic() + self.ack_timeout_seconds
                     while time.monotonic() < ack_deadline:
                         if int(await ack_node.read_value()) == command_id:
@@ -635,6 +670,29 @@ class IndustrialProtocolManager:
         try:
             if not client.connect():
                 logger.error(f"[MODBUS TCP] Connection failed to {self.plc_ip}:{self.modbus_port}")
+                return False
+            previous_values = []
+            for register in (
+                self.modbus_register_command_sequence,
+                self.modbus_register_ack_sequence,
+            ):
+                response = client.read_holding_registers(
+                    register, count=1, slave=self.modbus_slave_id
+                )
+                if response is None or (
+                    hasattr(response, "isError") and response.isError()
+                ) or not getattr(response, "registers", None):
+                    logger.error(
+                        "[MODBUS TCP] Preflight read failed for sequence register %s",
+                        register,
+                    )
+                    return False
+                previous_values.append(int(response.registers[0]))
+            if command_id in previous_values:
+                logger.error(
+                    "[MODBUS TCP] Stale sequence collision for command %s; retry required",
+                    command_id,
+                )
                 return False
             for register, expected in command_values:
                 response = client.write_register(
@@ -747,7 +805,7 @@ class IndustrialProtocolManager:
         """
         # Serialize the complete command transaction. An E-stop/HOLD cannot be
         # interleaved with a PASS/REJECT from another request.
-        with self._lock:
+        with self._command_lock:
             interlock_active = self.interlock_latched
             if not safety_permitted or interlock_active:
                 reasons = list(safety_reasons or [])
@@ -854,7 +912,10 @@ class IndustrialProtocolManager:
             self.plc_state.opc_line_active = False
             self._interlock_reason = reason
         logger.critical(f"[E-STOP] Emergency stop triggered: {reason}")
+        return self._dispatch_emergency_stop(reason)
 
+    @_serialized_plc_command
+    def _dispatch_emergency_stop(self, reason: str) -> IndustrialSignal:
         started = time.time()
         with self._lock:
             self._signal_counter += 1
@@ -887,10 +948,12 @@ class IndustrialProtocolManager:
                 },
             )
             self.signal_history.append(signal)
+            self.signal_history = self.signal_history[-500:]
         return signal
 
+    @_serialized_plc_command
     def reset_line(self) -> IndustrialSignal:
-        """Clear the safety latch only after both PLC channels confirm reset."""
+        """Clear the safety latch only after the command owner confirms reset."""
         started = time.time()
         with self._lock:
             self._signal_counter += 1
@@ -921,6 +984,7 @@ class IndustrialProtocolManager:
                 },
             )
             self.signal_history.append(signal)
+            self.signal_history = self.signal_history[-500:]
         if confirmed:
             logger.info("[LINE RESET] Safety latch cleared")
         else:

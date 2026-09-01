@@ -7,7 +7,7 @@ SecureCoating-Vision is a single-process research prototype. The default Compose
 ```text
 HTTP image/demo input
   -> bounded image validation
-  -> RGB YOLOv8-seg/ONNX path, with simulated thermal/profilometry adapters
+  -> two-class RGB YOLO/ONNX detector, with simulated thermal/profilometry adapters
   -> optional LIBAD VIS + X-rayL evidence lane (PatchCore/DA-Core scores, authors' baseline)
   -> evidence gate: PASS / REJECT / HOLD
   -> SQLite PENDING trace record

@@ -110,10 +110,16 @@ class RootCauseDiagnosticEngine:
             )
 
         # Count defect occurrences and characteristics
-        scratch_count = sum(1 for d in defects_metrology if d.get("class_name") == "scratch")
+        scratch_count = sum(
+            1 for d in defects_metrology
+            if d.get("class_name") in {"scratch", "surface_crack"}
+        )
         void_count = sum(1 for d in defects_metrology if d.get("class_name") == "void")
         blister_count = sum(1 for d in defects_metrology if d.get("class_name") == "blister")
-        delam_count = sum(1 for d in defects_metrology if d.get("class_name") == "delamination")
+        delam_count = sum(
+            1 for d in defects_metrology
+            if d.get("class_name") in {"delamination", "delamination_crack"}
+        )
         
         max_height = max([d.get("peak_height_um", 0.0) for d in defects_metrology], default=0.0)
         max_area = max([d.get("area_mm2", 0.0) for d in defects_metrology], default=0.0)

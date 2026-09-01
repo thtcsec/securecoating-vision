@@ -41,6 +41,7 @@ def validate_roll_disjoint_manifest(
     roll_to_split: Dict[str, str] = {}
     file_count = 0
     test_paths = set()
+    test_label_paths = set()
     for split in REQUIRED_SPLITS:
         entries = manifest["splits"][split]
         if not isinstance(entries, list):
@@ -62,6 +63,24 @@ def validate_roll_disjoint_manifest(
             seen_paths.add(normalized)
             if split == "test":
                 test_paths.add(normalized)
+                if evaluation_dataset_dir is not None:
+                    label_relative_path = entry.get("label_path")
+                    expected_label_hash = entry.get("label_sha256", "")
+                    if not label_relative_path or len(expected_label_hash) != 64:
+                        raise ValueError(
+                            "Evaluation test entries require label_path and label_sha256"
+                        )
+                    label_path = (root / label_relative_path).resolve()
+                    if root not in label_path.parents or not label_path.is_file():
+                        raise FileNotFoundError(
+                            f"Manifest label artifact is outside or missing: {label_relative_path}"
+                        )
+                    normalized_label = os.path.normcase(str(label_path))
+                    if normalized_label in test_label_paths:
+                        raise ValueError(f"Manifest label appears more than once: {label_relative_path}")
+                    test_label_paths.add(normalized_label)
+                    if _sha256(label_path).lower() != expected_label_hash.lower():
+                        raise ValueError(f"Manifest label hash mismatch: {label_relative_path}")
             actual_hash = _sha256(path)
             if actual_hash.lower() != expected_hash.lower():
                 raise ValueError(f"Manifest hash mismatch: {relative_path}")
@@ -81,6 +100,14 @@ def validate_roll_disjoint_manifest(
         }
         if test_paths != expected_paths:
             raise ValueError("Manifest test split does not exactly match evaluation images")
+        labels_root = evaluation_root / "labels"
+        expected_labels = {
+            os.path.normcase(str((labels_root / f"{path.stem}.txt").resolve()))
+            for path in evaluation_root.joinpath("images").iterdir()
+            if path.is_file()
+        }
+        if test_label_paths != expected_labels:
+            raise ValueError("Manifest test labels do not exactly match evaluation images")
 
     return {
         "manifest_sha256": _sha256(manifest_file),

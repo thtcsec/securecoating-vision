@@ -1,0 +1,111 @@
+{
+  "evidence_class": "LOCAL_LIVE_SMOKE",
+  "api_url": "http://127.0.0.1:8014",
+  "health": {
+    "status": "DEGRADED",
+    "device": "cuda",
+    "model_version": "2.1.0-real-optical",
+    "onnx_available": true,
+    "yolo_available": true,
+    "primary_engine": "CUDA:0 (NVIDIA GeForce RTX 4050 Laptop GPU)",
+    "system_state": "OPTIMAL",
+    "sensors": {
+      "rgb_camera": "ONLINE",
+      "thermal_camera": "ONLINE",
+      "laser_profiler": "ONLINE"
+    },
+    "industrial_interlock_latched": false,
+    "traceability_ok": true,
+    "simulation_mode": true,
+    "calibration_verified": false,
+    "industrial_mock_mode": true,
+    "industrial_transport_ready": true,
+    "control_auth_ready": true,
+    "model_artifact_sha256": "f72a8f2bd64add6f9ae6c42684bb09e0705b1ed70cdc9123bb82923ef76d5719",
+    "onnx_artifact_sha256": "fa1c467a5857bb68d226eb0b76c7ca4eeee1f94e0f710559401a5f223f8a1a14",
+    "model_evidence_report": "reports/coatingvision_real_test_metrics.json"
+  },
+  "operations": {
+    "line_disposition": "HOLD_REQUIRED",
+    "readiness_reasons": [
+      "development_simulation_only",
+      "simulated_plc_transport",
+      "factory_calibration_unverified"
+    ],
+    "throughput": {
+      "evidence_class": "MEASURED_LOCAL_INFERENCE_ONLY",
+      "validated_demo_line_speed_m_s": 0.08,
+      "fov_length_m": 0.04325376,
+      "required_frame_rate_fps": 1.85,
+      "average_inference_latency_ms": null,
+      "estimated_inference_capacity_fps": null,
+      "factory_line_qualified": false,
+      "note": "Excludes camera exposure, transport, PLC acknowledgement, and factory HIL qualification."
+    }
+  },
+  "dataset": {
+    "name": "CoatingVision Figshare detection archive (unmodified JPEGs)",
+    "license": "CC BY 4.0",
+    "total": 2227,
+    "preview_sha256": "1bc554d68551522742121ed0c4b682f312966712da25d74f0d4bfa02916a38a9"
+  },
+  "inspection": {
+    "part_id": "SMOKE_REAL_55ff1b0e65",
+    "batch_id": "BATCH_2026_MSE_01",
+    "run_id": "RUN_C25B32D1DF2D",
+    "status": "Optimal",
+    "passed": false,
+    "reject_reasons": [
+      "Detected surface crack requires rejection",
+      "Development simulation cannot authorize an automatic line decision",
+      "Simulated PLC transport cannot acknowledge an automatic line decision",
+      "Factory coordinate calibration is missing or unverified"
+    ],
+    "latency_ms": 94.48,
+    "defects_found": [
+      {
+        "defect_id": "surface_crack_0",
+        "class_id": 1,
+        "class_name": "surface_crack",
+        "bbox": [
+          340,
+          433,
+          19,
+          22
+        ],
+        "length_mm": 0.93,
+        "width_mm": 0.8,
+        "area_mm2": 0.67,
+        "peak_height_um": 124.16,
+        "confidence": 0.5271,
+        "run_id": "RUN_C25B32D1DF2D"
+      }
+    ],
+    "fallback_active": false,
+    "system_state": "OPTIMAL",
+    "gate_action": "HOLD",
+    "engine": "YOLO (CUDA:0 (NVIDIA GeForce RTX 4050 Laptop GPU))",
+    "model_version": "2.1.0-real-optical",
+    "detections": [
+      {
+        "box": [
+          340.1306457519531,
+          433.46771240234375,
+          358.9579772949219,
+          454.33013916015625
+        ],
+        "box_format": "xyxy",
+        "confidence": 0.5271173119544983,
+        "class_id": 0,
+        "class_name": "surface_crack"
+      }
+    ]
+  },
+  "http_round_trip_ms": 264.253,
+  "artifact_sizes_bytes": {
+    "raw": 14366,
+    "input": 14720,
+    "overlay": 16085
+  },
+  "spc_status": "NO DATA"
+}

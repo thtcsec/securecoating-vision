@@ -81,5 +81,25 @@ class TestPostProcess(unittest.TestCase):
         self.assertTrue(res2["passed"])
         self.assertEqual(len(res2["reject_reasons"]), 0)
 
+    def test_grade_violation_cap_does_not_change_total(self):
+        defects = [
+            {"class_name": "scratch", "length_mm": 6.0, "area_mm2": 0.0,
+             "peak_height_um": 0.0}
+            for _ in range(12)
+        ]
+        result = grade_coating(defects, {})
+        self.assertFalse(result["passed"])
+        self.assertEqual(result["total_violations"], 12)
+        self.assertEqual(len(result["reject_reasons"]), 11)
+        self.assertIn("2 additional", result["reject_reasons"][-1])
+
+    def test_unknown_defect_class_fails_closed(self):
+        result = grade_coating([
+            {"class_name": "unexpected", "length_mm": 0.0, "area_mm2": 0.0,
+             "peak_height_um": 0.0}
+        ], {})
+        self.assertFalse(result["passed"])
+        self.assertEqual(result["total_violations"], 1)
+
 if __name__ == "__main__":
     unittest.main()

@@ -134,7 +134,12 @@ def _git_commit() -> str:
         return "UNKNOWN"
 
 
-def load_gt_labels(label_path: str, img_h: int = 640, img_w: int = 640):
+def load_gt_labels(
+    label_path: str,
+    img_h: int = 640,
+    img_w: int = 640,
+    num_classes: int = len(CLASS_NAMES),
+):
     """
     Parse YOLO segmentation label file into class IDs, bounding boxes, and rasterized binary masks.
     
@@ -165,14 +170,23 @@ def load_gt_labels(label_path: str, img_h: int = 640, img_w: int = 640):
             # Must have even number of coordinate values
             if len(coords) % 2 != 0:
                 raise ValueError(f"Odd polygon coordinate count in {label_path}: {line.strip()}")
+            if not 0 <= class_id < num_classes:
+                raise ValueError(f"Unknown class ID in {label_path}: {class_id}")
+            if not all(np.isfinite(value) and 0.0 <= value <= 1.0 for value in coords):
+                raise ValueError(
+                    f"Polygon coordinates must be finite and normalized in {label_path}: "
+                    f"{line.strip()}"
+                )
 
             polygon_pts = []
             for i in range(0, len(coords), 2):
-                px = np.clip(coords[i] * img_w, 0, img_w - 1)
-                py = np.clip(coords[i + 1] * img_h, 0, img_h - 1)
+                px = min(coords[i] * img_w, img_w - 1)
+                py = min(coords[i + 1] * img_h, img_h - 1)
                 polygon_pts.append([px, py])
 
             polygon_np = np.array(polygon_pts, dtype=np.int32)
+            if cv2.contourArea(polygon_np) <= 0.0:
+                raise ValueError(f"Degenerate polygon label in {label_path}: {line.strip()}")
 
             # Rasterize ground-truth mask
             gt_mask = np.zeros((img_h, img_w), dtype=np.uint8)
@@ -289,6 +303,9 @@ def evaluate_sample_predictions(gt_labels: list, detections: list, seg_mask: np.
                 class_results[det_class]["mask_tp"] += 1
             else:
                 class_results[det_class]["mask_fp"] += 1
+                # A failed predicted instance is both a false positive and a
+                # missed ground-truth mask for precision/recall accounting.
+                class_results[det_class]["mask_fn"] += 1
         else:
             class_results[det_class]["box_fp"] += 1
             class_results[det_class]["mask_fp"] += 1

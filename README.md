@@ -15,7 +15,7 @@
 
 **Tagline:** Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing
 
-SecureCoating-Vision is an **industrial computer-vision research prototype** for coating-defect segmentation, fail-closed inspection decisions, simulated roll synchronization, PLC protocol integration, and traceability experiments.
+SecureCoating-Vision is an **industrial computer-vision research prototype** for real-image coating-defect detection, fail-closed inspection decisions, simulated roll synchronization, PLC protocol integration, and traceability experiments.
 
 It is **not production-qualified**. The repository does not contain a factory calibration certificate, PLC hardware-in-the-loop evidence, an independent roll-disjoint test set, or plant safety approval. Do not connect it directly to a production gate or treat the software E-stop as a safety-rated E-stop.
 
@@ -26,7 +26,7 @@ The repository contains a fail-closed inspection prototype, traceability experim
 The initial prototype validated the software and safety contract using RGB inspection and simulated secondary modalities. The repository now contains a validation adapter and 10-seed harness for [LIBAD](https://arxiv.org/abs/2608.07958), whose official release contains aligned visible-light and inline-compatible X-ray data from real roll-to-roll electrode manufacturing. The checked-in demo and benchmark reports use deterministic protocol fixtures because the official dataset/splits are not present. This is a validation extension, not a change of topic. Details are in [docs/libad_validation_extension.md](docs/libad_validation_extension.md).
 
 <!-- TEST_MANIFEST:START -->
-The current software validation snapshot is 174 passing tests with 0 skips and 0 failures (commit `e7a15e5cd0ba`, working tree clean, source diff `none`, Python 3.11.9, 44.8s). The authoritative record is [reports/test_manifest.json](reports/test_manifest.json). This does not constitute evidence of factory performance, physical PLC behavior, safety-rated E-stop operation, or production qualification.
+The current software validation snapshot is 195 passing tests with 0 skips and 0 failures (commit `5924451cb47d`, working tree dirty, source diff `fb035602955d`, Python 3.11.9, 91.76s). The authoritative record is [reports/test_manifest.json](reports/test_manifest.json). This does not constitute evidence of factory performance, physical PLC behavior, safety-rated E-stop operation, or production qualification.
 <!-- TEST_MANIFEST:END -->
 
 ## Current safety contract
@@ -35,13 +35,13 @@ The current software validation snapshot is 174 passing tests with 0 skips and 0
 - Timeout, inference error, missing model, missing sensor, unverified production calibration, traceability failure, PLC communication failure, modality disagreement, stale evidence, or a latched interlock produces `HOLD`.
 - Mock OPC UA/Modbus operations are labelled `SIMULATED`; they are never reported as PLC acknowledgements.
 - Real PLC commands use exactly one configured command-owner protocol and require a unique command sequence plus a matching PLC ACK sequence. OPC UA requires `SignAndEncrypt`; plaintext Modbus is refused unless an explicitly trusted gateway is configured.
-- The production dashboard reads one `/api/operations/snapshot` payload. A Vietnamese Guide explains the workflow and fail-closed states. Its bounded inspection history loads authenticated acquired-frame, letterboxed model-input, and detection-overlay JPEG previews on demand, while Dataset Library pages hash-verified metadata and authenticated thumbnails for attributed CoatingVision optical samples. Simulator, recipe sliders, defect injection, and LIBAD evidence demo exist only in the explicit development/test sandbox. Operator control is limited to authenticated confirm-audit actions (E-stop, reset, inference reset); the dashboard never writes recipe offsets to a PLC.
+- The production dashboard reads one `/api/operations/snapshot` payload. An English Guide explains the workflow and fail-closed states. History loads an HTML replay of original JPEG → published pixel mask → published-label heatmap → AI overlay, then shows Argonne CoatingVision classification flags beside the local detector class (side by side, not fused). Dataset Library pages hash-verified metadata, published masks/heatmaps, classification chips, and an honest published-class mix (multi-label; Surface_Crack dominates this public set). A disk catalog cache avoids rescanning thousands of Figshare files after the first warmup. The live strip reports YOLO/ONNX engine load separately from fail-closed sensors; a loaded model is not a PASS authorization. Views stay on a main-page rail so collapsing the left identity panel cannot hide navigation; a cyan chevron restores that panel if it is already collapsed. Live telemetry uses a lighter snapshot scope and keeps the last catalog/certificate payload. The Multimodal view shows official VIS + X-ray frames only when that release is mounted as complete file triples; protocol fixtures are not substituted as plant X-ray. Simulator, recipe sliders, defect injection, and the LIBAD evidence demo exist only in the explicit development/test sandbox. Operator control is limited to authenticated confirm-audit actions (E-stop, reset, inference reset); the dashboard never writes recipe offsets to a PLC.
 
 These properties are covered by software tests, but physical actuator behavior still requires vendor-specific HIL and safety validation.
 
 ## Modality honesty
 
-- **RGB / YOLO-seg / ONNX:** primary inference path for known surface defects.
+- **RGB / two-class YOLO detector / ONNX:** primary inference path for `surface_crack` and `delamination_crack` on real CoatingVision optical images. The PyTorch and ONNX artifacts share the same class map and are hash-pinned in `configs/model.yaml`.
 - **LIBAD VIS + X-rayL:** adapter for official real multimodal inputs; checked-in artifacts currently use protocol fixtures. PatchCore/DA-Core are attributed baselines of Sui et al.; the local numpy descriptor is not their official DINOv3 implementation and is never paper-comparable. The local contribution is the evidence gate.
 - **Thermal and profilometry:** simulated or injected interface adapters for registration, fail-closed degradation, and contract tests. They are not plant-instrument measurements in this repository.
 
@@ -57,7 +57,7 @@ For a running local API in explicit development simulation mode, use the existin
 
 ## Model and metric evidence
 
-Tracked reports under `reports/` are development artifacts, not production qualification results. The existing `data/evaluation` files overlap the tracked training validation split; therefore those results must not be presented as an independent test-set estimate.
+The authoritative model report is [reports/coatingvision_real_test_metrics.json](reports/coatingvision_real_test_metrics.json): public real optical data, a fixed 88-image image-disjoint test split, precision 0.645, recall 0.642, mAP50 0.633, and mAP50-95 0.354. It is explicitly **not** factory roll-disjoint evidence. Older synthetic segmentation reports are retained only as development baselines and must not be presented as current-model evidence.
 
 The repository deliberately makes no claim of 99.4% mAP, zero escapes, ppm performance, factory yield improvement, production latency, Six Sigma capability, or standards certification. Such claims require an immutable model hash, roll-disjoint dataset manifest, raw measurements, methodology, confidence intervals, and independent review.
 
@@ -122,7 +122,7 @@ Evaluation requires a real ONNX artifact. Missing models, malformed labels, unde
   --ultralytics-data-config <matching-dataset.yaml>
 ```
 
-The manifest must contain non-empty `train`, `val`, and `test` lists. Each entry must include `path`, `roll_id`, and SHA-256; roll IDs may not cross splits, and the test list must exactly match the evaluation image directory. Before publishing results, prove by hash that the evaluation set does not overlap train/validation data and record the model, dataset, manifest, and commit hashes.
+The manifest must contain non-empty `train`, `val`, and `test` lists. Each entry must include `path`, `roll_id`, and SHA-256; test entries must additionally include `label_path` and `label_sha256`. Roll IDs may not cross splits, and the test image/label lists must exactly match the evaluation directories. Before publishing results, prove by hash that the evaluation set does not overlap train/validation data and record the model, dataset, manifest, and commit hashes.
 
 ## Training
 

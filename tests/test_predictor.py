@@ -16,7 +16,7 @@ os.chdir(ROOT)
 from inference.predictor import CoatingPredictor  # noqa: E402
 
 ONNX_PATH = os.path.join(ROOT, "outputs", "model.onnx")
-TEST_IMG = os.path.join(ROOT, "data", "test_set", "images", "defect_val_00001.jpg")
+TEST_IMG = os.path.join(ROOT, "data", "demo_real", "images", "image_1548.jpg")
 
 
 def _load_config():
@@ -94,6 +94,13 @@ class TestPredictor(unittest.TestCase):
         self.assertAlmostEqual(probs[1], 0.9)
         self.assertAlmostEqual(probs[3], 0.4)
         self.assertEqual(predicted, 1)
+
+    def test_model_hash_mismatch_disables_artifact(self):
+        cfg = _load_config()
+        cfg["model"]["weights_sha256"] = "0" * 64
+        with patch.object(CoatingPredictor, "_init_onnx_engine", return_value=None):
+            predictor = CoatingPredictor(cfg)
+        self.assertFalse(predictor.yolo_available)
 
 
 if __name__ == "__main__":

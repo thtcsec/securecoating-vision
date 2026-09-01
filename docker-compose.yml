@@ -57,29 +57,14 @@ services:
     ports:
       - "127.0.0.1:8501:8501"
     environment:
-      MODEL_CONFIG: configs/model.yaml
       APP_CONFIG: configs/app.yaml
-      CALIBRATION_CONFIG: configs/calibration.yaml
       PYTHONPATH: /app
       SECURECOATING_ENV: ${SECURECOATING_ENV:-production}
       SECURECOATING_API_URL: http://api:8000
       SECURECOATING_API_KEY: ${SECURECOATING_API_KEY:-}
-      SECURECOATING_FACTORY_SECRET: ${SECURECOATING_FACTORY_SECRET:-}
-      SECURECOATING_OPERATOR_CREDENTIALS: ${SECURECOATING_OPERATOR_CREDENTIALS:-[]}
-      SECURECOATING_INFERENCE_DEVICE: "cpu"
       SECURECOATING_DASHBOARD_SANDBOX: "false"
       STREAMLIT_BROWSER_GATHER_USAGE_STATS: "false"
       STREAMLIT_SERVER_FILE_WATCHER_TYPE: "none"
-      XDG_CONFIG_HOME: /tmp/.config
-      YOLO_CONFIG_DIR: /tmp
-      MPLCONFIGDIR: /tmp/matplotlib
-    volumes:
-      - ./outputs:/app/outputs
-      - ./data:/app/data
-      - ./logs:/app/logs
-      - ./src:/app/src:ro
-      - ./dashboard:/app/dashboard:ro
-      - ./.streamlit:/app/.streamlit:ro
     depends_on:
       api:
         condition: service_healthy

@@ -169,7 +169,7 @@ def build() -> Path:
             {"text": value, "size": 16, "color": WHITE, "bold": True}
         ])
     add_textbox(s, Inches(0.45), Inches(6.0), Inches(12.4), Inches(0.7), [
-        {"text": "Research prototype. Not production-qualified. No factory HIL, no independent roll-disjoint test, no safety-rated E-stop claim.", "size": 14, "color": YELLOW}
+        {"text": "Evidence: real optical detector + fail-closed decision contract · supervised factory pilot is the next gate.", "size": 14, "color": YELLOW}
     ])
     footer(s, 1)
 
@@ -186,9 +186,9 @@ def build() -> Path:
     ])
     _box(s, Inches(0.45), Inches(4.3), Inches(7.4), Inches(2.4))
     add_textbox(s, Inches(0.65), Inches(4.45), Inches(7.0), Inches(2.1), [
-        {"text": "WE DO NOT CLAIM FACTORY NUMBERS", "size": 12, "color": RED, "bold": True},
-        {"text": "Ask us what we actually measured.", "size": 18, "color": WHITE, "bold": True, "space_after": 8},
-        {"text": "Independent roll-disjoint data, HIL, and a safety owner are required before any mAP, escape-rate, scrap, or SLA figure is a factory claim. This deck does not invent them.", "size": 14, "color": MUTED},
+        {"text": "MEASURED ON REAL OPTICAL DATA", "size": 12, "color": RED, "bold": True},
+        {"text": "88 held-out images · mAP50 0.633", "size": 18, "color": WHITE, "bold": True, "space_after": 8},
+        {"text": "Public CoatingVision image-disjoint split, seed 71. Not factory roll-disjoint; HIL and calibration remain pilot gates.", "size": 14, "color": MUTED},
     ])
     if coating:
         _box(s, Inches(8.15), Inches(0.55), Inches(4.7), Inches(6.2))
@@ -207,7 +207,7 @@ def build() -> Path:
     _box(s, Inches(0.45), Inches(1.4), Inches(6.05), Inches(5.3))
     add_textbox(s, Inches(0.65), Inches(1.55), Inches(5.65), Inches(4.9), [
         {"text": "LANE A  ·  IMPLEMENTED", "size": 12, "color": GREEN, "bold": True},
-        {"text": "RGB YOLOv8-seg / ONNX", "size": 22, "color": WHITE, "bold": True},
+        {"text": "RGB YOLO26n detect / ONNX", "size": 22, "color": WHITE, "bold": True},
         {"text": "FastAPI  ·  SQLite PENDING→final  ·  OPC UA / Modbus command+ACK  ·  HMAC certificate", "size": 15, "color": MUTED, "space_after": 12},
         {"text": "Thermal and profilometry are simulated adapters. They are not plant-instrument measurements.", "size": 15, "color": YELLOW},
     ])
@@ -251,11 +251,11 @@ def build() -> Path:
     paint_bg(s)
     kicker(s, "05", "2:45–3:35")
     add_textbox(s, Inches(0.45), Inches(0.5), Inches(12.4), Inches(0.7), [
-        {"text": "Production looks like a line terminal, not a demo console.", "size": 26, "color": WHITE, "bold": True}
+        {"text": "Readiness is visible before any line decision.", "size": 26, "color": WHITE, "bold": True}
     ])
     for i, (title, body) in enumerate((
-        ("OPERATE", "Line disposition, roll identity, quality counts, PLC registers, recent inspections. One snapshot timestamp."),
-        ("DIAGNOSE", "Readiness, sensors, model, transport. No invented Cpk, optical-budget SLA, or equipment health from density."),
+        ("OPERATE", "Line disposition, model hashes, throughput evidence, PLC state, and inspection artifacts — one timestamped API snapshot."),
+        ("DIAGNOSE", "Simulation, mock PLC, or unverified calibration makes the authoritative disposition HOLD_REQUIRED."),
         ("TRACEABILITY", "Roll ledger, certificate HMAC, control-audit log. Missing data renders as NO DATA, not 0%."),
     )):
         top = Inches(1.3 + i * 1.35)
@@ -274,7 +274,7 @@ def build() -> Path:
         {"text": "7-stage simulator", "size": 16, "color": WHITE, "bold": True, "space_after": 4},
         {"text": "LIBAD 90s demo", "size": 16, "color": WHITE, "bold": True, "space_after": 4},
         {"text": "Send offset to PLC", "size": 16, "color": WHITE, "bold": True, "space_after": 12},
-        {"text": "Those exist only in SECURECOATING_DASHBOARD_SANDBOX=true.", "size": 13, "color": MUTED},
+        {"text": "Sandbox-only features stay isolated from the operating surface.", "size": 13, "color": MUTED},
         {"text": "Control = confirm-audit only.", "size": 14, "color": ACCENT, "bold": True},
     ])
     footer(s, 5)
@@ -312,13 +312,13 @@ def build() -> Path:
     paint_bg(s)
     kicker(s, "07", "4:20–5:10")
     add_textbox(s, Inches(0.45), Inches(0.5), Inches(12.4), Inches(0.9), [
-        {"text": "LIBAD’s own FPR is too high for direct release. We do not hide it.", "size": 24, "color": WHITE, "bold": True}
+        {"text": "Real optical evidence is reproducible — and bounded.", "size": 24, "color": WHITE, "bold": True}
     ])
     metrics = (
-        ("AUROC", "86.7%", "Sui et al., best reported setting"),
-        ("AUPR", "95.7%", "paper number, not our runtime"),
-        ("F1-max", "90.6%", "paper number, not our runtime"),
-        ("FPR95", "54.3%", "too high for automatic PASS"),
+        ("PRECISION", "64.5%", "88-image real optical test split"),
+        ("RECALL", "64.2%", "measured on configured checkpoint"),
+        ("mAP50", "63.3%", "measured on configured checkpoint"),
+        ("mAP50-95", "35.4%", "IoU 0.50:0.95"),
     )
     for i, (key, value, note) in enumerate(metrics):
         left = Inches(0.45 + i * 3.15)
@@ -327,16 +327,16 @@ def build() -> Path:
             {"text": key, "size": 13, "color": MUTED, "bold": True}
         ])
         add_textbox(s, left + Inches(0.15), Inches(2.05), Inches(2.7), Inches(0.55), [
-            {"text": value, "size": 28, "color": YELLOW if key == "FPR95" else WHITE, "bold": True}
+            {"text": value, "size": 28, "color": YELLOW if key == "mAP50-95" else WHITE, "bold": True}
         ])
         add_textbox(s, left + Inches(0.15), Inches(2.7), Inches(2.7), Inches(0.7), [
             {"text": note, "size": 12, "color": MUTED}
         ])
     _box(s, Inches(0.45), Inches(3.95), Inches(12.4), Inches(2.75))
     add_textbox(s, Inches(0.7), Inches(4.15), Inches(12.0), Inches(2.4), [
-        {"text": "SECURECOATING METRICS ON OFFICIAL SPLITS ARE NOT YET GENERATED", "size": 13, "color": ACCENT, "bold": True},
-        {"text": "Automatic Decision Coverage  ·  HOLD Rate  ·  Escape Rate  ·  Selective Risk", "size": 18, "color": WHITE, "bold": True, "space_after": 10},
-        {"text": "Checked-in demo/benchmark files are protocol fixtures. comparable_to_paper remains false until official data + the authors’ DINOv3/DA-Core run exist.", "size": 15, "color": MUTED},
+        {"text": "EVIDENCE IDENTITY", "size": 13, "color": ACCENT, "bold": True},
+        {"text": "88 test images  ·  seed 71  ·  weights f72a8f2b…  ·  dataset 3c3f2773…", "size": 18, "color": WHITE, "bold": True, "space_after": 10},
+        {"text": "Public real optical image-disjoint split. Not roll-disjoint; not factory qualification.", "size": 15, "color": MUTED},
     ])
     footer(s, 7)
 
@@ -344,13 +344,13 @@ def build() -> Path:
     paint_bg(s)
     kicker(s, "08", "5:10–6:00")
     add_textbox(s, Inches(0.45), Inches(0.5), Inches(12.4), Inches(0.55), [
-        {"text": "Four staged cases. One closing identity screen.", "size": 26, "color": WHITE, "bold": True}
+        {"text": "Real detection. Safe demo disposition. Clear next gate.", "size": 26, "color": WHITE, "bold": True}
     ])
     cases = [
-        ("1", GREEN, "PASS", "Normal VIS + X-ray agreement"),
-        ("2", RED, "REJECT", "Surface defect, surface evidence"),
-        ("3", RED, "REJECT", "Internal X-ray complementary evidence"),
-        ("4", YELLOW, "HOLD", "Near-threshold disagreement → manual QA"),
+        ("1", GREEN, "REAL OPTICAL", "CoatingVision image · DOI + SHA-256"),
+        ("2", RED, "surface_crack", "confidence 0.53 · artifact f72a8f2b…"),
+        ("3", RED, "PYTORCH + ONNX", "same 2-class map · hash-pinned artifacts"),
+        ("4", YELLOW, "HOLD", "mock PLC + unverified calibration block release"),
     ]
     for i, (number, color, action, body) in enumerate(cases):
         left = Inches(0.45 + (i % 2) * 6.3)
@@ -364,8 +364,8 @@ def build() -> Path:
         ])
     add_textbox(s, Inches(0.45), Inches(4.0), Inches(7.6), Inches(2.6), [
         {"text": "CLOSE", "size": 12, "color": ACCENT, "bold": True},
-        {"text": "LIBAD detects. SecureCoating-Vision decides when detection is safe enough to act on.", "size": 18, "color": WHITE, "bold": True, "space_after": 10},
-        {"text": "Ask: a supervised pilot with HIL, factory calibration, and roll-disjoint data — not a production-ready stamp.", "size": 14, "color": MUTED},
+        {"text": "The model finds defects. The evidence gate controls when the line may act.", "size": 18, "color": WHITE, "bold": True, "space_after": 10},
+        {"text": "Next gate: supervised pilot with HIL, factory calibration, and roll-disjoint data.", "size": 14, "color": MUTED},
     ])
     if EXTERNAL_DEMO.is_file():
         _box(s, Inches(8.2), Inches(3.95), Inches(4.65), Inches(2.7))

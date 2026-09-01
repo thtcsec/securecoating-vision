@@ -249,7 +249,7 @@ class RollCertificateGenerator:
             lane_key = str(lane) if isinstance(lane, int) and lane in {1, 2, 3, 4} else "UNLOCALIZED"
             by_lane[lane_key] = by_lane.get(lane_key, 0) + 1
             
-            if d.get("class_name") == "delamination" or d.get("peak_height_um", 0.0) >= 12.0:
+            if d.get("class_name") in {"delamination", "delamination_crack"} or d.get("peak_height_um", 0.0) >= 12.0:
                 std_ok = False
 
         defect_density = (total_defects / max(1.0, inspected_length_m)) * 100.0

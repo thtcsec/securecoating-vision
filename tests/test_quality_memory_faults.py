@@ -74,6 +74,89 @@ class TestQualityMemoryFaults(unittest.TestCase):
         self.assertEqual(stats["held"], 0)
         self.assertIsNone(stats["pass_rate"])
 
+    def test_recent_inspection_preserves_model_confidence(self):
+        self.assertTrue(self.memory.add_entry(
+            batch_id="CONF", part_id="P1", has_defect=True,
+            defect_class="surface_crack", peak_confidence=0.8274,
+        ))
+        recent = self.memory.get_recent_inspections("CONF")
+        self.assertEqual(recent["status"], "OK")
+        self.assertAlmostEqual(recent["records"][0]["peak_confidence"], 0.8274)
+        self.assertIsNone(recent["records"][0]["sample_name"])
+        self.assertIsNone(recent["records"][0]["published_classes"])
+
+    def test_recent_inspection_preserves_published_classes(self):
+        self.assertTrue(self.memory.add_entry(
+            batch_id="CLS",
+            part_id="P1",
+            has_defect=True,
+            defect_class="surface_crack",
+            sample_name="image_1.jpg",
+            published_classes=["Surface_Crack", "Pinhole"],
+        ))
+        recent = self.memory.get_recent_inspections("CLS")
+        self.assertEqual(recent["status"], "OK")
+        row = recent["records"][0]
+        self.assertEqual(row["sample_name"], "image_1.jpg")
+        self.assertEqual(row["published_classes"], ["Surface_Crack", "Pinhole"])
+
+    def test_path_like_sample_name_is_not_persisted(self):
+        self.assertTrue(self.memory.add_entry(
+            batch_id="CLS",
+            part_id="P2",
+            has_defect=False,
+            defect_class="none",
+            sample_name="../secret.jpg",
+            published_classes=["Surface_Crack"],
+        ))
+        row = self.memory.get_recent_inspections("CLS")["records"][0]
+        self.assertIsNone(row["sample_name"])
+        self.assertIsNone(row["published_classes"])
+
+    def test_corrupt_published_classes_json_does_not_break_recent_query(self):
+        self.assertTrue(self.memory.add_entry(
+            batch_id="BADJSON",
+            part_id="P1",
+            has_defect=False,
+            defect_class="none",
+            sample_name="image_1.jpg",
+            published_classes=["Surface_Crack"],
+        ))
+        with self.memory._connection() as conn:
+            conn.execute(
+                "UPDATE inspections SET published_classes_json = ? WHERE part_id = ?",
+                ("not-json", "P1"),
+            )
+            conn.commit()
+        recent = self.memory.get_recent_inspections("BADJSON")
+        self.assertEqual(recent["status"], "OK")
+        self.assertIsNone(recent["records"][0]["published_classes"])
+        self.assertEqual(recent["records"][0]["sample_name"], "image_1.jpg")
+
+    def test_spc_excludes_hold_and_invalid_inspections(self):
+        for index in range(9):
+            self.assertTrue(self.memory.add_entry(
+                batch_id="SPC", part_id=f"HOLD_{index}", has_defect=False,
+                defect_class="none", gate_action="HOLD", inspection_valid=False,
+            ))
+        self.assertTrue(self.memory.add_entry(
+            batch_id="SPC", part_id="REJECT", has_defect=True,
+            defect_class="scratch", gate_action="REJECT", inspection_valid=True,
+        ))
+        spc = self.memory.check_spc_alarms("SPC")
+        self.assertEqual(spc["status"], "OUT OF CONTROL")
+        self.assertIn("100.0%", spc["message"])
+
+    def test_bare_database_filename_is_supported(self):
+        previous = os.getcwd()
+        with tempfile.TemporaryDirectory() as directory:
+            try:
+                os.chdir(directory)
+                memory = QualityMemory("quality.db")
+                self.assertTrue(memory.add_entry("B", "P", False, "none"))
+            finally:
+                os.chdir(previous)
+
     def test_duplicate_part_identity_is_rejected_transactionally(self):
         kwargs = {
             "batch_id": "B",

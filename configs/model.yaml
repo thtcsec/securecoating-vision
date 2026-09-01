@@ -1,13 +1,19 @@
 # SecureCoating-Vision: Model Configuration
 
 model:
-  name: "YOLOv8n-seg"
-  version: "2.0.0"
-  backbone: "CSPDarknet53-Nano"
+  name: "CoatingVision-YOLO26n-detect"
+  version: "2.1.0-real-optical"
+  backbone: "YOLO26n"
   pretrained: true
-  num_classes: 5 # [Background, Scratch, Void, Blister, Delamination]
+  num_classes: 3 # Runtime probability vector: [background, class 0, class 1]
+  artifact_num_classes: 2
+  class_names:
+    0: "surface_crack"
+    1: "delamination_crack"
   weights_path: "outputs/best.pt"
   onnx_path: "outputs/model.onnx"
+  weights_sha256: "f72a8f2bd64add6f9ae6c42684bb09e0705b1ed70cdc9123bb82923ef76d5719"
+  onnx_sha256: "fa1c467a5857bb68d226eb0b76c7ca4eeee1f94e0f710559401a5f223f8a1a14"
 
 inputs:
   channels:
@@ -33,12 +39,16 @@ inputs:
 inference:
   device: "cuda" # 'cuda' or 'cpu'
   precision: "fp16" # 'fp32', 'fp16', 'int8'
-  imgsz: 640
+  imgsz: 512
   confidence_threshold: 0.35
   nms_threshold: 0.45
 
   # Quality grading thresholds
   grading:
+    surface_crack:
+      reject_any: true
+    delamination_crack:
+      reject_any: true
     scratch:
       max_allowable_length_mm: 5.0
     void:

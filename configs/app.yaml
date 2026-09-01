@@ -11,6 +11,11 @@ dashboard:
   port: 8501
   theme: "dark"
 
+inspection:
+  # Measured local demo setting. At 43.25376 mm longitudinal FOV this requires
+  # about 1.85 frames/s. It is not a factory throughput qualification.
+  validated_demo_line_speed_m_s: 0.08
+
 logging:
   level: "INFO" # DEBUG, INFO, WARNING, ERROR, CRITICAL
   file_path: "logs/app.log"

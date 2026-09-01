@@ -103,6 +103,19 @@ class TestRollCertificate(unittest.TestCase):
         self.assertEqual(cert.defects_by_lane["1"], 0)
         self.assertEqual(cert.defects_by_lane["UNLOCALIZED"], 1)
 
+    def test_real_delamination_class_never_claims_standards_compliance(self):
+        cert = RollCertificateGenerator.build_certificate(
+            roll_id="TEST_ROLL_REAL_CLASS",
+            batch_id="BATCH_REAL_CLASS",
+            inspected_length_m=1.0,
+            total_length_m=1000.0,
+            defect_records=[{"class_name": "delamination_crack", "lane_id": 1}],
+            total_inspections=1,
+            failed_inspections=1,
+            held_inspections=0,
+        )
+        self.assertFalse(cert.standards_compliant)
+
 
 if __name__ == "__main__":
     unittest.main()

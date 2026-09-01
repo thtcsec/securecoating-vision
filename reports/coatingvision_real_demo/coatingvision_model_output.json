@@ -2,21 +2,39 @@
   "artifact_schema_version": "2.0",
   "evidence_class": "external_dataset_model_output",
   "comparable_to_paper": false,
-  "input_image": "data/coatingvision_real_detect/images/test/image_1847.jpg",
-  "input_sha256": "919049bd57466ad10eac8349231de59342e70e19781a103a18a4f3ca5236e2c9",
+  "input_image": "data/demo_real/images/image_1548.jpg",
+  "input_sha256": "88db1995244c387af1538e9f948836c7bd3f4fbcc9da49bcce3349b8b4f15a12",
   "input_source": "CoatingVision dataset, CC BY 4.0, Figshare DOI 10.6084/m9.figshare.29260121.v1",
   "input_is_real_optical_data": true,
   "secondary_sensor_data": "not supplied; model ran in RGB-only degraded mode",
   "engine": "YOLO (CUDA:0 (NVIDIA GeForce RTX 4050 Laptop GPU))",
   "model_artifact": "outputs/best.pt",
-  "model_sha256": "9945ada0bb8319bb00aa76554f053d82861e828e4ba631ade8814ce0d0c948e6",
-  "commit_sha": "12e1ed55728f09f8e4d485c76e4d5a6230af0f7b",
+  "model_sha256": "f72a8f2bd64add6f9ae6c42684bb09e0705b1ed70cdc9123bb82923ef76d5719",
+  "commit_sha": "5924451cb47ddfe225bbb63747e1a15af443eb0b",
   "source_tree_dirty": true,
-  "source_diff_sha256": "1cc052f39d7e949e13e7556b99843e9a069d06a54bf40b74854eef813566ceae",
-  "latency_ms": 155.47,
-  "detections": [],
+  "source_diff_sha256": "b17ce1e1bd4de9cadf2f2d5bc979849377a3724c181fcb3133cd8cf4485e05ec",
+  "latency_ms": 182.75,
+  "detections": [
+    {
+      "box": [
+        340.1306457519531,
+        433.46771240234375,
+        358.9579772949219,
+        454.33013916015625
+      ],
+      "box_format": "xyxy",
+      "confidence": 0.5271173119544983,
+      "class_id": 0,
+      "class_name": "surface_crack",
+      "mask_shape": [
+        480,
+        640
+      ],
+      "mask_foreground_pixels": 378
+    }
+  ],
   "seven_stage_pipeline": {
-    "sample_id": "image_1847",
+    "sample_id": "image_1548",
     "roll_coordinate": {
       "roll_id": "ROLL_2026_CATL_001",
       "frame_id": 1,
@@ -24,17 +42,17 @@
       "cross_pos_mm": 325.0,
       "lane_id": 3,
       "encoder_pulse_count": 9900,
-      "capture_monotonic_s": 262817.046
+      "capture_monotonic_s": 214765.406
     },
-    "total_latency_ms": 133.14,
+    "total_latency_ms": 213.47,
     "stage_latencies_ms": {
-      "stage_1_web_sync_ms": 0.03,
-      "stage_2_acquisition_ms": 13.4,
-      "stage_3_fusion_ms": 19.87,
-      "stage_4_ai_inference_ms": 99.81,
+      "stage_1_web_sync_ms": 0.04,
+      "stage_2_acquisition_ms": 33.19,
+      "stage_3_fusion_ms": 28.79,
+      "stage_4_ai_inference_ms": 151.41,
       "stage_5_metrology_ms": 0.0,
       "stage_6_decision_plc_ms": 0.0,
-      "stage_7_root_cause_ms": 0.02
+      "stage_7_root_cause_ms": 0.03
     },
     "overall_verdict": "HOLD",
     "quality_tier": "GRADE_B_QUARANTINE",
@@ -43,23 +61,41 @@
       "RGB-only or incomplete secondary evidence: calibrated thermal/profilometer data unavailable -> HOLD for QA; no release decision or dimensional metrology"
     ],
     "plc_gate_action": "HOLD",
-    "raw_detections_count": 0,
+    "raw_detections_count": 1,
     "defects_count": 0,
     "defect_metrology": [],
-    "raw_detections": [],
+    "raw_detections": [
+      {
+        "box": [
+          340.1306457519531,
+          433.46771240234375,
+          358.9579772949219,
+          454.33013916015625
+        ],
+        "box_format": "xyxy",
+        "confidence": 0.5271173119544983,
+        "class_id": 0,
+        "class_name": "surface_crack",
+        "mask_shape": [
+          480,
+          640
+        ],
+        "mask_foreground_pixels": 378
+      }
+    ],
     "measurement_policy": "No dimensional metrology or release decision when inspection evidence is not safety-ready.",
     "root_cause_report": {
       "primary_root_cause": "HOLD: evidence or communication contract not satisfied",
       "affected_equipment": "No automatic process change authorized",
       "confidence_score": null,
       "evidence_level": "HEURISTIC_RULE_MATCH",
-      "defect_signature": "Automatic release blocked. RGB-only or incomplete secondary evidence: calibrated thermal/profilometer data unavailable -> HOLD for QA; no release decision or dimensional metrology. Raw detections present: 0; metrology objects: 0.",
+      "defect_signature": "Automatic release blocked. RGB-only or incomplete secondary evidence: calibrated thermal/profilometer data unavailable -> HOLD for QA; no release decision or dimensional metrology. Raw detections present: 1; metrology objects: 0.",
       "severity_level": "HOLD",
       "action_items": [],
-      "timestamp": "2026-08-28T21:49:18.334442"
+      "timestamp": "2026-08-31T09:47:26.269300"
     },
     "system_health": "DEGRADED",
-    "timestamp": "2026-08-28T21:49:18.334442"
+    "timestamp": "2026-08-31T09:47:26.269300"
   },
   "output_overlay": "reports/coatingvision_real_demo/coatingvision_model_output.png"
 }

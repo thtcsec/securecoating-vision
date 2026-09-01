@@ -58,6 +58,16 @@ class TestRootCauseEngine(unittest.TestCase):
         self.assertIn("Drying Oven", report.affected_equipment)
         self.assertTrue(any("Zone 1" in a.equipment_unit for a in report.action_items))
 
+    def test_real_detector_class_aliases_are_attributed(self):
+        surface = self.engine.diagnose_batch([
+            {"class_name": "surface_crack", "length_mm": 6.0, "area_mm2": 2.0}
+        ])
+        delamination = self.engine.diagnose_batch([
+            {"class_name": "delamination_crack", "area_mm2": 5.0, "peak_height_um": 2.0}
+        ])
+        self.assertIn("Slot-Die", surface.affected_equipment)
+        self.assertIn("Drying Oven", delamination.affected_equipment)
+
     def test_void_slurry_mixer_attribution(self):
         defects = [
             {"class_name": "void", "area_mm2": 2.5, "valley_depth_um": 20.0}

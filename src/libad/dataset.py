@@ -9,9 +9,12 @@ protocol can be tested without claiming paper-table performance.
 from __future__ import annotations
 
 import json
+import os
+import re
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import cv2
 import numpy as np
@@ -151,6 +154,8 @@ def _read_gray(path: Path) -> np.ndarray:
     image = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
     if image is None:
         raise FileNotFoundError(f"Cannot read LIBAD image: {path}")
+    if image.ndim == 3 and image.shape[-1] == 1:
+        image = image[:, :, 0]
     return image
 
 
@@ -386,4 +391,105 @@ def dataset_status(config: Optional[dict] = None) -> Dict[str, object]:
         "splits_root": str(splits),
         "official_split_seeds": list(OFFICIAL_SPLIT_SEEDS),
         "license": "CC BY 4.0",
+        "mounted_sample_count": len(_official_sample_index(cfg)),
     }
+
+
+_OFFICIAL_INDEX_LOCK = threading.Lock()
+_OFFICIAL_INDEX_CACHE: Optional[Tuple[str, Tuple[Dict[str, Any], ...]]] = None
+_SAMPLE_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$")
+
+
+def reset_official_sample_index_cache() -> None:
+    global _OFFICIAL_INDEX_CACHE
+    with _OFFICIAL_INDEX_LOCK:
+        _OFFICIAL_INDEX_CACHE = None
+
+
+def _official_sample_index(config: Optional[dict] = None) -> Tuple[Dict[str, Any], ...]:
+    """Metadata-only index of complete VIS-A / VIS-B / X-rayL triples. No fixture rows."""
+    global _OFFICIAL_INDEX_CACHE
+    cfg = config or load_libad_config()
+    root = PROJECT_ROOT / cfg["paths"]["dataset_root"]
+    cache_key = str(root)
+    with _OFFICIAL_INDEX_LOCK:
+        if _OFFICIAL_INDEX_CACHE and _OFFICIAL_INDEX_CACHE[0] == cache_key:
+            return _OFFICIAL_INDEX_CACHE[1]
+        items: List[Dict[str, Any]] = []
+        if root.is_dir():
+            for stem, group, label, folder in _iter_official_samples(root):
+                vis_a, vis_b, xray_l = _official_sample_paths(folder, stem)
+                if not (vis_a.is_file() and vis_b.is_file() and xray_l.is_file()):
+                    continue
+                items.append(
+                    {
+                        "sample_id": stem,
+                        "defect_group": group,
+                        "label": "anomaly" if label else "normal",
+                    }
+                )
+        cached = tuple(items)
+        _OFFICIAL_INDEX_CACHE = (cache_key, cached)
+        return cached
+
+
+def list_official_samples(
+    offset: int = 0,
+    limit: int = 12,
+    config: Optional[dict] = None,
+) -> Dict[str, Any]:
+    """Page official mounted samples. Empty when the release is absent; never a fixture."""
+    cfg = config or load_libad_config()
+    present = official_libad_present(cfg)
+    records = _official_sample_index(cfg) if present else tuple()
+    safe_offset = max(0, int(offset))
+    safe_limit = max(0, min(int(limit), 100))
+    page = list(records[safe_offset:safe_offset + safe_limit]) if safe_limit else []
+    groups = sorted({item["defect_group"] for item in records})
+    return {
+        "official_dataset_present": present,
+        "total": len(records),
+        "offset": safe_offset,
+        "limit": safe_limit,
+        "returned": len(page),
+        "items": page,
+        "defect_groups": groups,
+        "image_payloads_included": False,
+        "source": "official_release" if present else "not_mounted",
+        "comparable_to_paper": False,
+    }
+
+
+def load_official_sample_view(
+    sample_id: str,
+    view: str,
+    config: Optional[dict] = None,
+) -> np.ndarray:
+    """Load one official grayscale view. Refuses path-like ids and missing triples."""
+    if view not in {"vis_a", "vis_b", "xray_l"}:
+        raise ValueError("Unsupported multimodal view")
+    if os.path.basename(sample_id) != sample_id or not _SAMPLE_ID_PATTERN.fullmatch(sample_id):
+        raise FileNotFoundError("sample_id must be a bounded basename")
+    cfg = config or load_libad_config()
+    if not official_libad_present(cfg):
+        raise FileNotFoundError("Official multimodal release is not mounted")
+    root = PROJECT_ROOT / cfg["paths"]["dataset_root"]
+    match = next((item for item in _official_sample_index(cfg) if item["sample_id"] == sample_id), None)
+    if match is None:
+        raise FileNotFoundError("Official sample was not found")
+    records = {
+        stem: folder
+        for stem, _group, _label, folder in _iter_official_samples(root)
+        if stem == sample_id
+    }
+    folder = records.get(sample_id)
+    if folder is None:
+        raise FileNotFoundError("Official sample folder was not found")
+    vis_a, vis_b, xray_l = _official_sample_paths(folder, sample_id)
+    path = {"vis_a": vis_a, "vis_b": vis_b, "xray_l": xray_l}[view]
+    try:
+        path.relative_to(root)
+    except ValueError as exc:
+        raise FileNotFoundError("Official sample escaped the dataset root") from exc
+    image = _read_gray(path)
+    return image

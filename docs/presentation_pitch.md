@@ -6,7 +6,7 @@
 **Brand:** SecureCoating-Vision  
 **Format:** 6-Minute Presentation + 2-Minute Q&A  
 
-Do not introduce a fourth title. Slide 1 of `SecureCoating-Vision_Final_Defense_6min.pptx` uses the registered finalist-list title exactly, then the tagline.
+Do not introduce a fourth title. Slide 1 of `SecureCoating-Vision_Final_Defense_6min_Fixed.pptx` uses the registered finalist-list title exactly, then the tagline.
 
 Use that deck for judges. `*_Evidence_Aware.pptx` still reads as multi-sensor fusion; do not lead with that subtitle.
 
@@ -22,11 +22,11 @@ Say this, then stop talking until they look at the first defect image:
 |---|---|---|
 | Problem framing | 0:00–0:35 | Scrap / escape vs unsafe automatic PASS |
 | Novelty | 0:35–2:00 | Gate on top of YOLO + attributed LIBAD/DA-Core; HOLD is the contribution |
-| Quantitative evidence | 2:45–4:20 | CoatingVision held-out: mAP50 0.63 / P 0.64 / R 0.64; CPU pipeline ~312 ms; LIBAD paper FPR95 **54.3%** / F1-max 90.6% as the deployment gap |
+| Quantitative evidence | 2:45–4:20 | CoatingVision 88-image test split: mAP50 0.633 / P 0.645 / R 0.642 / mAP50-95 0.354; weights and dataset-tree hashes shown |
 | Materials relevance | throughout | Roll/batch identity, coating-surface frames, SPC on the coating process — not generic object detection |
 | Industrial impact | 2:00–3:35 | Fail-closed, false-accept blocked by HOLD, confirm-audit control, HMAC certificate; **no factory yield claim** |
 | Demo storytelling | 5:10–6:00 | Acquired frame → model input → overlay → PASS/REJECT/HOLD |
-| Reproducibility / limits | last 20 s + Q&A | DOI + hashes + 171 tests; thermal/profiler simulated; official LIBAD 4.84 GB run pending |
+| Reproducibility / limits | last 20 s + Q&A | DOI + model/dataset hashes + current test manifest; thermal/profiler simulated; roll-disjoint/HIL evidence pending |
 
 Do **not** say 99.4% mAP, ≤35 ms TensorRT, real thermal/laser plant instruments, or zero escapes.
 
@@ -51,7 +51,7 @@ Do **not** say 99.4% mAP, ≤35 ms TensorRT, real thermal/laser plant instrument
 *   **The Gap:** Academic detection answers *how to detect*. A factory needs *when a detection is safe enough to act on*.
 
 ### Minute 2: Two Evidence Lanes, One Safety Contract
-*   **Lane A, already built:** YOLOv8-seg/ONNX on RGB, FastAPI, production operations dashboard, PASS/REJECT/HOLD, OPC UA/Modbus, HMAC certificates. Thermal and profilometry are **simulated interface adapters**.
+*   **Lane A, already built:** two-class YOLO26n detector/ONNX on real CoatingVision RGB images, FastAPI, production operations dashboard, PASS/REJECT/HOLD, OPC UA/Modbus, HMAC certificates. Thermal and profilometry are **simulated interface adapters**.
 *   **Lane B, validation extension:** LIBAD defines aligned VIS and inline-compatible X-rayL inputs plus 10 official splits. This repository implements the adapter and evidence gate; official data execution is still pending.
 *   **One sentence of progress:** "The initial prototype validated the software and safety contract using RGB inspection and simulated secondary modalities. We then added a LIBAD-compatible validation harness; the checked-in run is a protocol fixture, not a paper-comparable result."
 *   **Not a topic change.** YOLO stays. DA-Core stays attributed to Sui et al.
@@ -71,18 +71,16 @@ Do **not** say 99.4% mAP, ≤35 ms TensorRT, real thermal/laser plant instrument
 *   Certificates HMAC-sign the canonical payload.
 
 ### Minute 5: Why LIBAD Does Not End the Story
-*   **Our RGB lane (research, not factory qualification):** CoatingVision held-out test-split, seed 71, DOI 10.6084/m9.figshare.29260121.v1 — mAP50 0.63, precision 0.64, recall 0.64. Live CPU mean pipeline latency ~312 ms.
-*   Sui et al. report that even the best LIBAD setting still has **FPR95 54.3%** with AUROC 86.7%, AUPR 95.7%, F1-max 90.6%. They say this false-positive rate is too high for direct deployment.
-*   Place those numbers **side by side**: a strong F1 does not authorize automatic release. The harness adds Automatic Decision Coverage, HOLD Rate, Escape Rate, and Selective Risk. Official-data numbers for those four have not yet been generated in this repository.
-*   We do not hide a high FPR. We measure how much of it is converted into HOLD.
+*   **Our RGB lane (research, not factory qualification):** CoatingVision fixed 88-image test split, seed 71, DOI 10.6084/m9.figshare.29260121.v1 — mAP50 0.633, precision 0.645, recall 0.642, mAP50-95 0.354.
+*   Show the checkpoint SHA-256 prefix `f72a8f2b…` and dataset-tree SHA-256 prefix `3c3f2773…`. State that the split is image-disjoint, not factory roll-disjoint.
+*   Local throughput evidence is presented only as measured inference timing. Camera exposure, transport, PLC ACK, and target-hardware HIL remain outside that number.
 
-### Minute 6: Four Cases, One Closing Screen
-1. Normal agreement → PASS
-2. Surface-visible defect → REJECT, surface evidence
-3. Internally visible X-ray anomaly → REJECT, complementary X-ray evidence
-4. Near-threshold modality disagreement → HOLD, manual QA
-*   Closing screen: Roll ID, Batch ID, Part ID, modality scores, calibration state, model hash, decision reason, certificate signature, PLC state.
-*   **Close:** "LIBAD detects. SecureCoating-Vision decides when detection is safe enough to act on."
+### Minute 6: Real Detection, Safe Demo Disposition
+1. Real CoatingVision optical input with DOI and SHA-256 provenance.
+2. `surface_crack` detection from the configured checkpoint.
+3. PyTorch and ONNX share the same two-class map and hash-pinned artifacts.
+4. Development simulation + mock PLC + unverified calibration force `HOLD`.
+*   **Close:** "The model finds defects. The evidence gate controls when the line may act."
 
 ---
 

@@ -3,6 +3,7 @@
 import os
 import sys
 import time
+import threading
 import unittest
 import numpy as np
 from unittest.mock import patch
@@ -11,7 +12,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
 from inference.failsafe import FailSafeManager, SystemState
-from industrial.protocol_manager import IndustrialProtocolManager
+from industrial.protocol_manager import GateAction, IndustrialProtocolManager
 from traceability.roll_certificate import RollCertificateGenerator
 from industrial.web_synchronizer import WebSynchronizer
 
@@ -84,6 +85,18 @@ class AckingModbusClient:
         pass
 
 
+class StaleAckingModbusClient(AckingModbusClient):
+    output_writes = 0
+
+    def __init__(self, *args, **kwargs):
+        self.__class__.registers = {1010: 73, 1011: 73}
+        self.__class__.output_writes = 0
+
+    def write_register(self, address, value, **kwargs):
+        self.__class__.output_writes += 1
+        return super().write_register(address, value, **kwargs)
+
+
 class TestSafetyContracts(unittest.TestCase):
     def test_inference_deadline_returns_emergency(self):
         manager = FailSafeManager(max_inference_timeout_ms=5.0)
@@ -140,6 +153,75 @@ class TestSafetyContracts(unittest.TestCase):
         )
         self.assertEqual(result["gate_action"], "HOLD")
 
+    def test_estop_and_inspection_commands_are_serialized_with_unique_ids(self):
+        manager = IndustrialProtocolManager({"enabled": True, "mock_mode": True})
+        entered = threading.Event()
+        release = threading.Event()
+        dispatches = []
+
+        def controlled_dispatch(part_id, action, defect_info, command_id):
+            dispatches.append((action.value, command_id))
+            if action.value == "EMERGENCY_STOP":
+                entered.set()
+                self.assertTrue(release.wait(timeout=2.0))
+            return True, {"command_channel": "TEST"}
+
+        manager._dispatch_command = controlled_dispatch
+        results = {}
+        estop_thread = threading.Thread(
+            target=lambda: results.setdefault("estop", manager.emergency_stop("race test"))
+        )
+        estop_thread.start()
+        self.assertTrue(entered.wait(timeout=2.0))
+        inspection_thread = threading.Thread(
+            target=lambda: results.setdefault(
+                "inspection",
+                manager.process_inspection_result(
+                    "PART_RACE", "BATCH_RACE", [], {"passed": True},
+                    safety_permitted=False, safety_reasons=["unsafe"],
+                ),
+            )
+        )
+        inspection_thread.start()
+        time.sleep(0.02)
+        self.assertEqual(dispatches, [("EMERGENCY_STOP", 1)])
+        release.set()
+        estop_thread.join(timeout=2.0)
+        inspection_thread.join(timeout=2.0)
+
+        self.assertFalse(estop_thread.is_alive())
+        self.assertFalse(inspection_thread.is_alive())
+        self.assertEqual(dispatches, [("EMERGENCY_STOP", 1), ("HOLD", 2)])
+        ids = [signal.signal_id for signal in manager.signal_history]
+        self.assertEqual(ids, ["SIG_000001", "SIG_000002"])
+        self.assertEqual(len(ids), len(set(ids)))
+
+    def test_estop_latches_local_state_while_command_owner_is_busy(self):
+        manager = IndustrialProtocolManager({"enabled": True, "mock_mode": True})
+        pass_entered = threading.Event()
+        release_pass = threading.Event()
+
+        def controlled_dispatch(part_id, action, defect_info, command_id):
+            if action.value == "PASS":
+                pass_entered.set()
+                release_pass.wait(timeout=2.0)
+            return True, {"command_channel": "TEST"}
+
+        manager._dispatch_command = controlled_dispatch
+        pass_thread = threading.Thread(target=lambda: manager.trigger_pass("P", "B"))
+        pass_thread.start()
+        self.assertTrue(pass_entered.wait(timeout=2.0))
+        estop_thread = threading.Thread(target=lambda: manager.emergency_stop("urgent"))
+        estop_thread.start()
+        deadline = time.monotonic() + 1.0
+        while not manager.interlock_latched and time.monotonic() < deadline:
+            time.sleep(0.001)
+        self.assertTrue(manager.interlock_latched)
+        self.assertTrue(estop_thread.is_alive())
+        release_pass.set()
+        pass_thread.join(timeout=2.0)
+        estop_thread.join(timeout=2.0)
+
     def test_production_plc_failure_holds_part_without_ack(self):
         manager = IndustrialProtocolManager({"enabled": True, "mock_mode": False})
         self.assertTrue(manager.interlock_latched)
@@ -153,6 +235,19 @@ class TestSafetyContracts(unittest.TestCase):
         self.assertEqual(result["gate_action"], "HOLD")
         self.assertEqual(manager.signal_history[-1].metadata["delivery_status"], "FAILED")
         self.assertFalse(manager.signal_history[-1].acknowledged)
+        self.assertTrue(manager.signal_history[-1].metadata["configuration_error"])
+        self.assertFalse(manager.signal_history[-1].metadata["transport_ready"])
+
+    def test_unready_transport_fails_before_any_network_write(self):
+        manager = IndustrialProtocolManager({"enabled": True, "mock_mode": False})
+        with patch.object(manager, "_write_opc_ua") as write_opc:
+            confirmed, metadata = manager._dispatch_command(
+                "PART_NO_TRANSPORT", GateAction.HOLD, {}, command_id=1
+            )
+        self.assertFalse(confirmed)
+        self.assertFalse(metadata["transport_ready"])
+        self.assertTrue(metadata["configuration_error"])
+        write_opc.assert_not_called()
 
     def test_modbus_exception_response_is_not_acknowledged(self):
         manager = IndustrialProtocolManager({
@@ -180,6 +275,24 @@ class TestSafetyContracts(unittest.TestCase):
                 "PART_ACK", manager.should_reject([])["action"], command_id=73
             )
         self.assertTrue(confirmed)
+
+    def test_modbus_rejects_stale_ack_sequence_before_writing_outputs(self):
+        manager = IndustrialProtocolManager({
+            "enabled": True,
+            "mock_mode": False,
+            "command_channel": "modbus",
+            "modbus": {
+                "trusted_gateway": True,
+                "register_command_sequence": 1010,
+                "register_ack_sequence": 1011,
+            },
+        })
+        with patch("industrial.protocol_manager.ModbusTcpClient", StaleAckingModbusClient):
+            confirmed = manager._write_modbus(
+                "PART_STALE", manager.should_reject([])["action"], command_id=73
+            )
+        self.assertFalse(confirmed)
+        self.assertEqual(StaleAckingModbusClient.output_writes, 0)
 
     def test_certificate_detects_nested_payload_tampering(self):
         cert = RollCertificateGenerator.build_certificate(

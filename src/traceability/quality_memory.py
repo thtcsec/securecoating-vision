@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import sqlite3
 import datetime
@@ -8,6 +9,51 @@ import tempfile
 from contextlib import contextmanager
 
 logger = logging.getLogger("SecureCoatingVision.QualityMemory")
+
+_SAMPLE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$")
+
+
+def _safe_sample_name(sample_name):
+    """Persist only a bounded basename. Path-like values are dropped, not stored."""
+    if not isinstance(sample_name, str) or not sample_name:
+        return None
+    if os.path.basename(sample_name) != sample_name or len(sample_name) > 255:
+        return None
+    if not _SAMPLE_NAME_PATTERN.fullmatch(sample_name):
+        return None
+    return sample_name
+
+
+def _serialize_published_classes(sample_name, published_classes):
+    """JSON list when a published CSV row exists; NULL when the sample is unattributed."""
+    if not sample_name or published_classes is None:
+        return None
+    if not isinstance(published_classes, (list, tuple)):
+        return None
+    cleaned = []
+    for item in published_classes:
+        if isinstance(item, str) and item and len(item) <= 64:
+            cleaned.append(item)
+        if len(cleaned) >= 8:
+            break
+    return json.dumps(cleaned, separators=(",", ":"))
+
+
+def _parse_published_classes_json(raw):
+    """Return a list for a published row, or None when the field is absent/corrupt."""
+    if raw is None or raw == "":
+        return None
+    try:
+        value = json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    if not isinstance(value, list):
+        return None
+    return [
+        item
+        for item in value
+        if isinstance(item, str) and item and len(item) <= 64
+    ][:8]
 
 class QualityMemory:
     """
@@ -21,7 +67,7 @@ class QualityMemory:
         self._health_lock = threading.Lock()
         
         # Ensure data folder exists
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        os.makedirs(os.path.dirname(os.path.abspath(self.db_path)), exist_ok=True)
         self._init_db()
         logger.info(f"Quality Memory DB initialized at: {self.db_path}")
 
@@ -56,6 +102,7 @@ class QualityMemory:
                     latency_ms REAL,
                     fallback_active INTEGER,
                     model_version TEXT,
+                    peak_confidence REAL,
                     timestamp TEXT NOT NULL
                 )
             """)
@@ -76,6 +123,9 @@ class QualityMemory:
                 ("system_state", "TEXT"),
                 ("inspection_valid", "INTEGER"),
                 ("error_reason", "TEXT"),
+                ("peak_confidence", "REAL"),
+                ("sample_name", "TEXT"),
+                ("published_classes_json", "TEXT"),
             ):
                 if column_name not in cols:
                     cursor.execute(
@@ -171,11 +221,18 @@ class QualityMemory:
         system_state=None,
         inspection_valid=True,
         error_reason=None,
+        peak_confidence=None,
+        sample_name=None,
+        published_classes=None,
     ) -> bool:
         """Logs inspection entry to database."""
         timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
         fallback_val = 1 if fallback else 0
         has_defect_val = 1 if has_defect else 0
+        persisted_sample = _safe_sample_name(sample_name)
+        published_json = _serialize_published_classes(
+            persisted_sample, published_classes
+        )
 
         try:
             with self._connection() as conn:
@@ -194,8 +251,9 @@ class QualityMemory:
                         batch_id, part_id, has_defect, defect_class,
                         max_length_mm, max_area_mm2, peak_height_um,
                         latency_ms, fallback_active, model_version, run_id, timestamp,
-                        roll_id, gate_action, system_state, inspection_valid, error_reason
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        roll_id, gate_action, system_state, inspection_valid, error_reason,
+                        peak_confidence, sample_name, published_classes_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         batch_id,
@@ -215,6 +273,9 @@ class QualityMemory:
                         system_state,
                         1 if inspection_valid else 0,
                         error_reason,
+                        peak_confidence,
+                        persisted_sample,
+                        published_json,
                     ),
                 )
                 conn.commit()
@@ -376,7 +437,9 @@ class QualityMemory:
         query = """
             SELECT has_defect 
             FROM inspections 
-            WHERE batch_id = ? 
+            WHERE batch_id = ?
+              AND inspection_valid = 1
+              AND gate_action IN ('PASS', 'REJECT')
             ORDER BY timestamp DESC 
             LIMIT ?
         """
@@ -497,7 +560,8 @@ class QualityMemory:
                     SELECT timestamp, part_id, run_id, gate_action, system_state,
                            defect_class, latency_ms, inspection_valid, error_reason,
                            has_defect, max_length_mm, max_area_mm2, peak_height_um,
-                           fallback_active, model_version, roll_id
+                           fallback_active, model_version, roll_id, peak_confidence,
+                           sample_name, published_classes_json
                     FROM inspections
                     WHERE batch_id = ?
                     ORDER BY timestamp DESC, id DESC
@@ -525,6 +589,9 @@ class QualityMemory:
                             "fallback_active": bool(row[13]),
                             "model_version": row[14],
                             "roll_id": row[15],
+                            "peak_confidence": row[16],
+                            "sample_name": row[17],
+                            "published_classes": _parse_published_classes_json(row[18]),
                         }
                     )
                 payload["count"] = len(records)

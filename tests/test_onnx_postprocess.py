@@ -35,6 +35,23 @@ class TestONNXPostprocess(unittest.TestCase):
         self.assertEqual(int((mask * (1 - allowed)).sum()), 0)
         self.assertGreater(int(mask.sum()), 0)
 
+    def test_output_schema_class_mismatch_is_rejected(self):
+        engine = InferenceEngine.__new__(InferenceEngine)
+        engine.imgsz = 8
+        engine.conf_thresh = 0.25
+        engine.iou_thresh = 0.45
+        # 4 box + 2 class + 1 mask coefficient, but configured for 4 classes.
+        prediction = np.zeros((1, 7, 1), dtype=np.float32)
+        prototypes = np.zeros((1, 1, 2, 2), dtype=np.float32)
+        with self.assertRaises(ValueError):
+            engine._process_yolo_seg(
+                prediction,
+                prototypes,
+                {"orig_shape": (8, 8), "pad_top": 0, "pad_left": 0,
+                 "scale": 1.0, "new_shape": (8, 8)},
+                num_classes=4,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

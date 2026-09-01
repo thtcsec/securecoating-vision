@@ -46,6 +46,11 @@ def main() -> int:
         action="store_true",
         help="Acknowledge CC BY 4.0. This script still does not auto-download 4.84 GB.",
     )
+    parser.add_argument(
+        "--status",
+        action="store_true",
+        help="Print whether the official release is mounted. Does not download files.",
+    )
     args = parser.parse_args()
     print(INSTRUCTIONS)
     target = PROJECT_ROOT / "data" / "libad"
@@ -55,6 +60,18 @@ def main() -> int:
         readme.write_text(INSTRUCTIONS + "\n", encoding="utf-8")
     if args.accept_license:
         print("\nLicense acknowledgement recorded locally. Download the archives from Hugging Face manually.")
+    if args.status:
+        from libad.dataset import dataset_status, list_official_samples
+
+        status = dataset_status()
+        samples = list_official_samples(offset=0, limit=0)
+        print("\nOfficial mount status")
+        print(f"  present: {status.get('official_dataset_present')}")
+        print(f"  protocol_complete: {status.get('official_protocol_complete')}")
+        print(f"  comparable_to_paper: {status.get('comparable_to_paper')}")
+        print(f"  mounted_complete_triples: {samples.get('total')}")
+        for blocker in status.get("comparability_blockers") or []:
+            print(f"  blocker: {blocker}")
     return 0
 
 

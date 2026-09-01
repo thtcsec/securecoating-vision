@@ -15,6 +15,7 @@ from libad.demo_cases import (
     run_libad_demo_case,
 )
 from libad.certificate import EvidenceCertificate
+from libad.certificate import build_evidence_certificate
 from libad.evidence_gate import EvidenceContracts, decide_evidence_gate
 from libad.protocol import load_project_identity
 from libad.scorer import SampleScore
@@ -95,6 +96,17 @@ class TestLibadDemoCases(unittest.TestCase):
         self.assertTrue(certificate.verify(secret))
         certificate.source_diff_sha256 = "0" * 64
         self.assertFalse(certificate.verify(secret))
+
+    def test_default_development_certificate_key_is_stable_within_process(self):
+        certificate = build_evidence_certificate(
+            roll_id="ROLL", batch_id="BATCH", part_id="PART",
+            decision="HOLD", decision_reason="test", vis_score=None,
+            xray_score=None, fused_score=None, vis_state="MISSING",
+            xray_state="MISSING", calibration_state="UNVERIFIED",
+            model_hash=None, dataset_manifest_hash=None, commit_hash="UNKNOWN",
+            plc_state="SIMULATED", detector_attribution="test",
+        )
+        self.assertTrue(certificate.verify())
 
 
 if __name__ == "__main__":

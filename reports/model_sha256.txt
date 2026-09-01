@@ -1,1 +1,2 @@
-outputs/model.onnx SHA-256: 0a89dad2bf0d5801a58266c37119d484727e085c03ee14ce5a94e05f3285c32f
+outputs/best.pt SHA-256: f72a8f2bd64add6f9ae6c42684bb09e0705b1ed70cdc9123bb82923ef76d5719
+outputs/model.onnx SHA-256: fa1c467a5857bb68d226eb0b76c7ca4eeee1f94e0f710559401a5f223f8a1a14

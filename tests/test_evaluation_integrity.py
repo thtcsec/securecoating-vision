@@ -12,7 +12,11 @@ sys.path.insert(0, str(ROOT))
 
 import numpy as np
 
-from scripts.run_evaluation import assert_no_dataset_overlap, evaluate_sample_predictions
+from scripts.run_evaluation import (
+    assert_no_dataset_overlap,
+    evaluate_sample_predictions,
+    load_gt_labels,
+)
 from src.evaluation.dataset_manifest import (
     validate_detection_dataset_manifest,
     validate_roll_disjoint_manifest,
@@ -131,7 +135,41 @@ class TestEvaluationIntegrity(unittest.TestCase):
         self.assertEqual(result["box_tp"], 1)
         self.assertEqual(result["mask_tp"], 0)
         self.assertEqual(result["mask_fp"], 1)
-        self.assertEqual(result["mask_fn"], 1)
+        self.assertEqual(result["mask_fn"], 2)
+
+    def test_mask_iou_failures_count_as_false_negatives(self):
+        gt = []
+        detections = []
+        for y in (0, 4):
+            gt_mask = np.zeros((8, 8), dtype=np.uint8)
+            gt_mask[y:y + 4, 0:4] = 1
+            gt.append({"class_id": 0, "bbox_xyxy": [0, y, 4, y + 4], "mask": gt_mask})
+            detections.append({
+                "class_id": 0,
+                "box": [0, y, 4, y + 4],
+                "box_format": "xyxy",
+                "confidence": 0.9,
+                "mask": np.zeros((8, 8), dtype=np.uint8),
+            })
+        result = evaluate_sample_predictions(
+            gt, detections, np.zeros((8, 8), dtype=np.uint8)
+        )[0]
+        self.assertEqual(result["mask_tp"], 0)
+        self.assertEqual(result["mask_fp"], 2)
+        self.assertEqual(result["mask_fn"], 2)
+
+    def test_evaluation_label_parser_rejects_invalid_class_and_coordinates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            label = Path(directory) / "bad.txt"
+            for payload in (
+                "9 0 0 1 0 1 1\n",
+                "0 -0.1 0 1 0 1 1\n",
+                "0 nan 0 1 0 1 1\n",
+                "0 0.5 0.5 0.5 0.5 0.5 0.5\n",
+            ):
+                label.write_text(payload, encoding="utf-8")
+                with self.assertRaises(ValueError):
+                    load_gt_labels(str(label), img_h=8, img_w=8)
 
     def test_manifest_rejects_roll_overlap(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -156,15 +194,52 @@ class TestEvaluationIntegrity(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "evaluation" / "images").mkdir(parents=True)
+            (root / "evaluation" / "labels").mkdir(parents=True)
             image = root / "evaluation" / "images" / "test.jpg"
             image.write_bytes(b"test")
+            label = root / "evaluation" / "labels" / "test.txt"
+            label.write_text("", encoding="utf-8")
             digest = hashlib.sha256(image.read_bytes()).hexdigest()
+            label_digest = hashlib.sha256(label.read_bytes()).hexdigest()
             manifest = root / "manifest.json"
             manifest.write_text(json.dumps({"splits": {
                 "train": [{"path": "evaluation/images/test.jpg", "roll_id": "R1", "sha256": digest}],
                 "val": [{"path": "evaluation/images/test.jpg", "roll_id": "R2", "sha256": digest}],
-                "test": [{"path": "evaluation/images/test.jpg", "roll_id": "R3", "sha256": digest}],
+                "test": [{"path": "evaluation/images/test.jpg", "roll_id": "R3", "sha256": digest,
+                          "label_path": "evaluation/labels/test.txt", "label_sha256": label_digest}],
             }}), encoding="utf-8")
+            with self.assertRaises(ValueError):
+                validate_roll_disjoint_manifest(
+                    str(manifest), str(root), str(root / "evaluation")
+                )
+
+    def test_evaluation_manifest_rejects_changed_label(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "evaluation" / "images").mkdir(parents=True)
+            (root / "evaluation" / "labels").mkdir(parents=True)
+            image = root / "evaluation" / "images" / "test.jpg"
+            label = root / "evaluation" / "labels" / "test.txt"
+            image.write_bytes(b"test")
+            label.write_text("0 0 0 1 0 1 1\n", encoding="utf-8")
+            artifacts = root / "artifacts"
+            artifacts.mkdir()
+            train_image = artifacts / "train.jpg"
+            val_image = artifacts / "val.jpg"
+            train_image.write_bytes(b"train")
+            val_image.write_bytes(b"val")
+            manifest = root / "manifest.json"
+            manifest.write_text(json.dumps({"splits": {
+                "train": [{"path": "artifacts/train.jpg", "roll_id": "R1",
+                           "sha256": hashlib.sha256(train_image.read_bytes()).hexdigest()}],
+                "val": [{"path": "artifacts/val.jpg", "roll_id": "R2",
+                         "sha256": hashlib.sha256(val_image.read_bytes()).hexdigest()}],
+                "test": [{"path": "evaluation/images/test.jpg", "roll_id": "R3",
+                          "sha256": hashlib.sha256(image.read_bytes()).hexdigest(),
+                          "label_path": "evaluation/labels/test.txt",
+                          "label_sha256": hashlib.sha256(label.read_bytes()).hexdigest()}],
+            }}), encoding="utf-8")
+            label.write_text("tampered", encoding="utf-8")
             with self.assertRaises(ValueError):
                 validate_roll_disjoint_manifest(
                     str(manifest), str(root), str(root / "evaluation")

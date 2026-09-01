@@ -1,8 +1,7 @@
 {
-  "model": "outputs/best.pt",
-  "config": "configs/evaluation.yaml",
-  "box_map50": 0.4901,
-  "box_map50_95": 0.4318,
-  "mask_map50": 0.4421,
-  "mask_map50_95": 0.3591
+  "status": "SUPERSEDED",
+  "reason": "The previous file evaluated a synthetic segmentation checkpoint that is no longer the configured runtime model.",
+  "authoritative_report": "reports/coatingvision_real_test_metrics.json",
+  "current_model_task": "detect",
+  "current_model_sha256": "f72a8f2bd64add6f9ae6c42684bb09e0705b1ed70cdc9123bb82923ef76d5719"
 }

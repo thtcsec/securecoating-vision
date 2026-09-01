@@ -1,12 +1,12 @@
 # LIBAD Validation Extension
 
-This repository adds a **LIBAD-compatible multimodal evidence adapter** without replacing the existing RGB YOLOv8-seg/ONNX prototype. The official dataset is real multimodal data; the checked-in demo and benchmark artifacts are deterministic protocol fixtures.
+This repository adds a **LIBAD-compatible multimodal evidence adapter** without replacing the existing two-class RGB YOLO/ONNX detector. The official dataset is real multimodal data; the checked-in demo and benchmark artifacts are deterministic protocol fixtures.
 
 ## What changed, and what did not
 
 The original software-and-safety contract remains:
 
-- YOLOv8-seg / ONNX for known surface-defect localization
+- YOLO / ONNX object detection for known surface-defect localization
 - FastAPI, dashboard, traceability memory, HMAC certificates
 - PASS / REJECT / HOLD
 - OPC UA / Modbus contracts, calibration checks, model/dataset/commit hashes

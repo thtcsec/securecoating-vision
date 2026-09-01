@@ -155,7 +155,8 @@ class WebSynchronizer:
         roll_metadata: Optional[RollMetadata] = None,
         encoder_resolution_um: float = 10.0,
         initial_line_speed_m_s: float = 1.8,
-        max_defect_history: int = 2000
+        max_defect_history: int = 2000,
+        max_defect_ledger: int = 100_000,
     ):
         self.roll = roll_metadata or RollMetadata()
         self.encoder = QuadratureEncoderSimulator(resolution_um_per_pulse=encoder_resolution_um)
@@ -174,6 +175,7 @@ class WebSynchronizer:
         # deployments should additionally persist these records through the
         # traceability store; the UI cache must never be used as the certificate source.
         self._defect_ledger: List[Dict[str, Any]] = []
+        self.max_defect_ledger = max(1, int(max_defect_ledger))
         
         # Layer B: Unbounded lifetime statistical counters
         self.lifetime_total_defects = 0
@@ -290,6 +292,10 @@ class WebSynchronizer:
         Atomic ledger transaction updating both lifetime statistical counters and recent cache.
         """
         with self._lock:
+            if len(self._defect_ledger) >= self.max_defect_ledger:
+                raise OverflowError(
+                    "Active-roll defect ledger capacity reached; persist/rotate the roll before continuing"
+                )
             if coord.roll_id != self.roll.roll_id:
                 raise ValueError(
                     f"Coordinate roll {coord.roll_id} does not match active roll {self.roll.roll_id}"
@@ -331,6 +337,10 @@ class WebSynchronizer:
     ) -> None:
         """Record detection evidence without inventing physical coordinates."""
         with self._lock:
+            if len(self._defect_ledger) >= self.max_defect_ledger:
+                raise OverflowError(
+                    "Active-roll defect ledger capacity reached; persist/rotate the roll before continuing"
+                )
             if frame_ctx.roll_id != self.roll.roll_id:
                 raise ValueError(
                     f"Frame roll {frame_ctx.roll_id} does not match active roll {self.roll.roll_id}"

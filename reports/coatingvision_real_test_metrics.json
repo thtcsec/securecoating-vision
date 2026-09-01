@@ -1,13 +1,43 @@
 {
-  "timestamp": "2026-08-17T09:21:18.651304+00:00",
+  "timestamp": "2026-08-31T02:55:19.074352+00:00",
   "dataset": "CoatingVision detection subset, Figshare DOI 10.6084/m9.figshare.29260121.v1, CC BY 4.0",
-  "split": "fixed test split (seed 71)",
-  "weights": "outputs\\coatingvision_real\\yolo26n_10ep\\weights\\best.pt",
+  "evidence_class": "public_real_optical_image_split",
+  "factory_roll_disjoint": false,
+  "split": "fixed image-disjoint test split (seed 71); not factory roll-disjoint",
+  "weights": "outputs\\best.pt",
+  "weights_sha256": "f72a8f2bd64add6f9ae6c42684bb09e0705b1ed70cdc9123bb82923ef76d5719",
+  "model_task": "detect",
+  "class_names": {
+    "0": "surface_crack",
+    "1": "delamination_crack"
+  },
+  "imgsz": 512,
+  "dataset_provenance": {
+    "manifest_sha256": "6742b535120349c0b575dbf0dd4738993cafec969c40a94eed4ce2f6f4cbd182",
+    "dataset_tree_sha256": "3c3f27733d50011d44fe5e12f09e231190c949c9c1e9e34d317aab6fd0732cc7",
+    "source": "CoatingVision, Figshare DOI 10.6084/m9.figshare.29260121.v1, CC BY 4.0",
+    "seed": 71,
+    "splits": {
+      "train": 406,
+      "val": 87,
+      "test": 88
+    },
+    "image_count": 581,
+    "label_object_count": 649
+  },
+  "source_commit": "5924451cb47ddfe225bbb63747e1a15af443eb0b",
+  "command": "python scripts/evaluate_coatingvision_real.py --weights outputs/best.pt --imgsz 512 --device 0",
   "metrics": {
-    "metrics/precision(B)": 0.644979258307099,
-    "metrics/recall(B)": 0.6420211592776,
-    "metrics/mAP50(B)": 0.6336511690825126,
-    "metrics/mAP50-95(B)": 0.3539329192053585,
-    "fitness": 0.3539329192053585
+    "metrics/precision(B)": 0.6449611754777995,
+    "metrics/recall(B)": 0.64189201783194,
+    "metrics/mAP50(B)": 0.6333815745379834,
+    "metrics/mAP50-95(B)": 0.3538598380938674,
+    "fitness": 0.3538598380938674
+  },
+  "speed_ms_per_image": {
+    "preprocess": 2.2101750000729226,
+    "inference": 4.774761363726363,
+    "loss": 0.00047159086203795266,
+    "postprocess": 0.3976329548591324
   }
 }

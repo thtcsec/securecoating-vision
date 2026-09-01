@@ -1,13 +1,13 @@
 """
 SecureCoating-Vision: ONNX Runtime Inference Engine
 ====================================================
-High-performance inference engine that loads YOLOv8 segmentation ONNX models
-and provides fast defect detection with GPU acceleration via ONNX Runtime.
+ONNX Runtime engine for the configured post-NMS detector output, with backward
+compatibility for the repository's legacy synthetic YOLO segmentation format.
 
 Designed for production deployment with:
 - CUDAExecutionProvider for GPU acceleration
 - Automatic fallback to CPU if GPU unavailable
-- Pre/post-processing integrated for YOLOv8 seg output format
+- Postprocessing for post-NMS detection and legacy segmentation outputs
 - Thread-safe singleton pattern for multi-worker FastAPI
 """
 
@@ -23,15 +23,15 @@ logger = logging.getLogger("SecureCoatingVision.ONNXEngine")
 
 class InferenceEngine:
     """
-    ONNX Runtime-based inference engine for YOLOv8 segmentation models.
+    ONNX Runtime inference engine for detection and legacy segmentation models.
     
     Loads a pre-exported .onnx model and provides:
     - Image preprocessing (resize, normalize, pad)
     - Model inference via ONNX Runtime (GPU/CPU)
-    - Postprocessing: NMS, mask extraction, pixel-level segmentation output
+    - Postprocessing: detection parsing or legacy mask extraction
     
     Usage:
-        engine = InferenceEngine("outputs/model.onnx", imgsz=640, conf_thresh=0.5)
+        engine = InferenceEngine("outputs/model.onnx", imgsz=512, conf_thresh=0.5)
         result = engine.infer(bgr_image)
         # result["segmentation_mask"] -> np.ndarray (H, W) with class IDs
     """
@@ -50,7 +50,9 @@ class InferenceEngine:
         imgsz: int = 640,
         conf_thresh: float = 0.50,
         iou_thresh: float = 0.45,
-        device: str = "auto"
+        device: str = "auto",
+        num_classes: int = 4,
+        class_names: Optional[Dict[int, str]] = None,
     ):
         """
         Initialize the ONNX inference engine.
@@ -67,6 +69,10 @@ class InferenceEngine:
         self.conf_thresh = conf_thresh
         self.iou_thresh = iou_thresh
         self.device = device
+        self.num_classes = int(num_classes)
+        if self.num_classes <= 0:
+            raise ValueError("num_classes must be positive")
+        self.class_names = dict(class_names or self.CLASS_NAMES)
         self.session = None
         self.input_name = None
         self.output_names = None
@@ -120,6 +126,32 @@ class InferenceEngine:
         # Cache input/output metadata
         self.input_name = self.session.get_inputs()[0].name
         self.output_names = [o.name for o in self.session.get_outputs()]
+        outputs = self.session.get_outputs()
+        if len(outputs) >= 2:
+            det_shape = outputs[0].shape
+            proto_shape = outputs[1].shape
+            if (
+                len(det_shape) == 3 and len(proto_shape) == 4
+                and isinstance(det_shape[1], int) and isinstance(proto_shape[1], int)
+            ):
+                inferred_classes = det_shape[1] - 4 - proto_shape[1]
+                if inferred_classes != self.num_classes:
+                    raise RuntimeError(
+                        "ONNX output schema/class mismatch: "
+                        f"artifact={inferred_classes}, configured={self.num_classes}"
+                    )
+        elif len(outputs) == 1:
+            output_shape = outputs[0].shape
+            if len(output_shape) == 3:
+                feature_dims = [dim for dim in output_shape[1:] if isinstance(dim, int)]
+                expected = 4 + self.num_classes
+                # Width 6 is the post-NMS export contract (xyxy, score, class)
+                # and does not encode the class count in the feature width.
+                if 6 not in feature_dims and expected not in feature_dims:
+                    raise RuntimeError(
+                        "ONNX detection output schema/class mismatch: "
+                        f"shape={output_shape}, expected_feature_width={expected}"
+                    )
         self._model_loaded = True
 
         active_provider = self.session.get_providers()[0]
@@ -204,12 +236,12 @@ class InferenceEngine:
         self,
         outputs: List[np.ndarray],
         meta: dict,
-        num_classes: int = 4
+        num_classes: Optional[int] = None
     ) -> Dict:
         """
-        Postprocess YOLOv8-seg outputs into usable segmentation masks.
+        Postprocess legacy synthetic YOLO segmentation outputs into masks.
         
-        YOLOv8-seg outputs:
+        Legacy segmentation outputs:
         - output0: Detection predictions (1, num_dets, 4+nc+nm) - boxes + class scores + mask coefficients
         - output1: Prototype masks (1, nm, mask_h, mask_w)
         
@@ -222,10 +254,11 @@ class InferenceEngine:
             Dict with segmentation_mask, detections, class_scores.
         """
         orig_h, orig_w = meta["orig_shape"]
+        num_classes = self.num_classes if num_classes is None else int(num_classes)
 
-        # Handle YOLOv8-seg output format
+        # Handle the retained legacy synthetic segmentation output format.
         if len(outputs) >= 2:
-            # Standard YOLOv8-seg: [detection_output, proto_masks]
+            # Legacy dual output: [detection_output, proto_masks]
             det_output = outputs[0]  # (1, 4+nc+nm, num_anchors) or transposed
             proto_masks = outputs[1]  # (1, nm, mask_h, mask_w)
             return self._process_yolo_seg(det_output, proto_masks, meta, num_classes)
@@ -243,7 +276,7 @@ class InferenceEngine:
         meta: dict,
         num_classes: int
     ) -> Dict:
-        """Process standard YOLOv8-seg dual-output format."""
+        """Process the retained legacy synthetic dual-output format."""
         orig_h, orig_w = meta["orig_shape"]
         pad_top, pad_left = meta["pad_top"], meta["pad_left"]
         scale = meta["scale"]
@@ -256,6 +289,12 @@ class InferenceEngine:
 
         # Split: boxes (4) + class_scores (nc) + mask_coefficients (nm)
         nm = proto_masks.shape[1] if proto_masks.ndim == 4 else 32
+        inferred_classes = preds.shape[1] - 4 - nm
+        if inferred_classes != num_classes:
+            raise ValueError(
+                "YOLO segmentation output class mismatch: "
+                f"artifact={inferred_classes}, configured={num_classes}"
+            )
         boxes = preds[:, :4]  # cx, cy, w, h
         class_scores = preds[:, 4:4 + num_classes]
         mask_coeffs = preds[:, 4 + num_classes:4 + num_classes + nm]
@@ -358,7 +397,9 @@ class InferenceEngine:
                 "box_format": "xyxy",
                 "confidence": float(final_scores[i]),
                 "class_id": int(final_classes[i]),
-                "class_name": self.CLASS_NAMES.get(int(final_classes[i]), f"class_{final_classes[i]}"),
+                "class_name": getattr(self, "class_names", self.CLASS_NAMES).get(
+                    int(final_classes[i]), f"class_{final_classes[i]}"
+                ),
                 "mask": binary_mask,
             })
 
@@ -386,6 +427,130 @@ class InferenceEngine:
                 "num_defects": int(np.max(seg_mask) > 0),
             }
 
+        # Ultralytics detection export: (1, 4+nc, anchors), with boxes in
+        # letterboxed cx/cy/w/h coordinates and per-class confidence scores.
+        if output.ndim == 3:
+            raw = output[0]
+            expected_width = 4 + num_classes
+            # Current YOLO26 detection exports return a bounded post-NMS tensor
+            # shaped (1, 300, 6): x1, y1, x2, y2, confidence, class_id.
+            if (
+                raw.shape[1] == 6
+                and raw.shape[0] <= 1000
+                and np.allclose(raw[:, 5], np.round(raw[:, 5]), atol=1e-4)
+            ):
+                selected = raw[:, 4] > self.conf_thresh
+                rows = raw[selected]
+                scale = float(meta["scale"])
+                pad_top = float(meta["pad_top"])
+                pad_left = float(meta["pad_left"])
+                seg_mask = np.zeros((orig_h, orig_w), dtype=np.uint8)
+                detections = []
+                for row in rows:
+                    class_id = int(round(float(row[5])))
+                    if not (0 <= class_id < num_classes):
+                        continue
+                    box = row[:4].astype(np.float32).copy()
+                    box[[0, 2]] = (box[[0, 2]] - pad_left) / scale
+                    box[[1, 3]] = (box[[1, 3]] - pad_top) / scale
+                    box = np.clip(box, 0, [orig_w, orig_h, orig_w, orig_h])
+                    x1, y1, x2, y2 = [int(round(value)) for value in box]
+                    if x2 <= x1 or y2 <= y1:
+                        continue
+                    binary_mask = np.zeros((orig_h, orig_w), dtype=np.uint8)
+                    binary_mask[y1:y2, x1:x2] = 1
+                    seg_mask[(binary_mask == 1) & (seg_mask == 0)] = class_id + 1
+                    detections.append(
+                        {
+                            "box": box.tolist(),
+                            "box_format": "xyxy",
+                            "confidence": float(row[4]),
+                            "class_id": class_id,
+                            "class_name": getattr(self, "class_names", self.CLASS_NAMES).get(
+                                class_id, f"class_{class_id}"
+                            ),
+                            "mask": binary_mask,
+                        }
+                    )
+                return {
+                    "segmentation_mask": seg_mask,
+                    "detections": detections,
+                    "num_defects": len(detections),
+                }
+
+            if raw.shape[0] == expected_width:
+                preds = raw.T
+            elif raw.shape[1] == expected_width:
+                preds = raw
+            else:
+                return self._empty_result(orig_h, orig_w)
+
+            boxes = preds[:, :4]
+            class_scores = preds[:, 4:4 + num_classes]
+            confidences = np.max(class_scores, axis=1)
+            class_ids = np.argmax(class_scores, axis=1)
+            selected = confidences > self.conf_thresh
+            if not np.any(selected):
+                return self._empty_result(orig_h, orig_w)
+            boxes = boxes[selected]
+            confidences = confidences[selected]
+            class_ids = class_ids[selected]
+
+            xyxy = np.stack(
+                [
+                    boxes[:, 0] - boxes[:, 2] / 2,
+                    boxes[:, 1] - boxes[:, 3] / 2,
+                    boxes[:, 0] + boxes[:, 2] / 2,
+                    boxes[:, 1] + boxes[:, 3] / 2,
+                ],
+                axis=1,
+            )
+            keep_indices = []
+            for class_id in np.unique(class_ids):
+                class_indices = np.where(class_ids == class_id)[0]
+                class_keep = self._nms(
+                    xyxy[class_indices], confidences[class_indices], self.iou_thresh
+                )
+                keep_indices.extend(class_indices[class_keep].tolist())
+            keep_indices = sorted(
+                keep_indices, key=lambda index: confidences[index], reverse=True
+            )
+
+            scale = float(meta["scale"])
+            pad_top = float(meta["pad_top"])
+            pad_left = float(meta["pad_left"])
+            seg_mask = np.zeros((orig_h, orig_w), dtype=np.uint8)
+            detections = []
+            for index in keep_indices:
+                box = xyxy[index].copy()
+                box[[0, 2]] = (box[[0, 2]] - pad_left) / scale
+                box[[1, 3]] = (box[[1, 3]] - pad_top) / scale
+                box = np.clip(box, 0, [orig_w, orig_h, orig_w, orig_h])
+                x1, y1, x2, y2 = [int(round(value)) for value in box]
+                if x2 <= x1 or y2 <= y1:
+                    continue
+                binary_mask = np.zeros((orig_h, orig_w), dtype=np.uint8)
+                binary_mask[y1:y2, x1:x2] = 1
+                class_id = int(class_ids[index])
+                seg_mask[(binary_mask == 1) & (seg_mask == 0)] = class_id + 1
+                detections.append(
+                    {
+                        "box": box.tolist(),
+                        "box_format": "xyxy",
+                        "confidence": float(confidences[index]),
+                        "class_id": class_id,
+                        "class_name": getattr(self, "class_names", self.CLASS_NAMES).get(
+                            class_id, f"class_{class_id}"
+                        ),
+                        "mask": binary_mask,
+                    }
+                )
+            return {
+                "segmentation_mask": seg_mask,
+                "detections": detections,
+                "num_defects": len(detections),
+            }
+
         # Default: return empty
         return self._empty_result(orig_h, orig_w)
 
@@ -407,7 +572,7 @@ class InferenceEngine:
 
         # Occasionally produce a mock defect (30% chance)
         if np.random.random() < 0.3:
-            class_id = np.random.randint(1, 5)  # 1-4 (scratch, void, blister, delamination)
+            class_id = np.random.randint(1, self.num_classes + 1)
             cx, cy = np.random.randint(w // 4, 3 * w // 4), np.random.randint(h // 4, 3 * h // 4)
             radius = np.random.randint(30, 100)
             cv2.circle(seg_mask, (cx, cy), radius, int(class_id), -1)
