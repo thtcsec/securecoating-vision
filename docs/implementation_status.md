@@ -1,6 +1,6 @@
 # Implementation Status and Upgrade Plan
 
-Last reviewed: 2026-08-28
+Last reviewed: 2026-09-02
 
 This document is the project status ledger. A feature is marked **verified** only when its behavior is covered by a reproducible repository test or a recorded manual command. Simulation is never evidence of physical PLC or factory qualification.
 
@@ -27,6 +27,7 @@ This document is the project status ledger. A feature is marked **verified** onl
 - [x] Exactly one configured protocol owns PLC commands; command sequence and ACK sequence are distinct.
 - [x] Real OPC UA commands require configured SignAndEncrypt, command readback, and matching PLC ACK sequence.
 - [x] Real Modbus commands require an explicitly trusted gateway, response validation, command readback, and matching ACK sequence.
+- [x] A localhost Modbus TCP software loopback confirms command/readback/ACK over a real socket. This is not vendor PLC HIL.
 - [x] E-stop and HOLD latch local state; reset clears the latch only after both channels confirm.
 - [x] Stateful API runs with one worker by default.
 - [x] API control endpoints require authentication unless an explicit local development override is enabled.
@@ -68,8 +69,10 @@ This document is the project status ledger. A feature is marked **verified** onl
 - [x] ONNX post-processing has regression coverage for mask bounds and confidence output.
 - [x] Box and mask evaluation metrics use one shared prediction-to-ground-truth instance match.
 - [x] Evaluation requires a hash-verified manifest with non-overlapping train/val/test roll IDs.
+- [x] CoatingVision public metadata was inventoried: class flags and filenames only, no factory roll/coil/web IDs, so a roll-disjoint split cannot be constructed from this release.
 - [ ] Supply a real independent roll-disjoint manifest and publish metrics from it.
 - [x] LIBAD adapter, evidence gate, four industrial metrics, and 10 official-seed harness exist in repository tests.
+- [x] Official LIBAD Hugging Face zip files were probed; unauthenticated access returns HTTP 401 / gated until terms are accepted and `HF_TOKEN` is set.
 - [ ] Download the official LIBAD 4.84 GB release, validate all 10 splits against a tree-hash artifact manifest, and run the authors' DINOv3/DA-Core implementation before publishing any paper-comparable metrics.
 - [ ] Run clean-surface false-positive, hard-negative, and defect false-negative suites.
 - [ ] Measure POD, escape rate, confidence intervals, and performance on independent factory data.
@@ -133,8 +136,8 @@ A release may be called **research/demo-ready** only when automated tests and ev
 
 ## Next Execution Plan
 
-1. **Next evidence slice**: download official LIBAD, run the 10 official splits, and publish only hash-recorded metrics; keep fixture runs labelled non-comparable.
+1. **Next evidence slice**: after Hugging Face terms + `HF_TOKEN`, download official LIBAD, run the 10 official splits, and publish only hash-recorded metrics; keep fixture runs labelled non-comparable.
 2. **Next engineering slice**: keep GitHub Actions green; add Compose/browser smoke only when the runner has enough RAM.
-3. **Next integration slice**: run a PLC simulator/HIL matrix for OPC UA/Modbus readback and failure modes.
+3. **Next integration slice**: vendor PLC HIL remains open; localhost Modbus command/ACK now runs through the live API (`scripts/run_modbus_loopback_trigger.py`).
 4. **Next deployment slice**: replace or refresh the base when the remaining `perl-base` findings are fixable, generate an SBOM, and exercise rollback/backup on the target host.
 5. **Release decision**: keep the classification at research prototype until every external gate above has attached evidence.

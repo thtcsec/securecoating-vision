@@ -28,7 +28,7 @@ data/libad/LIBAD/
 data/libad/splits/
 ```
 
-See `scripts/download_libad.py` and [docs/libad_validation_extension.md](../docs/libad_validation_extension.md). Fixture protocol tests do not require this download and must not be reported as paper-comparable LIBAD numbers.
+See `scripts/download_libad.py --probe` and [docs/libad_validation_extension.md](../docs/libad_validation_extension.md). The script will not start the 4.84 GB transfer without `--download --accept-license`. Fixture protocol tests do not require this download and must not be reported as paper-comparable LIBAD numbers.
 
 
 The primary metadata spreadsheet is `sample_metadata.csv`. It bridges multi-source files together and registers their inspection labels.

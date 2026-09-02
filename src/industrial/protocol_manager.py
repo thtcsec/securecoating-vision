@@ -28,6 +28,7 @@ from datetime import datetime
 from enum import Enum
 import asyncio
 import os
+from copy import deepcopy
 from functools import wraps
 
 # Try to import pymodbus & asyncua for real industrial communication
@@ -115,6 +116,46 @@ class PLCState:
     opc_last_defect_class: str = "none" # ns=2;s=Device1.LastDefectClass
 
 
+def apply_industrial_io_env_overrides(
+    config: Dict[str, Any],
+    environ: Optional[Dict[str, str]] = None,
+) -> Dict[str, Any]:
+    """Overlay loopback/runtime PLC settings from the process environment.
+
+    Default YAML stays simulated. Localhost Modbus loopback is opt-in via env.
+    """
+    env = os.environ if environ is None else environ
+    out = deepcopy(config) if isinstance(config, dict) else {}
+    out["modbus"] = dict(out.get("modbus") or {})
+    out["opc_ua"] = dict(out.get("opc_ua") or {})
+    mock_raw = env.get("SECURECOATING_INDUSTRIAL_MOCK_MODE")
+    if mock_raw is not None:
+        out["mock_mode"] = str(mock_raw).lower() in {"1", "true", "yes"}
+    channel = str(env.get("SECURECOATING_COMMAND_CHANNEL") or "").strip().lower()
+    if channel:
+        out["command_channel"] = channel
+    plc_ip = str(env.get("SECURECOATING_PLC_IP") or "").strip()
+    if plc_ip:
+        out["plc_ip"] = plc_ip
+    port_raw = str(env.get("SECURECOATING_MODBUS_PORT") or "").strip()
+    if port_raw:
+        port = int(port_raw)
+        if port <= 0 or port > 65535:
+            raise ValueError(f"Invalid SECURECOATING_MODBUS_PORT: {port_raw}")
+        out["modbus"]["port"] = port
+    if "SECURECOATING_MODBUS_TRUSTED_GATEWAY" in env:
+        out["modbus"]["trusted_gateway"] = str(
+            env["SECURECOATING_MODBUS_TRUSTED_GATEWAY"]
+        ).lower() in {"1", "true", "yes"}
+    timeout_raw = str(env.get("SECURECOATING_ACK_TIMEOUT_SECONDS") or "").strip()
+    if timeout_raw:
+        out["ack_timeout_seconds"] = float(timeout_raw)
+    evidence = str(env.get("SECURECOATING_INDUSTRIAL_EVIDENCE_CLASS") or "").strip()
+    if evidence:
+        out["evidence_class"] = evidence
+    return out
+
+
 class IndustrialProtocolManager:
     """
     Manages simulated industrial communication protocols.
@@ -140,6 +181,10 @@ class IndustrialProtocolManager:
         self.config = config
         self.enabled = config.get("enabled", True)
         self.mock_mode = config.get("mock_mode", True)
+        self.evidence_class = str(
+            config.get("evidence_class")
+            or ("simulated_plc" if self.mock_mode else "")
+        )
         self.plc_ip = config.get("plc_ip", "192.168.1.100")
         self.command_channel = str(config.get("command_channel", "opc_ua")).lower()
         self.ack_timeout_seconds = max(
@@ -895,9 +940,16 @@ class IndustrialProtocolManager:
                 "plc_ip": self.plc_ip,
                 "opc_endpoint": self.opc_endpoint,
                 "modbus_port": self.modbus_port,
-                "status": "SIMULATED" if self.mock_mode else (
-                    "SECURELY CONFIGURED" if self.transport_ready else "NOT READY"
-                )
+                "status": (
+                    "SIMULATED" if self.mock_mode else
+                    "SOFTWARE_LOOPBACK" if self.evidence_class == "software_loopback_not_vendor_hil" else
+                    "SECURELY CONFIGURED" if self.transport_ready else
+                    "NOT READY"
+                ),
+                "evidence_class": self.evidence_class or None,
+                "command_channel": self.command_channel,
+                "mock_mode": self.mock_mode,
+                "transport_ready": self.transport_ready,
             },
             "interlock_latched": self.interlock_latched,
             "interlock_reason": self._interlock_reason,

@@ -61,10 +61,13 @@ Industrial metrics:
 Without the official 4.84 GB dataset, all 10 valid split manifests, and `data/libad/official_artifact_manifest.json` containing matching dataset/splits tree SHA-256 values, the harness runs a protocol fixture or labels structured inputs unverified. Even with verified official inputs, this local numpy patch descriptor remains `comparable_to_paper: false`; paper comparison requires the authors' official DINOv3/DA-Core implementation and recorded hashes.
 
 ```powershell
-.venv\Scripts\python.exe scripts/download_libad.py
+.venv\Scripts\python.exe scripts/download_libad.py --probe
+.venv\Scripts\python.exe scripts/download_libad.py --download --accept-license
 .venv\Scripts\python.exe scripts/run_libad_benchmark.py
 .venv\Scripts\python.exe scripts/run_libad_demo.py
 ```
+
+`--probe` HEADs the official zip files and does not download 4.84 GB. `--download` requires `--accept-license` plus a Hugging Face token after accepting the dataset terms. Unauthenticated requests receive HTTP 401 (`GatedRepoError`). Even after a successful mount, this repository's numpy patch descriptor remains `comparable_to_paper: false`.
 
 ## 90-second demo
 

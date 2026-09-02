@@ -70,7 +70,10 @@ from inference.postprocess import extract_defects_from_mask, grade_coating
 from inference.sensor_fusion import SensorFusionManager
 from inference.failsafe import FailSafeManager
 from traceability.quality_memory import QualityMemory
-from industrial.protocol_manager import IndustrialProtocolManager
+from industrial.protocol_manager import (
+    IndustrialProtocolManager,
+    apply_industrial_io_env_overrides,
+)
 from industrial.web_synchronizer import WebSynchronizer, RollMetadata
 from inference.electrode_metrology import ElectrodeMetrologyEngine
 from inference.multi_stage_pipeline import MultiStageIndustrialPipeline
@@ -1338,12 +1341,7 @@ db_path = _project_path(db_path)
 quality_mem = QualityMemory(db_path)
 
 # 5. Industrial Protocol Manager (OPC UA / Modbus TCP)
-industrial_config = app_config.get("industrial_io", {})
-industrial_config = dict(industrial_config)
-if "SECURECOATING_INDUSTRIAL_MOCK_MODE" in os.environ:
-    industrial_config["mock_mode"] = os.environ["SECURECOATING_INDUSTRIAL_MOCK_MODE"].lower() in {
-        "1", "true", "yes"
-    }
+industrial_config = apply_industrial_io_env_overrides(app_config.get("industrial_io", {}))
 if ENVIRONMENT == "production" and industrial_config.get("mock_mode", True):
     raise RuntimeError("Industrial mock mode is forbidden in production")
 industrial_mgr = IndustrialProtocolManager(industrial_config)
