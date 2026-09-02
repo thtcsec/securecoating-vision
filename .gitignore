@@ -26,6 +26,10 @@ reports/pytest_junit.xml
 SecureCoating-Vision_Final_Defense_6min_Real_Evidence/
 *.pptx.inspect.ndjson
 deck_montage.png
+SecureCoating-Vision_Final_Defense_6min_Fixed.pptx
+SecureCoating-Vision_Final_Defense_6min_Evidence_Aware.pptx
+SecureCoating-Vision_Final_Defense_6min_Coating_Surface_Evidence.pptx
+SecureCoating-Vision_Final_Defense_6min_Coating_Surface_Evidence/
 
 # IDE files
 .idea/

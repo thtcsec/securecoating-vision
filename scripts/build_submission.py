@@ -4,11 +4,13 @@ Ensures NO ground-truth labels, __pycache__, .env, or build artifacts are includ
 
 Usage:
     python scripts/build_submission.py
+    python scripts/build_submission.py --skip-tests
     python scripts/build_submission.py --require-live-api
 """
 
 import argparse
 import os
+import subprocess
 import zipfile
 import sys
 
@@ -183,6 +185,7 @@ WHITELIST = [
     "reports/libad_demo/final_screen.json",
     "reports/defense_gifs/rgb_hold_replay.gif" if os.path.exists("reports/defense_gifs/rgb_hold_replay.gif") else None,
     "reports/defense_gifs/libad_gate.gif" if os.path.exists("reports/defense_gifs/libad_gate.gif") else None,
+    "reports/defense_gifs/coating_surface_heldout.png" if os.path.exists("reports/defense_gifs/coating_surface_heldout.png") else None,
     "reports/evaluation_results.json" if os.path.exists("reports/evaluation_results.json") else None,
     "reports/evaluation_results.csv" if os.path.exists("reports/evaluation_results.csv") else None,
     "reports/ultralytics_validation_results.json" if os.path.exists("reports/ultralytics_validation_results.json") else None,
@@ -240,7 +243,7 @@ def is_blacklisted(path):
     return False
 
 
-def build_zip(require_live_api=False):
+def build_zip(require_live_api=False, skip_tests=False):
     print(f"Building submission ZIP: {OUTPUT_ZIP}")
     print(f"Project root: {PROJECT_ROOT}")
     print()
@@ -263,19 +266,19 @@ def build_zip(require_live_api=False):
         sys.exit(1)
     print("  Required artifacts present: outputs/model.onnx, outputs/best.pt, test_set images")
 
-    # Run unit tests and freeze a single test-count manifest
-    print("  RUNNING UNIT TESTS:")
-    import subprocess
-    manifest_run = subprocess.run(
-        [sys.executable, "scripts/record_test_manifest.py"],
-        cwd=PROJECT_ROOT,
-    )
-    if manifest_run.returncode != 0:
-        print("\n  [ERROR] Unit tests failed! Submission build aborted.")
-        sys.exit(1)
-    print("  All unit tests PASSED. Test manifest written to reports/test_manifest.json\n")
+    if skip_tests:
+        print("  SKIPPING UNIT TESTS (--skip-tests). Using the current reports/test_manifest.json.\n")
+    else:
+        print("  RUNNING UNIT TESTS:")
+        manifest_run = subprocess.run(
+            [sys.executable, "scripts/record_test_manifest.py"],
+            cwd=PROJECT_ROOT,
+        )
+        if manifest_run.returncode != 0:
+            print("\n  [ERROR] Unit tests failed! Submission build aborted.")
+            sys.exit(1)
+        print("  All unit tests PASSED. Test manifest written to reports/test_manifest.json\n")
 
-    # Live inject verification if API is up (non-fatal if down)
     print("  RUNNING LIVE INJECT CHECK (optional if API offline):")
     live = subprocess.run(
         [sys.executable, "scripts/verify_inject.py"],
@@ -378,8 +381,13 @@ def main(argv=None):
         action="store_true",
         help="Abort unless scripts/verify_inject.py passes against a running API.",
     )
+    parser.add_argument(
+        "--skip-tests",
+        action="store_true",
+        help="Pack the current tree without re-running pytest. Use after a clean test snapshot.",
+    )
     args = parser.parse_args(argv)
-    return build_zip(require_live_api=args.require_live_api)
+    return build_zip(require_live_api=args.require_live_api, skip_tests=args.skip_tests)
 
 
 if __name__ == "__main__":

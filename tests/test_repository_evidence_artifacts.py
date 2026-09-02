@@ -282,6 +282,10 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn("scripts/generate_defense_gifs.py", string_items)
         self.assertIn("scripts/check_ci_junit.py", string_items)
         self.assertIn("tests/test_defense_gifs.py", string_items)
+        self.assertIn("reports/defense_gifs/coating_surface_heldout.png", source)
+        self.assertIn("--skip-tests", source)
+        self.assertNotIn("Evidence_Aware.pptx", source)
+        self.assertNotIn("Coating_Surface_Evidence.pptx", source)
 
     def test_official_defense_pptx_does_not_display_forbidden_factory_numbers(self):
         text = _pptx_text(ROOT / "SecureCoating-Vision_Final_Defense_6min.pptx")
@@ -296,6 +300,17 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertNotIn("−84% scrap", source)
         self.assertNotIn("-84% scrap", source)
         self.assertNotIn("P99.9 SLA", source)
+        self.assertNotIn("Coating_Surface_Evidence", source)
+        self.assertNotIn("Evidence_Aware", source)
+        self.assertIn("coating_surface_heldout.png", source)
+        self.assertTrue((ROOT / "reports/defense_gifs/coating_surface_heldout.png").is_file())
+        leftover_decks = (
+            "SecureCoating-Vision_Final_Defense_6min_Evidence_Aware.pptx",
+            "SecureCoating-Vision_Final_Defense_6min_Coating_Surface_Evidence.pptx",
+            "SecureCoating-Vision_Final_Defense_6min_Fixed.pptx",
+        )
+        for name in leftover_decks:
+            self.assertFalse((ROOT / name).is_file(), name)
 
     def test_pitch_and_slides_match_official_local_adapter_status(self):
         pitch = (ROOT / "docs/presentation_pitch.md").read_text(encoding="utf-8")

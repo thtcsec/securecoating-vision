@@ -7,8 +7,6 @@ Optional extra (not an API runtime dependency):
 
 from __future__ import annotations
 
-import io
-import zipfile
 from pathlib import Path
 
 from pptx import Presentation
@@ -19,10 +17,10 @@ from pptx.util import Emu, Inches, Pt
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "SecureCoating-Vision_Final_Defense_6min.pptx"
-LEGACY_DECK = ROOT / "SecureCoating-Vision_Final_Defense_6min_Coating_Surface_Evidence.pptx"
 EXTERNAL_DEMO = ROOT / "reports/external_coatingvision_demo/coatingvision_model_output.png"
 RGB_GIF = ROOT / "reports/defense_gifs/rgb_hold_replay.gif"
 LIBAD_GIF = ROOT / "reports/defense_gifs/libad_gate.gif"
+HELD_OUT_SURFACE = ROOT / "reports/defense_gifs/coating_surface_heldout.png"
 
 BG = RGBColor(0x0A, 0x0D, 0x14)
 CARD = RGBColor(0x15, 0x1B, 0x28)
@@ -119,26 +117,11 @@ def kicker(slide, code, timing):
     )
 
 
-def extract_legacy_image(name: str) -> bytes | None:
-    if not LEGACY_DECK.is_file():
-        return None
-    with zipfile.ZipFile(LEGACY_DECK) as archive:
-        target = f"ppt/media/{name}"
-        if target in archive.namelist():
-            return archive.read(target)
-    return None
-
-
-def add_picture_bytes(slide, payload: bytes, left, top, width):
-    slide.shapes.add_picture(io.BytesIO(payload), left, top, width=width)
-
-
 def build() -> Path:
     prs = Presentation()
     prs.slide_width = SLIDE_W
     prs.slide_height = SLIDE_H
     blank = prs.slide_layouts[6]
-    coating = extract_legacy_image("image3.png")
 
     s = prs.slides.add_slide(blank)
     paint_bg(s)
@@ -192,9 +175,9 @@ def build() -> Path:
         {"text": "88 held-out images · mAP50 0.633", "size": 18, "color": WHITE, "bold": True, "space_after": 8},
         {"text": "Public CoatingVision image-disjoint split, seed 71. Not factory roll-disjoint; HIL and calibration remain pilot gates.", "size": 14, "color": MUTED},
     ])
-    if coating:
+    if HELD_OUT_SURFACE.is_file():
         _box(s, Inches(8.15), Inches(0.55), Inches(4.7), Inches(6.2))
-        add_picture_bytes(s, coating, Inches(8.3), Inches(0.95), Inches(4.4))
+        s.shapes.add_picture(str(HELD_OUT_SURFACE), Inches(8.3), Inches(0.95), width=Inches(4.4))
         add_textbox(s, Inches(8.3), Inches(5.85), Inches(4.4), Inches(0.7), [
             {"text": "Real coating surface (held-out CoatingVision sample). RGB-only. Not a multimodal plant capture.", "size": 12, "color": MUTED}
         ])

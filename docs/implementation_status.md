@@ -137,7 +137,7 @@ A release may be called **research/demo-ready** only when automated tests and ev
 
 ## Next Execution Plan
 
-1. **Next evidence slice**: rebuild the submission ZIP and present the git 6-minute deck with looping GIFs before the 10 September 2026 organizer deadline; authors' DINOv3 remains optional and non-blocking.
+1. **Next evidence slice**: present the git 6-minute deck (`SecureCoating-Vision_Final_Defense_6min.pptx`) in Slideshow so the looping GIFs animate, and submit the rebuilt `SecureCoatingVision_Submission.zip` before the 10 September 2026 organizer deadline; authors' DINOv3 remains optional and non-blocking.
 2. **Next engineering slice**: keep GitHub Actions green; add Compose/browser smoke only when the runner has enough RAM.
 3. **Next integration slice**: vendor PLC HIL remains open; localhost Modbus command/ACK now runs through the live API (`scripts/run_modbus_loopback_trigger.py`).
 4. **Next deployment slice**: replace or refresh the base when the remaining `perl-base` findings are fixable, generate an SBOM, and exercise rollback/backup on the target host.

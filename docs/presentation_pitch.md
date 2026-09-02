@@ -6,7 +6,7 @@
 **Brand:** SecureCoating-Vision  
 **Format:** 6-Minute Presentation + 2-Minute Q&A  
 
-Do not introduce a fourth title. Present `SecureCoating-Vision_Final_Defense_6min.pptx` (git). Do not lead with `*_Fixed.pptx` or `*_Evidence_Aware.pptx`.
+Do not introduce a fourth title. Present `SecureCoating-Vision_Final_Defense_6min.pptx` (git). Do not present leftover `*_Fixed.pptx` or `*_Evidence_Aware.pptx` decks.
 
 Organizer update: final materials deadline is **10 September 2026**. Play the two looping GIFs in minute 6 (Slideshow mode so GIF animates).
 
