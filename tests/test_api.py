@@ -167,6 +167,11 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(thumb.status_code, 200)
         self.assertTrue(thumb.content.startswith(b"\xff\xd8\xff"))
         self.assertEqual(thumb.headers["x-dataset-view"], "thumb")
+        again = self.client.get(
+            "/api/dataset/images/image_1548.jpg", params={"view": "thumb"}
+        )
+        self.assertEqual(again.status_code, 200)
+        self.assertEqual(again.content, thumb.content)
         resp = self.client.get("/api/dataset/images/not-in-manifest.jpg")
         self.assertEqual(resp.status_code, 404)
 
@@ -519,6 +524,8 @@ class TestAPI(unittest.TestCase):
         self.assertIn("readiness", body)
         self.assertIn("line_disposition", body)
         self.assertIn("quality", body)
+        self.assertIn("recent_inspections", body["quality"])
+        self.assertIn("stats", body["quality"])
 
     def test_operations_snapshot_rejects_unknown_scope(self):
         resp = self.client.get("/api/operations/snapshot", params={"scope": "partial"})

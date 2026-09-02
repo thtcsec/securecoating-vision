@@ -113,7 +113,12 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn("LIBAD", multimodal_source)
         self.assertIn("official_dataset_present", multimodal_source)
         self.assertIn("libad_samples", multimodal_source)
-        self.assertIn('X-Multimodal-Source": "official-release"', (ROOT / "src/api/main.py").read_text(encoding="utf-8"))
+        api_source = (ROOT / "src/api/main.py").read_text(encoding="utf-8")
+        self.assertIn('X-Multimodal-Source": "official-release"', api_source)
+        self.assertIn("_attach_inspection_artifacts", api_source)
+        self.assertIn("_list_inspection_artifact_names", api_source)
+        self.assertIn("_dataset_view_cache", api_source)
+        self.assertIn("_control_state_from_parts", api_source)
         self.assertIn("comparable_to_paper", multimodal_source)
         self.assertNotIn("libad_demo", multimodal_source)
         self.assertIn('key="ops_view"', production_source)
@@ -123,6 +128,9 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn("view-rail-label", production_source)
         self.assertIn("Views stay on this rail", production_source)
         self.assertIn("_kv_panel", production_source)
+        self.assertIn("inspection_images", production_source)
+        self.assertIn("dataset_images", production_source)
+        self.assertIn("Show letterboxed model input", production_source)
         self.assertIn("render_dataset_pager", production_source)
         self.assertNotIn("Preview page", production_source)
         self.assertNotIn("st.segmented_control", production_source)
@@ -163,6 +171,11 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
             self.assertIn(identity["tagline"], source)
             self.assertNotIn("82 passing tests", source)
             self.assertNotIn("85 passing tests", source)
+        docx = _docx_text(ROOT / "Al + Materials Competition Application Form.docx")
+        self.assertNotIn("YOLOv8-seg", docx)
+        self.assertIn("YOLO26n", docx)
+        self.assertIn("History", docx)
+        self.assertIn("Multimodal", docx)
 
     def test_libad_artifacts_never_claim_paper_comparability(self):
         paths = [
@@ -242,6 +255,9 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn("reports/libad_demo/demo_manifest.json", string_items)
         self.assertIn("SecureCoating-Vision_Final_Defense_6min.pptx", string_items)
         self.assertIn("dashboard/production_console.py", string_items)
+        self.assertIn("dashboard/multimodal_lane.py", string_items)
+        self.assertIn("tests/test_libad_official_index.py", string_items)
+        self.assertIn("tests/test_onnx_postprocess.py", string_items)
         self.assertIn("scripts/check_ci_junit.py", string_items)
 
     def test_official_defense_pptx_does_not_display_forbidden_factory_numbers(self):

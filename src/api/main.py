@@ -264,6 +264,9 @@ _dataset_catalog_lock = threading.Lock()
 _dataset_catalog_cache: Optional[tuple[Dict[str, Any], ...]] = None
 _dataset_catalog_by_name: Dict[str, Dict[str, Any]] = {}
 _dataset_catalog_identity: Dict[str, Any] = {}
+_dataset_view_cache: Dict[tuple, bytes] = {}
+_dataset_view_cache_lock = threading.Lock()
+_DATASET_VIEW_CACHE_LIMIT = 128
 _DATASET_CATALOG_DISK_CACHE = Path(
     os.environ.get(
         "SECURECOATING_DATASET_CATALOG_CACHE",
@@ -536,6 +539,28 @@ def _store_dataset_catalog_disk_cache(
         )
 
 
+def _dataset_view_cache_key(path: Path, filename: str, view: str) -> Optional[tuple]:
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    return (filename, view, int(stat.st_mtime_ns), int(stat.st_size))
+
+
+def _get_cached_dataset_view(key: tuple) -> Optional[bytes]:
+    with _dataset_view_cache_lock:
+        return _dataset_view_cache.get(key)
+
+
+def _store_cached_dataset_view(key: tuple, payload: bytes) -> None:
+    with _dataset_view_cache_lock:
+        if key in _dataset_view_cache:
+            return
+        while len(_dataset_view_cache) >= _DATASET_VIEW_CACHE_LIMIT:
+            _dataset_view_cache.pop(next(iter(_dataset_view_cache)))
+        _dataset_view_cache[key] = payload
+
+
 def _parse_classification_csv(path: Path) -> Dict[str, List[str]]:
     mapping: Dict[str, List[str]] = {}
     if not path.is_file():
@@ -710,14 +735,60 @@ _AI_OVERLAY_COLORS = (
 )
 
 
-def _inspection_artifact_path(run_id: str, view: str = "overlay") -> Path:
+def _inspection_artifact_filename(run_id: str, view: str) -> str:
     if not re.fullmatch(r"RUN_[A-F0-9]{12}", run_id):
         raise ValueError("Invalid inspection run identifier")
     if view not in ARTIFACT_VIEWS:
         raise ValueError("Invalid inspection artifact view")
     # Keep the historical overlay filename stable for existing deployments.
     suffix = "" if view == "overlay" else f"_{view}"
-    return INSPECTION_ARTIFACT_DIR / f"{run_id}{suffix}.jpg"
+    return f"{run_id}{suffix}.jpg"
+
+
+def _inspection_artifact_path(run_id: str, view: str = "overlay") -> Path:
+    return INSPECTION_ARTIFACT_DIR / _inspection_artifact_filename(run_id, view)
+
+
+def _list_inspection_artifact_names() -> set[str]:
+    try:
+        return {
+            name
+            for name in os.listdir(INSPECTION_ARTIFACT_DIR)
+            if name.startswith("RUN_") and name.endswith(".jpg")
+        }
+    except OSError:
+        return set()
+
+
+def _attach_inspection_artifacts(records: list[Dict[str, Any]]) -> None:
+    """Mark retained JPEG views from one directory listing, not per-file exists()."""
+    present = _list_inspection_artifact_names()
+    for inspection in records:
+        run_id = inspection.get("run_id")
+        artifact_views = {}
+        try:
+            for view in ARTIFACT_VIEWS:
+                filename = _inspection_artifact_filename(str(run_id or ""), view)
+                available = filename in present
+                artifact_views[view] = {
+                    "available": available,
+                    "endpoint": (
+                        f"/api/inspections/{run_id}/image?view={view}"
+                        if available else None
+                    ),
+                }
+            image_available = artifact_views["overlay"]["available"]
+        except ValueError:
+            image_available = False
+            artifact_views = {
+                view: {"available": False, "endpoint": None}
+                for view in ARTIFACT_VIEWS
+            }
+        inspection["image_available"] = image_available
+        inspection["image_endpoint"] = (
+            f"/api/inspections/{run_id}/image" if image_available else None
+        )
+        inspection["artifacts"] = artifact_views
 
 
 def _bounded_preview(image: np.ndarray, max_edge: int = 1280) -> np.ndarray:
@@ -1765,9 +1836,22 @@ def get_dataset_image(
     record = _dataset_catalog_by_name.get(os.path.basename(filename))
     if record is None:
         raise HTTPException(status_code=404, detail="Dataset image is not in the catalog")
+    expected_hash = str(record.get("sha256") or "").lower()
+    cache_key = None
+    if view != "original":
+        cache_key = _dataset_view_cache_key(path, os.path.basename(filename), view)
+        cached = _get_cached_dataset_view(cache_key) if cache_key is not None else None
+        if cached is not None:
+            headers = {
+                "Cache-Control": "private, max-age=300",
+                "X-Dataset-SHA256": expected_hash,
+                "X-Dataset-View": view,
+            }
+            if view != "thumb":
+                headers["X-Dataset-Label-Source"] = "published-segmentation-mask"
+            return Response(content=cached, media_type="image/jpeg", headers=headers)
     raw_bytes = path.read_bytes()
     actual_hash = hashlib.sha256(raw_bytes).hexdigest()
-    expected_hash = str(record.get("sha256") or "").lower()
     if expected_hash and not secrets.compare_digest(expected_hash, actual_hash):
         raise HTTPException(status_code=409, detail="Dataset image changed after catalog verification")
     if record.get("in_checked_in_split") and not record.get("hash_verified"):
@@ -1779,6 +1863,8 @@ def get_dataset_image(
         encoded = _encode_artifact_jpeg(_bounded_preview(optical, max_edge=280))
         if encoded is None:
             raise HTTPException(status_code=500, detail="Could not encode dataset thumbnail")
+        if cache_key is not None:
+            _store_cached_dataset_view(cache_key, encoded)
         return Response(
             content=encoded,
             media_type="image/jpeg",
@@ -1799,6 +1885,8 @@ def get_dataset_image(
         encoded = _encode_artifact_jpeg(evidence[view])
         if encoded is None:
             raise HTTPException(status_code=500, detail="Could not encode segmentation evidence")
+        if cache_key is not None:
+            _store_cached_dataset_view(cache_key, encoded)
         return Response(
             content=encoded,
             media_type="image/jpeg",
@@ -1901,10 +1989,12 @@ def _control_state_digest(state: Dict[str, Any]) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-def _current_control_state() -> Dict[str, Any]:
-    health, ready = _build_health_payload()
-    roll = web_synchronizer.get_roll_snapshot(web_synchronizer.roll.roll_id)
-    industrial = industrial_mgr.get_plc_state()
+def _control_state_from_parts(
+    health: Dict[str, Any],
+    ready: bool,
+    roll: Optional[Dict[str, Any]],
+    industrial: Dict[str, Any],
+) -> Dict[str, Any]:
     summary = (roll or {}).get("summary") or {}
     disposition = (
         "EMERGENCY_STOP"
@@ -1924,11 +2014,21 @@ def _current_control_state() -> Dict[str, Any]:
     }
 
 
-def _register_control_snapshot(snapshot_id: str) -> None:
+def _current_control_state() -> Dict[str, Any]:
+    health, ready = _build_health_payload()
+    roll = web_synchronizer.get_roll_snapshot(web_synchronizer.roll.roll_id)
+    industrial = industrial_mgr.get_plc_state()
+    return _control_state_from_parts(health, ready, roll, industrial)
+
+
+def _register_control_snapshot(
+    snapshot_id: str,
+    state: Optional[Dict[str, Any]] = None,
+) -> None:
     now = time.monotonic()
     record = {
         "expires_at": now + SNAPSHOT_TTL_SECONDS,
-        "state_digest": _control_state_digest(_current_control_state()),
+        "state_digest": _control_state_digest(state or _current_control_state()),
     }
     with _snapshot_lock:
         expired = [key for key, value in _snapshot_registry.items() if value["expires_at"] <= now]
@@ -1961,8 +2061,9 @@ def get_operations_snapshot(
     """Return one read-only operations snapshot for the production dashboard.
 
     `scope=live` skips catalog identity and certificate materialization so the
-    5-second live strip can refresh without repeating those scans. Control and
-    Traceability still use a full snapshot from first load or Reload.
+    5-second live strip can refresh without repeating those scans. Artifact
+    presence uses one directory listing. Control and Traceability still use a
+    full snapshot from first load or Reload.
     """
     health, ready = _build_health_payload()
     roll = web_synchronizer.get_roll_snapshot(web_synchronizer.roll.roll_id)
@@ -1974,33 +2075,7 @@ def get_operations_snapshot(
     stats = quality_mem.get_batch_stats(batch_id)
     spc = quality_mem.check_spc_alarms(batch_id)
     recent_inspections = quality_mem.get_recent_inspections(batch_id, limit=20)
-    for inspection in recent_inspections.get("records", []):
-        run_id = inspection.get("run_id")
-        artifact_views = {}
-        try:
-            for view in ARTIFACT_VIEWS:
-                available = bool(
-                    run_id and _inspection_artifact_path(run_id, view).is_file()
-                )
-                artifact_views[view] = {
-                    "available": available,
-                    "endpoint": (
-                        f"/api/inspections/{run_id}/image?view={view}"
-                        if available else None
-                    ),
-                }
-            image_available = artifact_views["overlay"]["available"]
-        except ValueError:
-            image_available = False
-            artifact_views = {
-                view: {"available": False, "endpoint": None}
-                for view in ARTIFACT_VIEWS
-            }
-        inspection["image_available"] = image_available
-        inspection["image_endpoint"] = (
-            f"/api/inspections/{run_id}/image" if image_available else None
-        )
-        inspection["artifacts"] = artifact_views
+    _attach_inspection_artifacts(recent_inspections.get("records") or [])
     industrial = industrial_mgr.get_plc_state()
     signals = industrial_mgr.get_signal_history(limit=signal_limit)
     control_audit = quality_mem.get_recent_control_audits(limit=25)
@@ -2116,7 +2191,10 @@ def get_operations_snapshot(
             "certificate": None,
             "certificate_error": None,
         }
-    _register_control_snapshot(snapshot_id)
+    _register_control_snapshot(
+        snapshot_id,
+        _control_state_from_parts(health, ready, roll, industrial),
+    )
     return snapshot
 
 

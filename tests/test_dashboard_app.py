@@ -189,6 +189,15 @@ class FakeOperationsClient:
             "class_flag": class_flag,
         }
 
+    def inspection_images(self, run_id, views=()):
+        return {view: None for view in views}
+
+    def dataset_images(self, filenames, view="original"):
+        return {name: None for name in filenames}
+
+    def dataset_evidence(self, filename, views=()):
+        return {view: None for view in views}
+
     def libad_samples(self, offset=0, limit=12):
         return {
             "official_dataset_present": False,

@@ -612,22 +612,28 @@ The left identity rail is not the view switcher. Collapsing it hides roll/batch 
                 artifacts = selected.get("artifacts") or {
                     "overlay": {"available": True}
                 }
-
-                def _load_artifact(artifact_view: str):
-                    available = bool((artifacts.get(artifact_view) or {}).get("available"))
-                    cache_key = f"{run_id}:{artifact_view}"
-                    if available and cache_key not in image_cache:
-                        try:
-                            image_cache[cache_key] = api_client.inspection_image(run_id, artifact_view)
-                        except Exception:
-                            image_cache[cache_key] = None
+                replay_views = ("raw", "mask", "heatmap", "overlay")
+                missing = [
+                    view
+                    for view in replay_views
+                    if bool((artifacts.get(view) or {}).get("available"))
+                    and f"{run_id}:{view}" not in image_cache
+                ]
+                if missing:
+                    try:
+                        fetched = api_client.inspection_images(run_id, missing)
+                    except Exception:
+                        fetched = {view: None for view in missing}
+                    for view, payload in fetched.items():
+                        image_cache[f"{run_id}:{view}"] = payload
                         while len(image_cache) > 40:
                             image_cache.pop(next(iter(image_cache)))
-                    return available, image_cache.get(cache_key)
 
                 def _payload(view_name: str):
-                    available, payload = _load_artifact(view_name)
-                    return payload if available else None
+                    available = bool((artifacts.get(view_name) or {}).get("available"))
+                    if not available:
+                        return None
+                    return image_cache.get(f"{run_id}:{view_name}")
 
                 _replay_grid(
                     [
@@ -661,14 +667,25 @@ The left identity rail is not the view switcher. Collapsing it hides roll/batch 
                     "Heatmap is a distance transform of the published CoatingVision mask. "
                     "It is not a model-confidence map. AI overlay is the independent prediction."
                 )
-                input_payload = _payload("input")
-                if input_payload:
-                    with st.expander("Model input (letterboxed tensor)", expanded=False):
+                if st.checkbox("Show letterboxed model input", key=f"ops_show_input_{run_id}"):
+                    input_key = f"{run_id}:input"
+                    if bool((artifacts.get("input") or {}).get("available")) and input_key not in image_cache:
+                        try:
+                            fetched_input = api_client.inspection_images(run_id, ["input"])
+                            image_cache[input_key] = fetched_input.get("input")
+                        except Exception:
+                            image_cache[input_key] = None
+                        while len(image_cache) > 40:
+                            image_cache.pop(next(iter(image_cache)))
+                    input_payload = image_cache.get(input_key)
+                    if input_payload:
                         st.markdown(
                             f'<img src="{_jpeg_data_uri(input_payload)}" alt="Model input" '
                             f'style="max-width:360px;border-radius:8px;border:1px solid #26344A;" />',
                             unsafe_allow_html=True,
                         )
+                    else:
+                        st.caption("Model input was not retained for this run.")
 
                 confidence = top_defect.get("confidence", selected.get("peak_confidence"))
                 confidence_text = (
@@ -876,27 +893,32 @@ The left identity rail is not the view switcher. Collapsing it hides roll/batch 
             )
             st.session_state["dataset_focus_filename"] = focus_name
             focus_item = next((item for item in gallery_items if item.get("filename") == focus_name), None)
-            if focus_name and focus_name not in dataset_image_cache:
-                try:
-                    dataset_image_cache[focus_name] = api_client.dataset_image(focus_name)
-                except Exception:
-                    dataset_image_cache[focus_name] = None
+            focus_evidence_cache = st.session_state.setdefault(
+                "dataset_focus_evidence_cache", {}
+            )
+            if focus_name:
+                needed_views = []
+                if focus_name not in dataset_image_cache:
+                    needed_views.append("original")
+                for evidence_view in ("mask", "heatmap"):
+                    if f"{focus_name}:{evidence_view}" not in focus_evidence_cache:
+                        needed_views.append(evidence_view)
+                if needed_views:
+                    try:
+                        fetched = api_client.dataset_evidence(focus_name, needed_views)
+                    except Exception:
+                        fetched = {view: None for view in needed_views}
+                    if "original" in fetched:
+                        dataset_image_cache[focus_name] = fetched.get("original")
+                    for evidence_view in ("mask", "heatmap"):
+                        if evidence_view in fetched:
+                            focus_evidence_cache[f"{focus_name}:{evidence_view}"] = fetched.get(
+                                evidence_view
+                            )
+                            while len(focus_evidence_cache) > 24:
+                                focus_evidence_cache.pop(next(iter(focus_evidence_cache)))
             if focus_item and dataset_image_cache.get(focus_name):
                 st.markdown("#### Pixel-level evidence explorer")
-                focus_evidence_cache = st.session_state.setdefault(
-                    "dataset_focus_evidence_cache", {}
-                )
-                for evidence_view in ("mask", "heatmap"):
-                    cache_key = f"{focus_name}:{evidence_view}"
-                    if cache_key not in focus_evidence_cache:
-                        try:
-                            focus_evidence_cache[cache_key] = api_client.dataset_image(
-                                focus_name, evidence_view
-                            )
-                        except Exception:
-                            focus_evidence_cache[cache_key] = None
-                    while len(focus_evidence_cache) > 24:
-                        focus_evidence_cache.pop(next(iter(focus_evidence_cache)))
                 _replay_grid(
                     [
                         {
@@ -933,16 +955,26 @@ The left identity rail is not the view switcher. Collapsing it hides roll/batch 
                 )
 
             gallery_cards = []
+            missing_thumbs = [
+                str(item.get("filename") or "")
+                for item in gallery_items
+                if item.get("filename")
+                and f"{item.get('filename')}:thumb" not in dataset_image_cache
+            ]
+            if missing_thumbs:
+                try:
+                    fetched_thumbs = api_client.dataset_images(missing_thumbs, "thumb")
+                except Exception:
+                    fetched_thumbs = {name: None for name in missing_thumbs}
+                for filename, payload in fetched_thumbs.items():
+                    dataset_image_cache[f"{filename}:thumb"] = (
+                        payload if payload else dataset_image_cache.get(filename)
+                    )
+                    while len(dataset_image_cache) > 48:
+                        dataset_image_cache.pop(next(iter(dataset_image_cache)))
             for item in gallery_items:
                 filename = str(item.get("filename") or "")
                 thumb_key = f"{filename}:thumb"
-                if filename and thumb_key not in dataset_image_cache:
-                    try:
-                        dataset_image_cache[thumb_key] = api_client.dataset_image(filename, "thumb")
-                    except Exception:
-                        dataset_image_cache[thumb_key] = dataset_image_cache.get(filename)
-                    while len(dataset_image_cache) > 48:
-                        dataset_image_cache.pop(next(iter(dataset_image_cache)))
                 if item.get("hash_verified"):
                     badge = "HASH VERIFIED"
                 elif item.get("in_checked_in_split"):

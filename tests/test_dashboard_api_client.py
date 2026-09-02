@@ -154,10 +154,40 @@ class TestInspectionApiClient(unittest.TestCase):
                 b"jpeg-bytes",
             )
 
+    def test_inspection_images_fetches_views_in_one_map(self):
+        client = InspectionApiClient("http://api.local")
+        with patch.object(
+            client, "get_bytes", side_effect=lambda path: path.encode("ascii")
+        ) as get_bytes:
+            payload = client.inspection_images("RUN_0123456789AB", ["raw", "overlay", "raw"])
+        self.assertEqual(payload["raw"], b"/api/inspections/RUN_0123456789AB/image?view=raw")
+        self.assertEqual(
+            payload["overlay"],
+            b"/api/inspections/RUN_0123456789AB/image?view=overlay",
+        )
+        self.assertEqual(get_bytes.call_count, 2)
+
     def test_inspection_image_rejects_unknown_view(self):
         client = InspectionApiClient("http://api.local")
         with self.assertRaises(ValueError):
             client.inspection_image("RUN_0123456789AB", "ground_truth")
+
+    def test_dataset_images_rejects_path_escape(self):
+        client = InspectionApiClient("http://api.local")
+        with patch.object(client, "get_bytes") as get_bytes, self.assertRaises(ValueError):
+            client.dataset_images(["../secret.jpg"], "thumb")
+        get_bytes.assert_not_called()
+
+    def test_dataset_evidence_fetches_mixed_views(self):
+        client = InspectionApiClient("http://api.local")
+        with patch.object(
+            client, "get_bytes", side_effect=lambda path: path.encode("ascii")
+        ):
+            payload = client.dataset_evidence("image_1548.jpg", ["original", "mask"])
+        self.assertIn("original", payload)
+        self.assertIn("mask", payload)
+        self.assertIn(b"image_1548.jpg", payload["original"])
+        self.assertIn(b"view=mask", payload["mask"])
 
     def test_inspection_image_rejects_oversized_response(self):
         client = InspectionApiClient("http://api.local")

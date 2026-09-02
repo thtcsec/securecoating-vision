@@ -2,10 +2,12 @@
 
 import os
 import re
-from typing import Any, Dict, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Dict, Iterable, List, Optional
 from urllib.parse import quote
 
 import requests
+from requests.adapters import HTTPAdapter
 
 
 class InspectionApiClient:
@@ -21,6 +23,9 @@ class InspectionApiClient:
         self.timeout_seconds = timeout_seconds
         self.snapshot_timeout_seconds = snapshot_timeout_seconds
         self.session = requests.Session()
+        adapter = HTTPAdapter(pool_connections=8, pool_maxsize=8)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
 
     @property
     def headers(self) -> Dict[str, str]:
@@ -71,6 +76,36 @@ class InspectionApiClient:
             return bytes(payload)
         finally:
             response.close()
+
+    def get_bytes_many(
+        self,
+        paths: Iterable[str],
+        *,
+        max_workers: int = 6,
+    ) -> Dict[str, Optional[bytes]]:
+        unique: List[str] = []
+        for path in paths:
+            if path not in unique:
+                unique.append(path)
+        if not unique:
+            return {}
+        if len(unique) == 1:
+            path = unique[0]
+            try:
+                return {path: self.get_bytes(path)}
+            except (OSError, ValueError, requests.RequestException):
+                return {path: None}
+        results: Dict[str, Optional[bytes]] = {}
+        workers = max(1, min(int(max_workers), len(unique)))
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {pool.submit(self.get_bytes, path): path for path in unique}
+            for future in as_completed(futures):
+                path = futures[future]
+                try:
+                    results[path] = future.result()
+                except (OSError, ValueError, requests.RequestException):
+                    results[path] = None
+        return results
 
     def post(
         self,
@@ -145,6 +180,21 @@ class InspectionApiClient:
             raise ValueError("Invalid inspection artifact view")
         return self.get_bytes(f"/api/inspections/{run_id}/image?view={view}")
 
+    def inspection_images(self, run_id: str, views: Iterable[str]) -> Dict[str, Optional[bytes]]:
+        if not run_id.startswith("RUN_") or len(run_id) != 16:
+            raise ValueError("Invalid inspection run identifier")
+        unique: List[str] = []
+        for view in views:
+            if view not in {"raw", "mask", "blend", "heatmap", "input", "overlay"}:
+                raise ValueError("Invalid inspection artifact view")
+            if view not in unique:
+                unique.append(view)
+        path_for = {
+            f"/api/inspections/{run_id}/image?view={view}": view for view in unique
+        }
+        fetched = self.get_bytes_many(path_for)
+        return {path_for[path]: fetched.get(path) for path in path_for}
+
     def dataset_catalog(
         self,
         offset: int = 0,
@@ -171,6 +221,47 @@ class InspectionApiClient:
         return self.get_bytes(
             f"/api/dataset/images/{quote(filename, safe='')}{suffix}"
         )
+
+    def dataset_images(
+        self, filenames: Iterable[str], view: str = "original"
+    ) -> Dict[str, Optional[bytes]]:
+        unique: List[str] = []
+        for filename in filenames:
+            if os.path.basename(filename) != filename or not re.fullmatch(
+                r"[A-Za-z0-9][A-Za-z0-9_.-]{0,254}", filename or ""
+            ):
+                raise ValueError("Invalid dataset image basename")
+            if filename not in unique:
+                unique.append(filename)
+        if view not in {"original", "mask", "blend", "heatmap", "thumb"}:
+            raise ValueError("Invalid dataset evidence view")
+        suffix = "" if view == "original" else f"?view={view}"
+        path_for = {
+            f"/api/dataset/images/{quote(filename, safe='')}{suffix}": filename
+            for filename in unique
+        }
+        fetched = self.get_bytes_many(path_for)
+        return {path_for[path]: fetched.get(path) for path in path_for}
+
+    def dataset_evidence(
+        self, filename: str, views: Iterable[str]
+    ) -> Dict[str, Optional[bytes]]:
+        if os.path.basename(filename) != filename or not re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9_.-]{0,254}", filename or ""
+        ):
+            raise ValueError("Invalid dataset image basename")
+        unique: List[str] = []
+        for view in views:
+            if view not in {"original", "mask", "blend", "heatmap", "thumb"}:
+                raise ValueError("Invalid dataset evidence view")
+            if view not in unique:
+                unique.append(view)
+        path_for: Dict[str, str] = {}
+        for view in unique:
+            suffix = "" if view == "original" else f"?view={view}"
+            path_for[f"/api/dataset/images/{quote(filename, safe='')}{suffix}"] = view
+        fetched = self.get_bytes_many(path_for)
+        return {path_for[path]: fetched.get(path) for path in path_for}
 
     def operations_control(
         self,
