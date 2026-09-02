@@ -97,7 +97,9 @@ Never expose that mode outside a trusted developer workstation.
 .venv\Scripts\python.exe -m pytest -q
 .venv\Scripts\python.exe scripts/record_test_manifest.py
 .venv\Scripts\python.exe scripts/run_libad_demo.py
-.venv\Scripts\python.exe scripts/verify_coatingvision_dataset.py
+.venv\Scripts\python.exe scripts/download_libad.py --probe
+.venv\Scripts\python.exe scripts/verify_coatingvision_dataset.py --grouping
+.venv\Scripts\python.exe scripts/run_modbus_loopback_trigger.py
 .venv\Scripts\python.exe -m compileall -q src dashboard scripts tests
 .venv\Scripts\python.exe -m pip check
 docker compose config

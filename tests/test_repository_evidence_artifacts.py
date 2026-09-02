@@ -102,6 +102,7 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertNotIn("RUN 90s", production_source)
         self.assertNotIn("LIBAD", production_source)
         self.assertIn("Operate", production_source)
+        self.assertIn("software loopback", production_source)
         self.assertIn("Diagnose", production_source)
         self.assertIn("Traceability", production_source)
         self.assertIn("Multimodal", production_source)

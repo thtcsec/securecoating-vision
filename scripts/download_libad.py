@@ -222,9 +222,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         help="Print whether the official release is mounted. Does not download files.",
     )
     args = parser.parse_args(argv)
-    print(INSTRUCTIONS)
     target = PROJECT_ROOT / "data" / "libad"
     write_instructions(target)
+    if not (args.probe or args.download or args.status or args.accept_license):
+        print(INSTRUCTIONS)
+        return 0
     try:
         if args.download and not args.accept_license:
             raise DownloadError(

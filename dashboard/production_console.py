@@ -407,9 +407,10 @@ def render_production_console(snapshot: Dict[str, Any], api_client: Any) -> None
     if view == "Guide":
         st.markdown("### Get started in 2 minutes")
         st.info(
-            "This runtime is fail-closed. Development simulation, a mock PLC, or unverified "
-            "calibration always keeps the line disposition at HOLD_REQUIRED. Detection "
-            "evidence remains visible, but it cannot authorize a physical line decision."
+            "This runtime is fail-closed. Development simulation, a mock PLC, a localhost "
+            "software loopback, or unverified calibration always keeps the line disposition "
+            "at HOLD_REQUIRED. Detection evidence remains visible, but it cannot authorize "
+            "a physical line decision."
         )
         g1, g2 = st.columns(2)
         with g1:
@@ -483,11 +484,14 @@ The left identity rail is not the view switcher. Collapsing it hides roll/batch 
         plc_col, insp_col = st.columns(2)
         with plc_col:
             connection = industrial.get("connection") or {}
+            evidence_class = connection.get("evidence_class") or "unspecified"
             st.markdown(
                 f"""
 <div class="scada-panel">
     <h5 style="color:#FFF; margin-top:0;">PLC telemetry</h5>
     <p><b>Connection status:</b> {html.escape(str(connection.get('status', 'UNKNOWN')))}</p>
+    <p><b>Command channel:</b> {html.escape(str(connection.get('command_channel') or 'unspecified'))}</p>
+    <p><b>Evidence class:</b> {html.escape(str(evidence_class))}</p>
     <p><b>Endpoint:</b> <code>{html.escape(str(connection.get('plc_ip', 'UNKNOWN')))}:{html.escape(str(connection.get('modbus_port', 'UNKNOWN')))}</code></p>
     <p><b>Interlock latched:</b> {html.escape(str(industrial.get('interlock_latched')))}</p>
     <p><b>Interlock reason:</b> {html.escape(str(industrial.get('interlock_reason') or 'none reported'))}</p>
@@ -495,6 +499,15 @@ The left identity rail is not the view switcher. Collapsing it hides roll/batch 
 """,
                 unsafe_allow_html=True,
             )
+            if (
+                str(connection.get("status")) == "SOFTWARE_LOOPBACK"
+                or evidence_class == "software_loopback_not_vendor_hil"
+            ):
+                st.warning(
+                    "PLC ACK is a localhost software loopback. This is not vendor hardware-in-the-loop."
+                )
+            elif connection.get("mock_mode"):
+                st.warning("PLC delivery is SIMULATED in this runtime. This is not a hardware ACK.")
             _kv_panel(
                 "Modbus registers",
                 industrial.get("modbus_registers") or {"status": "NO DATA"},
@@ -556,6 +569,10 @@ The left identity rail is not the view switcher. Collapsing it hides roll/batch 
                         _kv_panel("Control audit result", result)
                         if result.get("mock_mode"):
                             st.warning("PLC delivery is SIMULATED in this runtime. This is not a hardware ACK.")
+                        elif str((industrial.get("connection") or {}).get("status")) == "SOFTWARE_LOOPBACK":
+                            st.warning(
+                                "Control ACK is a localhost software loopback. This is not vendor HIL."
+                            )
                         if result.get("status") in {"UNCONFIRMED", "RESET_BLOCKED"}:
                             st.error("Command was not confirmed. Treat the line as HOLD.")
 
