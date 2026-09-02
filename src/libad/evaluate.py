@@ -199,6 +199,11 @@ def evaluate_official_splits(
             split,
             tuple(name for name in ("vis", "xray_l") if name in needed),
         )
+        print(
+            f"  seed {split.seed}: fitted {', '.join(name for name in ('vis', 'xray_l') if name in needed)} "
+            f"once; scoring {len(selected)} experiments",
+            flush=True,
+        )
         for experiment in selected:
             record = evaluate_split(split, experiment, config=cfg, scorer=scorer)
             by_experiment[experiment].append(record)

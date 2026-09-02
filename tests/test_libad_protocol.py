@@ -90,6 +90,16 @@ class TestLibadProtocol(unittest.TestCase):
             self.assertFalse(status["comparable_to_paper"])
             self.assertEqual(status["dataset_tree_sha256"], "a" * 64)
 
+    def test_official_local_adapter_summary_never_claims_paper(self):
+        from libad.protocol import official_local_adapter_summary
+
+        summary = official_local_adapter_summary()
+        if summary is None:
+            return
+        self.assertFalse(summary["comparable_to_paper"])
+        self.assertEqual(summary["source"], "reports/libad/official_local_adapter.json")
+        self.assertIn("auroc", summary["multimodal"])
+
 
 if __name__ == "__main__":
     unittest.main()

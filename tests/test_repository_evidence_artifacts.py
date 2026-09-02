@@ -294,6 +294,18 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertNotIn("-84% scrap", source)
         self.assertNotIn("P99.9 SLA", source)
 
+    def test_pitch_and_slides_match_official_local_adapter_status(self):
+        pitch = (ROOT / "docs/presentation_pitch.md").read_text(encoding="utf-8")
+        slides = (ROOT / "scripts/generate_defense_slides.py").read_text(encoding="utf-8")
+        self.assertNotIn("official data execution is still pending", pitch)
+        self.assertNotIn("official-data validation is pending", pitch)
+        self.assertIn("official_local_adapter.json", pitch)
+        self.assertIn("paper-comparable", pitch)
+        self.assertNotIn(
+            "Official 4.84 GB dataset and 10 splits are not in this runtime",
+            slides,
+        )
+
     def test_default_dataset_yaml_is_labelled_synthetic_only(self):
         text = (ROOT / "configs/dataset.yaml").read_text(encoding="utf-8")
         self.assertIn("coatingvision_real_detect.yaml", text)

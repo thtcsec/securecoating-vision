@@ -204,6 +204,69 @@ def hash_existing_files(paths: Iterable[str]) -> Dict[str, Optional[str]]:
     return out
 
 
+def _mean_std(block: Any, name: str) -> Optional[Dict[str, float]]:
+    if not isinstance(block, dict):
+        return None
+    item = block.get(name)
+    if not isinstance(item, dict) or "mean" not in item:
+        return None
+    payload = {"mean": float(item["mean"])}
+    if item.get("std") is not None:
+        payload["std"] = float(item["std"])
+    return payload
+
+
+def official_local_adapter_summary() -> Optional[Dict[str, Any]]:
+    """Checked-in numpy 10-seed summary. Never a paper-table claim."""
+    path = PROJECT_ROOT / "reports" / "libad" / "official_local_adapter.json"
+    if not path.is_file():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        return None
+    if payload.get("comparable_to_paper") is True:
+        return None
+    experiments = payload.get("experiments") if isinstance(payload.get("experiments"), dict) else {}
+
+    def academic(name: str) -> Dict[str, Any]:
+        block = (experiments.get(name) or {}).get("academic") if isinstance(experiments.get(name), dict) else {}
+        out: Dict[str, Any] = {}
+        for metric in ("auroc", "aupr", "f1_max", "fpr95"):
+            parsed = _mean_std(block, metric)
+            if parsed:
+                out[metric] = parsed
+        return out
+
+    industrial = (
+        (experiments.get("securecoating_gate") or {}).get("industrial")
+        if isinstance(experiments.get("securecoating_gate"), dict)
+        else {}
+    )
+    gate: Dict[str, Any] = {}
+    if isinstance(industrial, dict):
+        for key in (
+            "hold_rate",
+            "escape_rate",
+            "selective_risk",
+            "automatic_decision_coverage",
+        ):
+            parsed = _mean_std(industrial, key)
+            if parsed:
+                gate[key] = parsed
+    return {
+        "source": "reports/libad/official_local_adapter.json",
+        "evidence_class": payload.get("evidence_class"),
+        "comparable_to_paper": False,
+        "feature_backbone": payload.get("feature_backbone"),
+        "official_protocol_complete": bool(payload.get("official_protocol_complete")),
+        "unimodal_vis": academic("unimodal_vis"),
+        "unimodal_xray_l": academic("unimodal_xray_l"),
+        "multimodal": academic("multimodal"),
+        "securecoating_gate": gate,
+    }
+
+
 def dataset_root_from_config(config: Optional[Dict[str, Any]] = None) -> Path:
     cfg = config or load_libad_config()
     return PROJECT_ROOT / cfg["paths"]["dataset_root"]

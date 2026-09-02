@@ -446,6 +446,10 @@ class TestAPI(unittest.TestCase):
             "Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing",
         )
         self.assertIn("does not claim DA-Core", body["citation"]["da_core_attribution"])
+        report = body.get("local_adapter_report")
+        if report is not None:
+            self.assertFalse(report["comparable_to_paper"])
+            self.assertNotEqual(report.get("evidence_class"), "protocol_fixture")
         samples = self.client.get("/api/libad/samples")
         self.assertEqual(samples.status_code, 200)
         sample_body = samples.json()

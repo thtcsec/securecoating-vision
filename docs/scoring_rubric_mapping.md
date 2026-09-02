@@ -5,7 +5,7 @@ This file maps claims only to implemented artifacts. It is not a competition sco
 | Area | Implemented evidence | Remaining gate |
 |---|---|---|
 | Detection | `src/inference/yolo_engine.py`, `src/inference/onnx_engine.py`, post-processing tests | Independent roll-disjoint evaluation, false-positive/false-negative suite, model parity |
-| LIBAD validation extension | `src/libad/`, 10 official seeds, industrial gate metrics | Official 4.84 GB dataset + author DINOv3/DA-Core run for paper-comparable numbers |
+| LIBAD validation extension | `src/libad/`, 10 official seeds, industrial gate metrics, hash-recorded local numpy 10-seed in `reports/libad/official_local_adapter.json` | Authors' DINOv3/DA-Core run if paper-table comparison is required; local numpy remains non-comparable |
 | Fail-closed decisions | `src/inference/failsafe.py`, `src/libad/evidence_gate.py`, `src/api/main.py`, safety contract tests | Killable inference process and target-hardware fault injection |
 | PLC signaling | `src/industrial/protocol_manager.py`; mock/negative ACK tests | Vendor PLC command/ACK mapping and physical HIL |
 | Traceability | `src/traceability/quality_memory.py`, `web_synchronizer.py`, `roll_certificate.py` | Durable roll lifecycle, backup/restore, retention and restart recovery |

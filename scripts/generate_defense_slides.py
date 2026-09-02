@@ -215,7 +215,7 @@ def build() -> Path:
     add_textbox(s, Inches(7.0), Inches(1.55), Inches(5.65), Inches(4.9), [
         {"text": "LANE B  ·  VALIDATION EXTENSION", "size": 12, "color": ACCENT, "bold": True},
         {"text": "LIBAD VIS + X-rayL adapter", "size": 22, "color": WHITE, "bold": True},
-        {"text": "Official 4.84 GB dataset and 10 splits are not in this runtime. Checked-in cases are protocol fixtures, not paper-comparable.", "size": 15, "color": MUTED, "space_after": 12},
+        {"text": "Official 10-seed ran on a hash-verified mount with the local CPU numpy descriptor (AUROC ~0.70, FPR95 ~0.84). Not DINOv3. Demo cases stay protocol fixtures.", "size": 15, "color": MUTED, "space_after": 12},
         {"text": "DA-Core is Sui et al. SecureCoating-Vision adds the evidence gate, not a new detector claim.", "size": 15, "color": ACCENT},
     ])
     footer(s, 3)

@@ -137,7 +137,7 @@ A release may be called **research/demo-ready** only when automated tests and ev
 
 ## Next Execution Plan
 
-1. **Next evidence slice**: after Hugging Face terms + `HF_TOKEN`, download official LIBAD, run the 10 official splits, and publish only hash-recorded metrics; keep fixture runs labelled non-comparable.
+1. **Next evidence slice**: authors' DINOv3/DA-Core on the already hash-verified official mount, only if a paper-table comparison is required; keep numpy reports `comparable_to_paper: false`.
 2. **Next engineering slice**: keep GitHub Actions green; add Compose/browser smoke only when the runner has enough RAM.
 3. **Next integration slice**: vendor PLC HIL remains open; localhost Modbus command/ACK now runs through the live API (`scripts/run_modbus_loopback_trigger.py`).
 4. **Next deployment slice**: replace or refresh the base when the remaining `perl-base` findings are fixable, generate an SBOM, and exercise rollback/backup on the target host.

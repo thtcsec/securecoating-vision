@@ -104,6 +104,30 @@ def render_multimodal_lane(api_client: Any) -> None:
     if note:
         st.info(note)
 
+    report = payload.get("local_adapter_report") if isinstance(payload.get("local_adapter_report"), dict) else None
+    if report and report.get("comparable_to_paper") is not True:
+        multimodal = report.get("multimodal") if isinstance(report.get("multimodal"), dict) else {}
+        gate = report.get("securecoating_gate") if isinstance(report.get("securecoating_gate"), dict) else {}
+        auroc = multimodal.get("auroc") if isinstance(multimodal.get("auroc"), dict) else {}
+        fpr = multimodal.get("fpr95") if isinstance(multimodal.get("fpr95"), dict) else {}
+        hold = gate.get("hold_rate") if isinstance(gate.get("hold_rate"), dict) else {}
+        escape = gate.get("escape_rate") if isinstance(gate.get("escape_rate"), dict) else {}
+        st.markdown("#### Local numpy 10-seed (not the paper table)")
+        st.caption(
+            "Checked-in report at reports/libad/official_local_adapter.json. "
+            "CPU numpy_patch_descriptor on the hash-verified official splits. "
+            "Do not quote these as DINOv3/DA-Core numbers. Mount status is the cards above."
+        )
+        m1, m2, m3, m4 = st.columns(4)
+        with m1:
+            st.metric("Multimodal AUROC", _fmt_mean(auroc.get("mean")))
+        with m2:
+            st.metric("Multimodal FPR95", _fmt_mean(fpr.get("mean")))
+        with m3:
+            st.metric("Gate HOLD", _fmt_mean(hold.get("mean"), percent=True))
+        with m4:
+            st.metric("Gate escape", _fmt_mean(escape.get("mean"), percent=True))
+
     if not present:
         st.warning(
             "Official VIS + X-ray files are not mounted at the configured dataset root. "
@@ -183,6 +207,16 @@ def render_multimodal_lane(api_client: Any) -> None:
     from dashboard.production_console import _replay_grid
 
     _replay_grid(panels, columns=3)
+
+
+def _fmt_mean(value: Any, percent: bool = False) -> str:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return "—"
+    if percent:
+        return f"{number:.1%}"
+    return f"{number:.3f}"
 
 
 def _status_card(label: str, value: str, border: str) -> str:

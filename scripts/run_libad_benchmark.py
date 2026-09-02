@@ -46,6 +46,11 @@ def main() -> int:
         unknown = [seed for seed in seeds if seed not in OFFICIAL_SPLIT_SEEDS]
         if unknown:
             raise SystemExit(f"Non-official seeds are refused: {unknown}")
+    print(
+        f"LIBAD local adapter: seeds={list(seeds)} backbone=numpy_patch_descriptor "
+        "(CPU, not DINOv3). comparable_to_paper=false",
+        flush=True,
+    )
     report = evaluate_official_splits(
         seeds=seeds,
         allow_fixture=not args.require_official,

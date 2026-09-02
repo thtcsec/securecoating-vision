@@ -2500,7 +2500,12 @@ def run_multi_stage_pipeline(
 def libad_protocol():
     """Disclose the LIBAD validation-extension contract without replacing RGB inference."""
     from libad.dataset import dataset_status, list_official_samples
-    from libad.protocol import LIBAD_CITATION, LIBAD_PAPER_RESULT_NOTE, load_project_identity
+    from libad.protocol import (
+        LIBAD_CITATION,
+        LIBAD_PAPER_RESULT_NOTE,
+        load_project_identity,
+        official_local_adapter_summary,
+    )
 
     identity = load_project_identity()
     return {
@@ -2510,6 +2515,7 @@ def libad_protocol():
         "citation": LIBAD_CITATION,
         "paper_result_note": LIBAD_PAPER_RESULT_NOTE,
         "dataset": dataset_status(),
+        "local_adapter_report": official_local_adapter_summary(),
         "local_contribution": (
             "Evidence-gated PASS/REJECT/HOLD. DA-Core is the LIBAD authors' baseline, "
             "not a SecureCoating-Vision algorithm."
