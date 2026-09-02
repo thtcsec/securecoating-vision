@@ -278,7 +278,10 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn("dashboard/multimodal_lane.py", string_items)
         self.assertIn("tests/test_libad_official_index.py", string_items)
         self.assertIn("tests/test_onnx_postprocess.py", string_items)
+        self.assertIn("scripts/generate_defense_slides.py", string_items)
+        self.assertIn("scripts/generate_defense_gifs.py", string_items)
         self.assertIn("scripts/check_ci_junit.py", string_items)
+        self.assertIn("tests/test_defense_gifs.py", string_items)
 
     def test_official_defense_pptx_does_not_display_forbidden_factory_numbers(self):
         text = _pptx_text(ROOT / "SecureCoating-Vision_Final_Defense_6min.pptx")

@@ -21,6 +21,8 @@ ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "SecureCoating-Vision_Final_Defense_6min.pptx"
 LEGACY_DECK = ROOT / "SecureCoating-Vision_Final_Defense_6min_Coating_Surface_Evidence.pptx"
 EXTERNAL_DEMO = ROOT / "reports/external_coatingvision_demo/coatingvision_model_output.png"
+RGB_GIF = ROOT / "reports/defense_gifs/rgb_hold_replay.gif"
+LIBAD_GIF = ROOT / "reports/defense_gifs/libad_gate.gif"
 
 BG = RGBColor(0x0A, 0x0D, 0x14)
 CARD = RGBColor(0x15, 0x1B, 0x28)
@@ -343,33 +345,27 @@ def build() -> Path:
     s = prs.slides.add_slide(blank)
     paint_bg(s)
     kicker(s, "08", "5:10–6:00")
-    add_textbox(s, Inches(0.45), Inches(0.5), Inches(12.4), Inches(0.55), [
-        {"text": "Real detection. Safe demo disposition. Clear next gate.", "size": 26, "color": WHITE, "bold": True}
+    add_textbox(s, Inches(0.45), Inches(0.5), Inches(12.4), Inches(0.45), [
+        {"text": "Let the loops run. Then say the close.", "size": 26, "color": WHITE, "bold": True}
     ])
-    cases = [
-        ("1", GREEN, "REAL OPTICAL", "CoatingVision image · DOI + SHA-256"),
-        ("2", RED, "surface_crack", "confidence 0.53 · artifact f72a8f2b…"),
-        ("3", RED, "PYTORCH + ONNX", "same 2-class map · hash-pinned artifacts"),
-        ("4", YELLOW, "HOLD", "mock PLC + unverified calibration block release"),
-    ]
-    for i, (number, color, action, body) in enumerate(cases):
-        left = Inches(0.45 + (i % 2) * 6.3)
-        top = Inches(1.15 + (i // 2) * 1.35)
-        _box(s, left, top, Inches(6.05), Inches(1.22))
-        add_textbox(s, left + Inches(0.2), top + Inches(0.12), Inches(5.6), Inches(0.3), [
-            {"text": f"CASE {number}  ·  {action}", "size": 14, "color": color, "bold": True}
-        ])
-        add_textbox(s, left + Inches(0.2), top + Inches(0.5), Inches(5.6), Inches(0.55), [
-            {"text": body, "size": 16, "color": WHITE}
-        ])
-    add_textbox(s, Inches(0.45), Inches(4.0), Inches(7.6), Inches(2.6), [
+    _box(s, Inches(0.45), Inches(1.05), Inches(6.15), Inches(4.05))
+    add_textbox(s, Inches(0.6), Inches(1.12), Inches(5.85), Inches(0.28), [
+        {"text": "RGB LANE  ·  image_1548  ·  HOLD", "size": 12, "color": YELLOW, "bold": True}
+    ])
+    rgb_media = RGB_GIF if RGB_GIF.is_file() else EXTERNAL_DEMO
+    if rgb_media.is_file():
+        s.shapes.add_picture(str(rgb_media), Inches(0.6), Inches(1.45), width=Inches(5.85))
+    _box(s, Inches(6.75), Inches(1.05), Inches(6.15), Inches(4.05))
+    add_textbox(s, Inches(6.9), Inches(1.12), Inches(5.85), Inches(0.28), [
+        {"text": "LIBAD GATE  ·  fixture PASS / REJECT / REJECT / HOLD", "size": 12, "color": ACCENT, "bold": True}
+    ])
+    if LIBAD_GIF.is_file():
+        s.shapes.add_picture(str(LIBAD_GIF), Inches(6.9), Inches(1.45), width=Inches(5.85))
+    add_textbox(s, Inches(0.45), Inches(5.25), Inches(12.4), Inches(1.65), [
         {"text": "CLOSE", "size": 12, "color": ACCENT, "bold": True},
-        {"text": "The model finds defects. The evidence gate controls when the line may act.", "size": 18, "color": WHITE, "bold": True, "space_after": 10},
-        {"text": "Next gate: supervised pilot with HIL, factory calibration, and roll-disjoint data.", "size": 14, "color": MUTED},
+        {"text": "The model finds defects. The evidence gate controls when the line may act.", "size": 20, "color": WHITE, "bold": True, "space_after": 8},
+        {"text": "GIFs loop checked-in artifacts. RGB HOLD is real optical + mock PLC. LIBAD cases are protocol fixtures, not DINOv3. Next gate: HIL, factory calibration, roll-disjoint data.", "size": 14, "color": MUTED},
     ])
-    if EXTERNAL_DEMO.is_file():
-        _box(s, Inches(8.2), Inches(3.95), Inches(4.65), Inches(2.7))
-        s.shapes.add_picture(str(EXTERNAL_DEMO), Inches(8.35), Inches(4.1), width=Inches(4.35))
     footer(s, 8)
 
     prs.save(OUTPUT)

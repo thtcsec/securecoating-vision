@@ -103,6 +103,8 @@ Never expose that mode outside a trusted developer workstation.
 .venv\Scripts\python.exe scripts/record_libad_official_manifest.py
 .venv\Scripts\python.exe scripts/run_libad_benchmark.py --require-official --out reports/libad/official_local_adapter.json
 .venv\Scripts\python.exe scripts/verify_coatingvision_dataset.py --grouping
+.venv\Scripts\python.exe scripts/generate_defense_gifs.py
+.venv\Scripts\python.exe scripts/generate_defense_slides.py
 .venv\Scripts\python.exe scripts/run_modbus_loopback_trigger.py
 .venv\Scripts\python.exe -m compileall -q src dashboard scripts tests
 .venv\Scripts\python.exe -m pip check

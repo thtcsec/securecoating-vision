@@ -6,9 +6,9 @@
 **Brand:** SecureCoating-Vision  
 **Format:** 6-Minute Presentation + 2-Minute Q&A  
 
-Do not introduce a fourth title. Slide 1 of `SecureCoating-Vision_Final_Defense_6min_Fixed.pptx` uses the registered finalist-list title exactly, then the tagline.
+Do not introduce a fourth title. Present `SecureCoating-Vision_Final_Defense_6min.pptx` (git). Do not lead with `*_Fixed.pptx` or `*_Evidence_Aware.pptx`.
 
-Use that deck for judges. `*_Evidence_Aware.pptx` still reads as multi-sensor fusion; do not lead with that subtitle.
+Organizer update: final materials deadline is **10 September 2026**. Play the two looping GIFs in minute 6 (Slideshow mode so GIF animates).
 
 ---
 
@@ -25,7 +25,7 @@ Say this, then stop talking until they look at the first defect image:
 | Quantitative evidence | 2:45–4:20 | CoatingVision 88-image test split: mAP50 0.633 / P 0.645 / R 0.642 / mAP50-95 0.354; weights and dataset-tree hashes shown |
 | Materials relevance | throughout | Roll/batch identity, coating-surface frames, SPC on the coating process — not generic object detection |
 | Industrial impact | 2:00–3:35 | Fail-closed, false-accept blocked by HOLD, confirm-audit control, HMAC certificate; **no factory yield claim** |
-| Demo storytelling | 5:10–6:00 | Acquired frame → model input → overlay → PASS/REJECT/HOLD |
+| Demo storytelling | 5:10–6:00 | Looping GIFs: RGB HOLD replay + LIBAD fixture PASS/REJECT/REJECT/HOLD |
 | Reproducibility / limits | last 20 s + Q&A | DOI + model/dataset hashes + current test manifest; thermal/profiler simulated; roll-disjoint/HIL evidence pending |
 
 Do **not** say 99.4% mAP, ≤35 ms TensorRT, real thermal/laser plant instruments, or zero escapes.
@@ -77,11 +77,12 @@ Do **not** say 99.4% mAP, ≤35 ms TensorRT, real thermal/laser plant instrument
 *   Local throughput evidence is presented only as measured inference timing. Camera exposure, transport, PLC ACK, and target-hardware HIL remain outside that number.
 
 ### Minute 6: Real Detection, Safe Demo Disposition
-1. Real CoatingVision optical input with DOI and SHA-256 provenance.
-2. `surface_crack` detection from the configured checkpoint.
-3. PyTorch and ONNX share the same two-class map and hash-pinned artifacts.
-4. Development simulation + mock PLC + unverified calibration force `HOLD`.
-*   **Close:** "The model finds defects. The evidence gate controls when the line may act."
+Let the two GIFs loop in Slideshow. Do not narrate every frame.
+1. Left: CoatingVision `image_1548` optical → CLAHE → YOLO overlay → **HOLD**.
+2. Right: LIBAD fixture **PASS / REJECT / REJECT / HOLD** (`comparable_to_paper: false`).
+3. Close: "The model finds defects. The evidence gate controls when the line may act."
+
+PyTorch and ONNX share the same two-class map. Development simulation + mock PLC + unverified calibration is why the RGB loop ends on HOLD, not PASS.
 
 ---
 
