@@ -73,7 +73,8 @@ This document is the project status ledger. A feature is marked **verified** onl
 - [ ] Supply a real independent roll-disjoint manifest and publish metrics from it.
 - [x] LIBAD adapter, evidence gate, four industrial metrics, and 10 official-seed harness exist in repository tests.
 - [x] Official LIBAD Hugging Face zip files were probed; unauthenticated access returns HTTP 401 / gated until terms are accepted and `HF_TOKEN` is set.
-- [ ] Download the official LIBAD 4.84 GB release, validate all 10 splits against a tree-hash artifact manifest, and run the authors' DINOv3/DA-Core implementation before publishing any paper-comparable metrics.
+- [x] Official LIBAD tree hashes for the local numpy adapter are recorded by `scripts/record_libad_official_manifest.py` (runtime manifest gitignored; copy in `reports/libad/official_mount_hashes.json`). Default status uses a cheap fingerprint so pytest/API do not SHA-256 4.84 GB on every call.
+- [ ] Run the authors' DINOv3/DA-Core implementation on the hash-verified mount before publishing any paper-comparable metrics.
 - [ ] Run clean-surface false-positive, hard-negative, and defect false-negative suites.
 - [ ] Measure POD, escape rate, confidence intervals, and performance on independent factory data.
 - [ ] Add ONNX-vs-source-model parity and multi-resolution calibration tests.

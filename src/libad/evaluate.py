@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Sequence
 import numpy as np
 
 from libad.dataset import LibadSample, LibadSplit, dataset_status, load_official_splits
+from libad.official_code import official_code_status
 from libad.evidence_gate import EvidenceContracts, decide_evidence_gate
 from libad.metrics import academic_metrics, industrial_gate_metrics, summarize_splits
 from libad.protocol import (
@@ -45,6 +46,7 @@ def _scorer_from_config(seed: int, config: dict) -> MemoryAnomalyScorer:
         vis_scale=float(scoring["vis_scale"]),
         xray_scale=float(scoring["xray_scale"]),
         seed=int(seed),
+        min_coreset_count=int(coreset.get("min_count") or 0),
     )
 
 
@@ -86,15 +88,18 @@ def evaluate_split(
     split: LibadSplit,
     experiment: str,
     config: Optional[dict] = None,
+    scorer: Optional[MemoryAnomalyScorer] = None,
 ) -> Dict[str, Any]:
     if experiment not in EXPERIMENT_MODALITIES:
         raise ValueError(f"Unknown experiment: {experiment}")
     cfg = config or load_libad_config()
-    input_status = dataset_status(cfg)
     modalities = EXPERIMENT_MODALITIES[experiment]
-    scorer = _scorer_from_config(split.seed, cfg)
+    fitted = scorer is not None
+    if scorer is None:
+        scorer = _scorer_from_config(split.seed, cfg)
     started = time.perf_counter()
-    _fit_on_split(scorer, split, modalities)
+    if not fitted:
+        _fit_on_split(scorer, split, modalities)
     val_scores: List[float] = []
     for sample in split.val:
         scored = _score_sample(scorer, sample, modalities)
@@ -179,13 +184,23 @@ def evaluate_official_splits(
 ) -> Dict[str, Any]:
     cfg = config or load_libad_config()
     selected = list(experiments or EXPERIMENT_MODALITIES.keys())
+    input_status = dataset_status(cfg)
     splits = load_official_splits(seeds=seeds, allow_fixture=allow_fixture, config=cfg)
     started = time.perf_counter()
     by_experiment: Dict[str, List[Dict[str, Any]]] = {name: [] for name in selected}
     raw_predictions: List[Dict[str, Any]] = []
     for split in splits:
+        needed = set()
         for experiment in selected:
-            record = evaluate_split(split, experiment, config=cfg)
+            needed.update(EXPERIMENT_MODALITIES[experiment])
+        scorer = _scorer_from_config(split.seed, cfg)
+        _fit_on_split(
+            scorer,
+            split,
+            tuple(name for name in ("vis", "xray_l") if name in needed),
+        )
+        for experiment in selected:
+            record = evaluate_split(split, experiment, config=cfg, scorer=scorer)
             by_experiment[experiment].append(record)
             raw_predictions.extend(record["predictions"])
     elapsed_ms = (time.perf_counter() - started) * 1000.0
@@ -217,6 +232,19 @@ def evaluate_official_splits(
     official_protocol_complete = (
         official_data and tuple(int(seed) for seed in seeds) == OFFICIAL_SPLIT_SEEDS
     )
+    code_status = official_code_status()
+    paper_comparability_blockers = [
+        "The local feature backbone is numpy_patch_descriptor, not the authors' official DINOv3 implementation",
+        "No official external baseline runner/weight hash is recorded by this harness",
+    ]
+    if not code_status["present"]:
+        paper_comparability_blockers.append(
+            "Official evenrose/LIBAD code is not cloned under third_party/evenrose-libad"
+        )
+    else:
+        paper_comparability_blockers.append(
+            "Official evenrose/LIBAD code may be present; this harness still scores with the local numpy adapter"
+        )
     return {
         "benchmark": "LIBAD",
         "citation": LIBAD_CITATION,
@@ -233,10 +261,8 @@ def evaluate_official_splits(
         ),
         "comparable_to_paper": comparable,
         "official_protocol_complete": official_protocol_complete,
-        "paper_comparability_blockers": [
-            "The local feature backbone is numpy_patch_descriptor, not the authors' official DINOv3 implementation",
-            "No official external baseline runner/weight hash is recorded by this harness",
-        ],
+        "paper_comparability_blockers": paper_comparability_blockers,
+        "official_code": code_status,
         "experiments": summary,
         "split_records": {
             experiment: [
@@ -257,6 +283,7 @@ def evaluate_official_splits(
                     "src/libad/scorer.py",
                     "src/libad/evidence_gate.py",
                     "src/libad/dataset.py",
+                    "src/libad/official_code.py",
                 ]
             ),
             "official_dataset_tree_sha256": (
@@ -265,6 +292,7 @@ def evaluate_official_splits(
             "official_splits_tree_sha256": (
                 input_status["splits_tree_sha256"] if official_data else None
             ),
+            "official_code_commit": code_status.get("commit"),
             "protocol_fixture_definition": (
                 hash_existing_files(["src/libad/dataset.py", "configs/libad.yaml"])
                 if not official_data else None

@@ -30,9 +30,9 @@
     6789,
     7345
   ],
-  "evidence_class": "protocol_fixture",
+  "evidence_class": "official_libad_local_adapter",
   "comparable_to_paper": false,
-  "official_protocol_complete": false,
+  "official_protocol_complete": true,
   "paper_comparability_blockers": [
     "The local feature backbone is numpy_patch_descriptor, not the authors' official DINOv3 implementation",
     "No official external baseline runner/weight hash is recorded by this harness",
@@ -50,23 +50,23 @@
     "unimodal_vis": {
       "academic": {
         "auroc": {
-          "mean": 0.7944444444444444,
-          "std": 0.07075915990571406,
+          "mean": 0.6944858313172204,
+          "std": 0.023286176203649266,
           "n": 10
         },
         "aupr": {
-          "mean": 0.8776599326599326,
-          "std": 0.03752348116039036,
+          "mean": 0.8957136763974345,
+          "std": 0.006976999002706789,
           "n": 10
         },
         "f1_max": {
-          "mean": 0.8308658008658009,
-          "std": 0.04552300211645062,
+          "mean": 0.8779063462817375,
+          "std": 0.0031292120260595236,
           "n": 10
         },
         "fpr95": {
-          "mean": 0.8,
-          "std": 0.20487876571761976,
+          "mean": 0.8605504587155963,
+          "std": 0.04713846817858763,
           "n": 10
         }
       },
@@ -76,23 +76,23 @@
     "unimodal_xray_l": {
       "academic": {
         "auroc": {
-          "mean": 0.7902777777777779,
-          "std": 0.09223309842157773,
+          "mean": 0.6818346228471508,
+          "std": 0.015090059199273488,
           "n": 10
         },
         "aupr": {
-          "mean": 0.8739983164983165,
-          "std": 0.04656914124453225,
+          "mean": 0.8953994834350535,
+          "std": 0.005354724123762774,
           "n": 10
         },
         "f1_max": {
-          "mean": 0.8275324675324676,
-          "std": 0.046531460481350255,
+          "mean": 0.8758031296212586,
+          "std": 0.0007173013586839452,
           "n": 10
         },
         "fpr95": {
-          "mean": 0.7666666666666666,
-          "std": 0.2629368792488718,
+          "mean": 0.8926605504587156,
+          "std": 0.02523630707740399,
           "n": 10
         }
       },
@@ -102,23 +102,23 @@
     "multimodal": {
       "academic": {
         "auroc": {
-          "mean": 1.0,
-          "std": 0.0,
+          "mean": 0.700098210649867,
+          "std": 0.018235017925651742,
           "n": 10
         },
         "aupr": {
-          "mean": 1.0,
-          "std": 0.0,
+          "mean": 0.9023384885505774,
+          "std": 0.005714439683488663,
           "n": 10
         },
         "f1_max": {
-          "mean": 1.0,
-          "std": 0.0,
+          "mean": 0.8789992645978218,
+          "std": 0.0025740997726829188,
           "n": 10
         },
         "fpr95": {
-          "mean": 0.0,
-          "std": 0.0,
+          "mean": 0.838532110091743,
+          "std": 0.04877651874587617,
           "n": 10
         }
       },
@@ -128,23 +128,23 @@
     "securecoating_gate": {
       "academic": {
         "auroc": {
-          "mean": 1.0,
-          "std": 0.0,
+          "mean": 0.700098210649867,
+          "std": 0.018235017925651742,
           "n": 10
         },
         "aupr": {
-          "mean": 1.0,
-          "std": 0.0,
+          "mean": 0.9023384885505774,
+          "std": 0.005714439683488663,
           "n": 10
         },
         "f1_max": {
-          "mean": 1.0,
-          "std": 0.0,
+          "mean": 0.8789992645978218,
+          "std": 0.0025740997726829188,
           "n": 10
         },
         "fpr95": {
-          "mean": 0.0,
-          "std": 0.0,
+          "mean": 0.838532110091743,
+          "std": 0.04877651874587617,
           "n": 10
         }
       },
@@ -152,53 +152,53 @@
       "purpose": "PASS/REJECT/HOLD safety of acting on the scores",
       "industrial": {
         "n": {
-          "mean": 12.0,
+          "mean": 492.0,
           "std": 0.0,
           "n": 10
         },
         "n_pass": {
-          "mean": 3.2,
-          "std": 1.9321835661585918,
+          "mean": 282.8,
+          "std": 17.624477927650005,
           "n": 10
         },
         "n_reject": {
-          "mean": 7.4,
-          "std": 1.7126976771553504,
+          "mean": 185.3,
+          "std": 10.32849349023263,
           "n": 10
         },
         "n_hold": {
-          "mean": 1.4,
-          "std": 0.9660917830792959,
+          "mean": 23.9,
+          "std": 8.089087299153924,
           "n": 10
         },
         "automatic_decision_coverage": {
-          "mean": 0.8833333333333332,
-          "std": 0.0805076485899413,
+          "mean": 0.9514227642276423,
+          "std": 0.01644123434787384,
           "n": 10
         },
         "hold_rate": {
-          "mean": 0.11666666666666667,
-          "std": 0.08050764858994132,
+          "mean": 0.04857723577235772,
+          "std": 0.01644123434787383,
           "n": 10
         },
         "escape_rate": {
-          "mean": 0.0,
-          "std": 0.0,
+          "mean": 0.5114882506527414,
+          "std": 0.03165508467316927,
           "n": 10
         },
         "selective_risk": {
-          "mean": 0.1630808080808081,
-          "std": 0.1490518903163259,
+          "mean": 0.45383103057296414,
+          "std": 0.012591555939730771,
           "n": 10
         },
         "n_escape": {
-          "mean": 0.0,
-          "std": 0.0,
+          "mean": 195.9,
+          "std": 12.123897429823831,
           "n": 10
         },
         "n_auto_errors": {
-          "mean": 1.7,
-          "std": 1.567021236472421,
+          "mean": 212.5,
+          "std": 8.797095480264431,
           "n": 10
         }
       }
@@ -209,19 +209,19 @@
       {
         "seed": 347,
         "experiment": "unimodal_vis",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 0.75,
-          "aupr": 0.8501683501683501,
-          "f1_max": 0.8,
-          "fpr95": 0.8333333333333334
+          "auroc": 0.7073083095791315,
+          "aupr": 0.8990920233537174,
+          "f1_max": 0.8794326241134752,
+          "fpr95": 0.7889908256880734
         },
-        "operating_threshold": 2.0483174094818595,
-        "latency_ms_split": 527.0768000045791,
+        "operating_threshold": 1.7241305092728305,
+        "latency_ms_split": 21722.722199978307,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -232,8 +232,14 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.001291870721615851,
+              "n_train_patches": 4000,
+              "reference_score": 0.008049238007515669,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 256,
+              "n_train_patches": 4000,
+              "reference_score": 0.017383772879838943,
               "method": "density_fps"
             }
           }
@@ -242,19 +248,19 @@
       {
         "seed": 725,
         "experiment": "unimodal_vis",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 0.9166666666666666,
-          "aupr": 0.9305555555555556,
-          "f1_max": 0.8571428571428571,
-          "fpr95": 0.3333333333333333
+          "auroc": 0.6795099049033464,
+          "aupr": 0.8926488316889112,
+          "f1_max": 0.8754285714285714,
+          "fpr95": 0.8990825688073395
         },
-        "operating_threshold": 1.4142136425917258,
-        "latency_ms_split": 739.283400005661,
+        "operating_threshold": 1.7163907733561576,
+        "latency_ms_split": 24617.457700020168,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -265,8 +271,14 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.001291870721615851,
+              "n_train_patches": 4000,
+              "reference_score": 0.007907291408628225,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 256,
+              "n_train_patches": 4000,
+              "reference_score": 0.016921604052186012,
               "method": "density_fps"
             }
           }
@@ -275,19 +287,19 @@
       {
         "seed": 1245,
         "experiment": "unimodal_vis",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 0.8888888888888888,
-          "aupr": 0.9333333333333333,
-          "f1_max": 0.9090909090909091,
-          "fpr95": 0.6666666666666666
+          "auroc": 0.6921694972093804,
+          "aupr": 0.8924363699047351,
+          "f1_max": 0.8765859284890427,
+          "fpr95": 0.8165137614678899
         },
-        "operating_threshold": 1.788604157462081,
-        "latency_ms_split": 1214.0016999910586,
+        "operating_threshold": 1.5299863183305773,
+        "latency_ms_split": 22333.99900002405,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -298,8 +310,14 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.0013372133253142238,
+              "n_train_patches": 4000,
+              "reference_score": 0.007978581823408604,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 256,
+              "n_train_patches": 4000,
+              "reference_score": 0.017002427950501442,
               "method": "density_fps"
             }
           }
@@ -308,19 +326,19 @@
       {
         "seed": 4012,
         "experiment": "unimodal_vis",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 0.8055555555555556,
-          "aupr": 0.8708333333333333,
-          "f1_max": 0.8,
-          "fpr95": 0.6666666666666666
+          "auroc": 0.6892710853474501,
+          "aupr": 0.8965614568904909,
+          "f1_max": 0.8775981524249422,
+          "fpr95": 0.908256880733945
         },
-        "operating_threshold": 1.8982108903951924,
-        "latency_ms_split": 1135.6343000079505,
+        "operating_threshold": 1.4178338067028862,
+        "latency_ms_split": 22257.351500040386,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -331,8 +349,14 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.0012683742679655552,
+              "n_train_patches": 4000,
+              "reference_score": 0.008347323630005121,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 256,
+              "n_train_patches": 4000,
+              "reference_score": 0.016991907730698586,
               "method": "density_fps"
             }
           }
@@ -341,19 +365,19 @@
       {
         "seed": 4589,
         "experiment": "unimodal_vis",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 0.8055555555555556,
-          "aupr": 0.8888888888888888,
-          "f1_max": 0.8333333333333334,
-          "fpr95": 1.0
+          "auroc": 0.7434067118595348,
+          "aupr": 0.9112439166980097,
+          "f1_max": 0.8857808857808858,
+          "fpr95": 0.7981651376146789
         },
-        "operating_threshold": 2.4793595595586044,
-        "latency_ms_split": 1063.8298999983817,
+        "operating_threshold": 1.4577692352362535,
+        "latency_ms_split": 21487.434400012717,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -364,8 +388,14 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.0012683742679655552,
+              "n_train_patches": 4000,
+              "reference_score": 0.008467838168144226,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 256,
+              "n_train_patches": 4000,
+              "reference_score": 0.01710030436515808,
               "method": "density_fps"
             }
           }
@@ -374,19 +404,19 @@
       {
         "seed": 5021,
         "experiment": "unimodal_vis",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 0.75,
-          "aupr": 0.8501683501683501,
-          "f1_max": 0.8,
-          "fpr95": 0.8333333333333334
+          "auroc": 0.6929839269887657,
+          "aupr": 0.8945853216044007,
+          "f1_max": 0.8790697674418605,
+          "fpr95": 0.8715596330275229
         },
-        "operating_threshold": 1.7921508546518192,
-        "latency_ms_split": 1264.0936000389047,
+        "operating_threshold": 1.5977937312103208,
+        "latency_ms_split": 21845.592900004704,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -397,8 +427,14 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.0012448778143152595,
+              "n_train_patches": 4000,
+              "reference_score": 0.008275603875517845,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 256,
+              "n_train_patches": 4000,
+              "reference_score": 0.017232246696949005,
               "method": "density_fps"
             }
           }
@@ -407,19 +443,19 @@
       {
         "seed": 5678,
         "experiment": "unimodal_vis",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 0.6944444444444444,
-          "aupr": 0.8333333333333333,
-          "f1_max": 0.8,
-          "fpr95": 1.0
+          "auroc": 0.6536278055908209,
+          "aupr": 0.8850881873836287,
+          "f1_max": 0.8754285714285714,
+          "fpr95": 0.926605504587156
         },
-        "operating_threshold": 1.9274292663343573,
-        "latency_ms_split": 1255.2288000006229,
+        "operating_threshold": 1.5394671377863507,
+        "latency_ms_split": 21677.51850001514,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -430,8 +466,14 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.001291870721615851,
+              "n_train_patches": 4000,
+              "reference_score": 0.008358028717339039,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 256,
+              "n_train_patches": 4000,
+              "reference_score": 0.01699892058968544,
               "method": "density_fps"
             }
           }
@@ -440,19 +482,19 @@
       {
         "seed": 6234,
         "experiment": "unimodal_vis",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 0.7777777777777778,
-          "aupr": 0.8617424242424243,
-          "f1_max": 0.8,
-          "fpr95": 0.8333333333333334
+          "auroc": 0.679497927994826,
+          "aupr": 0.8894635117867725,
+          "f1_max": 0.8778801843317973,
+          "fpr95": 0.8440366972477065
         },
-        "operating_threshold": 2.812070065015477,
-        "latency_ms_split": 1193.007200025022,
+        "operating_threshold": 1.5834735778592068,
+        "latency_ms_split": 20136.553400021512,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -463,8 +505,14 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.0012683742679655552,
+              "n_train_patches": 4000,
+              "reference_score": 0.008264800533652306,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 256,
+              "n_train_patches": 4000,
+              "reference_score": 0.016875751316547394,
               "method": "density_fps"
             }
           }
@@ -473,19 +521,19 @@
       {
         "seed": 6789,
         "experiment": "unimodal_vis",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 0.7222222222222222,
-          "aupr": 0.8409090909090908,
-          "f1_max": 0.8,
-          "fpr95": 0.8333333333333334
+          "auroc": 0.7051883967710255,
+          "aupr": 0.8986720658974084,
+          "f1_max": 0.8764302059496567,
+          "fpr95": 0.8807339449541285
         },
-        "operating_threshold": 1.229833167899498,
-        "latency_ms_split": 905.8148000040092,
+        "operating_threshold": 1.6248398673172215,
+        "latency_ms_split": 19390.919500030577,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -496,8 +544,14 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.001291870721615851,
+              "n_train_patches": 4000,
+              "reference_score": 0.008239519316703081,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 256,
+              "n_train_patches": 4000,
+              "reference_score": 0.016641009598970413,
               "method": "density_fps"
             }
           }
@@ -506,19 +560,19 @@
       {
         "seed": 7345,
         "experiment": "unimodal_vis",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 0.8333333333333334,
-          "aupr": 0.9166666666666667,
-          "f1_max": 0.9090909090909091,
-          "fpr95": 1.0
+          "auroc": 0.701894746927923,
+          "aupr": 0.897345078766272,
+          "f1_max": 0.8754285714285714,
+          "fpr95": 0.8715596330275229
         },
-        "operating_threshold": 1.8204927870697576,
-        "latency_ms_split": 1323.7860000226647,
+        "operating_threshold": 1.6367306056999646,
+        "latency_ms_split": 20063.186899991706,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -529,8 +583,14 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.001291870721615851,
+              "n_train_patches": 4000,
+              "reference_score": 0.008196000475436449,
+              "method": "density_fps"
+            },
+            "xray_l": {
+              "n_memory": 256,
+              "n_train_patches": 4000,
+              "reference_score": 0.017124686390161514,
               "method": "density_fps"
             }
           }
@@ -541,19 +601,19 @@
       {
         "seed": 347,
         "experiment": "unimodal_xray_l",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 0.7777777777777778,
-          "aupr": 0.8592592592592593,
-          "f1_max": 0.8,
-          "fpr95": 0.6666666666666666
+          "auroc": 0.6953673317843199,
+          "aupr": 0.8993192050991899,
+          "f1_max": 0.8754285714285714,
+          "fpr95": 0.8807339449541285
         },
-        "operating_threshold": 2.041589785683229,
-        "latency_ms_split": 275.0753000145778,
+        "operating_threshold": 1.3490888627494177,
+        "latency_ms_split": 11243.118999991566,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -562,10 +622,16 @@
           "feature_dim": 20,
           "late_fusion": "max of modality-normalized image scores",
           "memories": {
+            "vis": {
+              "n_memory": 256,
+              "n_train_patches": 4000,
+              "reference_score": 0.008049238007515669,
+              "method": "density_fps"
+            },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.00140232004923746,
+              "n_train_patches": 4000,
+              "reference_score": 0.017383772879838943,
               "method": "density_fps"
             }
           }
@@ -574,19 +640,19 @@
       {
         "seed": 725,
         "experiment": "unimodal_xray_l",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 0.6666666666666666,
-          "aupr": 0.8257575757575757,
-          "f1_max": 0.8,
-          "fpr95": 1.0
+          "auroc": 0.6901813303949984,
+          "aupr": 0.8979338698749958,
+          "f1_max": 0.8771526980482205,
+          "fpr95": 0.9357798165137615
         },
-        "operating_threshold": 1.7347304309596203,
-        "latency_ms_split": 636.3542000181042,
+        "operating_threshold": 1.4436558453059132,
+        "latency_ms_split": 12220.265699957963,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -595,10 +661,16 @@
           "feature_dim": 20,
           "late_fusion": "max of modality-normalized image scores",
           "memories": {
+            "vis": {
+              "n_memory": 256,
+              "n_train_patches": 4000,
+              "reference_score": 0.007907291408628225,
+              "method": "density_fps"
+            },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.0013372133253142238,
+              "n_train_patches": 4000,
+              "reference_score": 0.016921604052186012,
               "method": "density_fps"
             }
           }
@@ -607,19 +679,19 @@
       {
         "seed": 1245,
         "experiment": "unimodal_xray_l",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 0.9166666666666666,
-          "aupr": 0.9305555555555556,
-          "f1_max": 0.8571428571428571,
-          "fpr95": 0.3333333333333333
+          "auroc": 0.6664790284331809,
+          "aupr": 0.8888466559676937,
+          "f1_max": 0.8754285714285714,
+          "fpr95": 0.8623853211009175
         },
-        "operating_threshold": 1.8948460051066809,
-        "latency_ms_split": 638.682599994354,
+        "operating_threshold": 1.279608733857144,
+        "latency_ms_split": 10682.832400023472,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -628,10 +700,16 @@
           "feature_dim": 20,
           "late_fusion": "max of modality-normalized image scores",
           "memories": {
+            "vis": {
+              "n_memory": 256,
+              "n_train_patches": 4000,
+              "reference_score": 0.007978581823408604,
+              "method": "density_fps"
+            },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.0013810679083690047,
+              "n_train_patches": 4000,
+              "reference_score": 0.017002427950501442,
               "method": "density_fps"
             }
           }
@@ -640,19 +718,19 @@
       {
         "seed": 4012,
         "experiment": "unimodal_xray_l",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 0.8055555555555556,
-          "aupr": 0.8708333333333333,
-          "f1_max": 0.8,
-          "fpr95": 0.6666666666666666
+          "auroc": 0.6616283804824299,
+          "aupr": 0.8868622017566217,
+          "f1_max": 0.8754285714285714,
+          "fpr95": 0.8899082568807339
         },
-        "operating_threshold": 2.0426929717423135,
-        "latency_ms_split": 540.2144999825396,
+        "operating_threshold": 1.3077925572934759,
+        "latency_ms_split": 12742.510100011714,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -661,10 +739,16 @@
           "feature_dim": 20,
           "late_fusion": "max of modality-normalized image scores",
           "memories": {
+            "vis": {
+              "n_memory": 256,
+              "n_train_patches": 4000,
+              "reference_score": 0.008347323630005121,
+              "method": "density_fps"
+            },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.00140232004923746,
+              "n_train_patches": 4000,
+              "reference_score": 0.016991907730698586,
               "method": "density_fps"
             }
           }
@@ -673,19 +757,19 @@
       {
         "seed": 4589,
         "experiment": "unimodal_xray_l",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 0.6944444444444444,
-          "aupr": 0.8333333333333333,
-          "f1_max": 0.8,
-          "fpr95": 1.0
+          "auroc": 0.691163436893669,
+          "aupr": 0.8995078953374772,
+          "f1_max": 0.8754285714285714,
+          "fpr95": 0.908256880733945
         },
-        "operating_threshold": 1.824995218386339,
-        "latency_ms_split": 694.3680999684148,
+        "operating_threshold": 1.2974241056412528,
+        "latency_ms_split": 11385.656700003892,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -694,10 +778,16 @@
           "feature_dim": 20,
           "late_fusion": "max of modality-normalized image scores",
           "memories": {
+            "vis": {
+              "n_memory": 256,
+              "n_train_patches": 4000,
+              "reference_score": 0.008467838168144226,
+              "method": "density_fps"
+            },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.0013591406168416142,
+              "n_train_patches": 4000,
+              "reference_score": 0.01710030436515808,
               "method": "density_fps"
             }
           }
@@ -706,19 +796,19 @@
       {
         "seed": 5021,
         "experiment": "unimodal_xray_l",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 0.7638888888888888,
-          "aupr": 0.8541666666666667,
-          "f1_max": 0.8,
-          "fpr95": 1.0
+          "auroc": 0.708577861882291,
+          "aupr": 0.9032608828540334,
+          "f1_max": 0.8771526980482205,
+          "fpr95": 0.8532110091743119
         },
-        "operating_threshold": 1.942217797733441,
-        "latency_ms_split": 407.49110002070665,
+        "operating_threshold": 1.2322044055164292,
+        "latency_ms_split": 11561.02300004568,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -727,10 +817,16 @@
           "feature_dim": 20,
           "late_fusion": "max of modality-normalized image scores",
           "memories": {
+            "vis": {
+              "n_memory": 256,
+              "n_train_patches": 4000,
+              "reference_score": 0.008275603875517845,
+              "method": "density_fps"
+            },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.0013372133253142238,
+              "n_train_patches": 4000,
+              "reference_score": 0.017232246696949005,
               "method": "density_fps"
             }
           }
@@ -739,19 +835,19 @@
       {
         "seed": 5678,
         "experiment": "unimodal_xray_l",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 0.9444444444444444,
-          "aupr": 0.9583333333333334,
-          "f1_max": 0.9090909090909091,
-          "fpr95": 0.3333333333333333
+          "auroc": 0.681845402064819,
+          "aupr": 0.8978471614058507,
+          "f1_max": 0.875725900116144,
+          "fpr95": 0.8899082568807339
         },
-        "operating_threshold": 1.5233285273083887,
-        "latency_ms_split": 593.5316000250168,
+        "operating_threshold": 1.2073170881369804,
+        "latency_ms_split": 10607.992800010834,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -760,10 +856,16 @@
           "feature_dim": 20,
           "late_fusion": "max of modality-normalized image scores",
           "memories": {
+            "vis": {
+              "n_memory": 256,
+              "n_train_patches": 4000,
+              "reference_score": 0.008358028717339039,
+              "method": "density_fps"
+            },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.0013591406168416142,
+              "n_train_patches": 4000,
+              "reference_score": 0.01699892058968544,
               "method": "density_fps"
             }
           }
@@ -772,19 +874,19 @@
       {
         "seed": 6234,
         "experiment": "unimodal_xray_l",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 0.7222222222222222,
-          "aupr": 0.8425925925925926,
-          "f1_max": 0.8,
-          "fpr95": 1.0
+          "auroc": 0.663496778211608,
+          "aupr": 0.8900490086529498,
+          "f1_max": 0.8754285714285714,
+          "fpr95": 0.8807339449541285
         },
-        "operating_threshold": 2.0747678985602866,
-        "latency_ms_split": 548.5809000092559,
+        "operating_threshold": 1.164535225880509,
+        "latency_ms_split": 9590.454799996223,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -793,10 +895,16 @@
           "feature_dim": 20,
           "late_fusion": "max of modality-normalized image scores",
           "memories": {
+            "vis": {
+              "n_memory": 256,
+              "n_train_patches": 4000,
+              "reference_score": 0.008264800533652306,
+              "method": "density_fps"
+            },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.0013145420234650373,
+              "n_train_patches": 4000,
+              "reference_score": 0.016875751316547394,
               "method": "density_fps"
             }
           }
@@ -805,19 +913,19 @@
       {
         "seed": 6789,
         "experiment": "unimodal_xray_l",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 0.75,
-          "aupr": 0.8409090909090908,
-          "f1_max": 0.8,
-          "fpr95": 0.8333333333333334
+          "auroc": 0.6814980717177282,
+          "aupr": 0.8933060347665893,
+          "f1_max": 0.8754285714285714,
+          "fpr95": 0.908256880733945
         },
-        "operating_threshold": 2.2342923027626127,
-        "latency_ms_split": 563.3762999786995,
+        "operating_threshold": 1.4215219394869576,
+        "latency_ms_split": 9758.659200044349,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -826,10 +934,16 @@
           "feature_dim": 20,
           "late_fusion": "max of modality-normalized image scores",
           "memories": {
+            "vis": {
+              "n_memory": 256,
+              "n_train_patches": 4000,
+              "reference_score": 0.008239519316703081,
+              "method": "density_fps"
+            },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.0013591406168416142,
+              "n_train_patches": 4000,
+              "reference_score": 0.016641009598970413,
               "method": "density_fps"
             }
           }
@@ -838,19 +952,19 @@
       {
         "seed": 7345,
         "experiment": "unimodal_xray_l",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 0.8611111111111112,
-          "aupr": 0.9242424242424243,
-          "f1_max": 0.9090909090909091,
-          "fpr95": 0.8333333333333334
+          "auroc": 0.6781086066064628,
+          "aupr": 0.8970619186351333,
+          "f1_max": 0.8754285714285714,
+          "fpr95": 0.9174311926605505
         },
-        "operating_threshold": 1.709022437062397,
-        "latency_ms_split": 622.6420999737456,
+        "operating_threshold": 1.3701169468897663,
+        "latency_ms_split": 10055.609199975152,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -859,10 +973,16 @@
           "feature_dim": 20,
           "late_fusion": "max of modality-normalized image scores",
           "memories": {
+            "vis": {
+              "n_memory": 256,
+              "n_train_patches": 4000,
+              "reference_score": 0.008196000475436449,
+              "method": "density_fps"
+            },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.0013372133253142238,
+              "n_train_patches": 4000,
+              "reference_score": 0.017124686390161514,
               "method": "density_fps"
             }
           }
@@ -873,19 +993,19 @@
       {
         "seed": 347,
         "experiment": "multimodal",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 1.0,
-          "aupr": 1.0,
-          "f1_max": 1.0,
-          "fpr95": 0.0
+          "auroc": 0.7101707907155005,
+          "aupr": 0.9045095632124363,
+          "f1_max": 0.8773148148148148,
+          "fpr95": 0.8256880733944955
         },
-        "operating_threshold": 2.125957964597841,
-        "latency_ms_split": 810.0443000439554,
+        "operating_threshold": 1.9792535649912437,
+        "latency_ms_split": 33076.92969997879,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -896,14 +1016,14 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.001291870721615851,
+              "n_train_patches": 4000,
+              "reference_score": 0.008049238007515669,
               "method": "density_fps"
             },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.00140232004923746,
+              "n_train_patches": 4000,
+              "reference_score": 0.017383772879838943,
               "method": "density_fps"
             }
           }
@@ -912,19 +1032,19 @@
       {
         "seed": 725,
         "experiment": "multimodal",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 1.0,
-          "aupr": 1.0,
-          "f1_max": 1.0,
-          "fpr95": 0.0
+          "auroc": 0.7059070112822479,
+          "aupr": 0.9039206321294082,
+          "f1_max": 0.8820754716981132,
+          "fpr95": 0.8073394495412844
         },
-        "operating_threshold": 1.7347304309596203,
-        "latency_ms_split": 1899.3163999984972,
+        "operating_threshold": 1.9958620272956853,
+        "latency_ms_split": 35964.31020001182,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -935,14 +1055,14 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.001291870721615851,
+              "n_train_patches": 4000,
+              "reference_score": 0.007907291408628225,
               "method": "density_fps"
             },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.0013372133253142238,
+              "n_train_patches": 4000,
+              "reference_score": 0.016921604052186012,
               "method": "density_fps"
             }
           }
@@ -951,19 +1071,19 @@
       {
         "seed": 1245,
         "experiment": "multimodal",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 1.0,
-          "aupr": 1.0,
-          "f1_max": 1.0,
-          "fpr95": 0.0
+          "auroc": 0.6828754161975711,
+          "aupr": 0.8959114903081242,
+          "f1_max": 0.8780487804878049,
+          "fpr95": 0.8532110091743119
         },
-        "operating_threshold": 1.9861976512932378,
-        "latency_ms_split": 1875.3081999602728,
+        "operating_threshold": 1.7197382677643804,
+        "latency_ms_split": 33336.942499969155,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -974,14 +1094,14 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.0013372133253142238,
+              "n_train_patches": 4000,
+              "reference_score": 0.007978581823408604,
               "method": "density_fps"
             },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.0013810679083690047,
+              "n_train_patches": 4000,
+              "reference_score": 0.017002427950501442,
               "method": "density_fps"
             }
           }
@@ -990,19 +1110,19 @@
       {
         "seed": 4012,
         "experiment": "multimodal",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 1.0,
-          "aupr": 1.0,
-          "f1_max": 1.0,
-          "fpr95": 0.0
+          "auroc": 0.6944331329197307,
+          "aupr": 0.900636943653848,
+          "f1_max": 0.880648899188876,
+          "fpr95": 0.8256880733944955
         },
-        "operating_threshold": 2.1302120603976316,
-        "latency_ms_split": 1518.2909000432119,
+        "operating_threshold": 1.6812220697643496,
+        "latency_ms_split": 33429.81450003572,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1013,14 +1133,14 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.0012683742679655552,
+              "n_train_patches": 4000,
+              "reference_score": 0.008347323630005121,
               "method": "density_fps"
             },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.00140232004923746,
+              "n_train_patches": 4000,
+              "reference_score": 0.016991907730698586,
               "method": "density_fps"
             }
           }
@@ -1029,19 +1149,19 @@
       {
         "seed": 4589,
         "experiment": "multimodal",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 1.0,
-          "aupr": 1.0,
-          "f1_max": 1.0,
-          "fpr95": 0.0
+          "auroc": 0.7437420652981053,
+          "aupr": 0.9160571966477311,
+          "f1_max": 0.882903981264637,
+          "fpr95": 0.7522935779816514
         },
-        "operating_threshold": 2.4793595595586044,
-        "latency_ms_split": 1890.3593000140972,
+        "operating_threshold": 1.8573830774133537,
+        "latency_ms_split": 31928.352200018708,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1052,14 +1172,14 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.0012683742679655552,
+              "n_train_patches": 4000,
+              "reference_score": 0.008467838168144226,
               "method": "density_fps"
             },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.0013591406168416142,
+              "n_train_patches": 4000,
+              "reference_score": 0.01710030436515808,
               "method": "density_fps"
             }
           }
@@ -1068,19 +1188,19 @@
       {
         "seed": 5021,
         "experiment": "multimodal",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 1.0,
-          "aupr": 1.0,
-          "f1_max": 1.0,
-          "fpr95": 0.0
+          "auroc": 0.7071406328598462,
+          "aupr": 0.9033343801387217,
+          "f1_max": 0.8764302059496567,
+          "fpr95": 0.8073394495412844
         },
-        "operating_threshold": 1.9976136458263507,
-        "latency_ms_split": 1798.624999995809,
+        "operating_threshold": 1.7642265937463022,
+        "latency_ms_split": 32333.82729999721,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1091,14 +1211,14 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.0012448778143152595,
+              "n_train_patches": 4000,
+              "reference_score": 0.008275603875517845,
               "method": "density_fps"
             },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.0013372133253142238,
+              "n_train_patches": 4000,
+              "reference_score": 0.017232246696949005,
               "method": "density_fps"
             }
           }
@@ -1107,19 +1227,19 @@
       {
         "seed": 5678,
         "experiment": "multimodal",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 1.0,
-          "aupr": 1.0,
-          "f1_max": 1.0,
-          "fpr95": 0.0
+          "auroc": 0.6862169736747551,
+          "aupr": 0.9004137150183426,
+          "f1_max": 0.8754285714285714,
+          "fpr95": 0.9357798165137615
         },
-        "operating_threshold": 1.9274292663343573,
-        "latency_ms_split": 1900.019099994097,
+        "operating_threshold": 1.6898311225050489,
+        "latency_ms_split": 38421.16020002868,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1130,14 +1250,14 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.001291870721615851,
+              "n_train_patches": 4000,
+              "reference_score": 0.008358028717339039,
               "method": "density_fps"
             },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.0013591406168416142,
+              "n_train_patches": 4000,
+              "reference_score": 0.01699892058968544,
               "method": "density_fps"
             }
           }
@@ -1146,19 +1266,19 @@
       {
         "seed": 6234,
         "experiment": "multimodal",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 1.0,
-          "aupr": 1.0,
-          "f1_max": 1.0,
-          "fpr95": 0.0
+          "auroc": 0.6850312597312381,
+          "aupr": 0.8977863409984768,
+          "f1_max": 0.880184331797235,
+          "fpr95": 0.8532110091743119
         },
-        "operating_threshold": 2.812070065015477,
-        "latency_ms_split": 1781.1584000010043,
+        "operating_threshold": 1.614453599356537,
+        "latency_ms_split": 23558.4512000205,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1169,14 +1289,14 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.0012683742679655552,
+              "n_train_patches": 4000,
+              "reference_score": 0.008264800533652306,
               "method": "density_fps"
             },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.0013145420234650373,
+              "n_train_patches": 4000,
+              "reference_score": 0.016875751316547394,
               "method": "density_fps"
             }
           }
@@ -1185,19 +1305,19 @@
       {
         "seed": 6789,
         "experiment": "multimodal",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 1.0,
-          "aupr": 1.0,
-          "f1_max": 1.0,
-          "fpr95": 0.0
+          "auroc": 0.6879296715931684,
+          "aupr": 0.8971366357239239,
+          "f1_max": 0.8803716608594657,
+          "fpr95": 0.8440366972477065
         },
-        "operating_threshold": 2.2342923027626127,
-        "latency_ms_split": 1470.5100999563,
+        "operating_threshold": 1.8331281461565148,
+        "latency_ms_split": 29031.543499964755,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1208,14 +1328,14 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.001291870721615851,
+              "n_train_patches": 4000,
+              "reference_score": 0.008239519316703081,
               "method": "density_fps"
             },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.0013591406168416142,
+              "n_train_patches": 4000,
+              "reference_score": 0.016641009598970413,
               "method": "density_fps"
             }
           }
@@ -1224,19 +1344,19 @@
       {
         "seed": 7345,
         "experiment": "multimodal",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 1.0,
-          "aupr": 1.0,
-          "f1_max": 1.0,
-          "fpr95": 0.0
+          "auroc": 0.6975351522265073,
+          "aupr": 0.9036779876747612,
+          "f1_max": 0.8765859284890427,
+          "fpr95": 0.8807339449541285
         },
-        "operating_threshold": 1.9320169190794216,
-        "latency_ms_split": 1909.2494999640621,
+        "operating_threshold": 1.8803328549069962,
+        "latency_ms_split": 30743.60450002132,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1247,14 +1367,14 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.001291870721615851,
+              "n_train_patches": 4000,
+              "reference_score": 0.008196000475436449,
               "method": "density_fps"
             },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.0013372133253142238,
+              "n_train_patches": 4000,
+              "reference_score": 0.017124686390161514,
               "method": "density_fps"
             }
           }
@@ -1265,19 +1385,19 @@
       {
         "seed": 347,
         "experiment": "securecoating_gate",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 1.0,
-          "aupr": 1.0,
-          "f1_max": 1.0,
-          "fpr95": 0.0
+          "auroc": 0.7101707907155005,
+          "aupr": 0.9045095632124363,
+          "f1_max": 0.8773148148148148,
+          "fpr95": 0.8256880733944955
         },
-        "operating_threshold": 2.125957964597841,
-        "latency_ms_split": 796.3198000215925,
+        "operating_threshold": 1.9792535649912437,
+        "latency_ms_split": 30853.87409996474,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1288,47 +1408,47 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.001291870721615851,
+              "n_train_patches": 4000,
+              "reference_score": 0.008049238007515669,
               "method": "density_fps"
             },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.00140232004923746,
+              "n_train_patches": 4000,
+              "reference_score": 0.017383772879838943,
               "method": "density_fps"
             }
           }
         },
         "industrial": {
-          "n": 12,
-          "n_pass": 2,
-          "n_reject": 9,
-          "n_hold": 1,
-          "automatic_decision_coverage": 0.9166666666666666,
-          "hold_rate": 0.08333333333333333,
-          "escape_rate": 0.0,
-          "selective_risk": 0.2727272727272727,
-          "n_escape": 0,
-          "n_auto_errors": 3
+          "n": 492,
+          "n_pass": 305,
+          "n_reject": 171,
+          "n_hold": 16,
+          "automatic_decision_coverage": 0.967479674796748,
+          "hold_rate": 0.032520325203252036,
+          "escape_rate": 0.556135770234987,
+          "selective_risk": 0.4726890756302521,
+          "n_escape": 213,
+          "n_auto_errors": 225
         }
       },
       {
         "seed": 725,
         "experiment": "securecoating_gate",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 1.0,
-          "aupr": 1.0,
-          "f1_max": 1.0,
-          "fpr95": 0.0
+          "auroc": 0.7059070112822479,
+          "aupr": 0.9039206321294082,
+          "f1_max": 0.8820754716981132,
+          "fpr95": 0.8073394495412844
         },
-        "operating_threshold": 1.7347304309596203,
-        "latency_ms_split": 1847.2872999846004,
+        "operating_threshold": 1.9958620272956853,
+        "latency_ms_split": 34385.93099999707,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1339,47 +1459,47 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.001291870721615851,
+              "n_train_patches": 4000,
+              "reference_score": 0.007907291408628225,
               "method": "density_fps"
             },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.0013372133253142238,
+              "n_train_patches": 4000,
+              "reference_score": 0.016921604052186012,
               "method": "density_fps"
             }
           }
         },
         "industrial": {
-          "n": 12,
-          "n_pass": 1,
-          "n_reject": 10,
-          "n_hold": 1,
-          "automatic_decision_coverage": 0.9166666666666666,
-          "hold_rate": 0.08333333333333333,
-          "escape_rate": 0.0,
-          "selective_risk": 0.36363636363636365,
-          "n_escape": 0,
-          "n_auto_errors": 4
+          "n": 492,
+          "n_pass": 300,
+          "n_reject": 180,
+          "n_hold": 12,
+          "automatic_decision_coverage": 0.975609756097561,
+          "hold_rate": 0.024390243902439025,
+          "escape_rate": 0.5430809399477807,
+          "selective_risk": 0.46458333333333335,
+          "n_escape": 208,
+          "n_auto_errors": 223
         }
       },
       {
         "seed": 1245,
         "experiment": "securecoating_gate",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 1.0,
-          "aupr": 1.0,
-          "f1_max": 1.0,
-          "fpr95": 0.0
+          "auroc": 0.6828754161975711,
+          "aupr": 0.8959114903081242,
+          "f1_max": 0.8780487804878049,
+          "fpr95": 0.8532110091743119
         },
-        "operating_threshold": 1.9861976512932378,
-        "latency_ms_split": 1698.4789000125602,
+        "operating_threshold": 1.7197382677643804,
+        "latency_ms_split": 39174.96500001289,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1390,47 +1510,47 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.0013372133253142238,
+              "n_train_patches": 4000,
+              "reference_score": 0.007978581823408604,
               "method": "density_fps"
             },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.0013810679083690047,
+              "n_train_patches": 4000,
+              "reference_score": 0.017002427950501442,
               "method": "density_fps"
             }
           }
         },
         "industrial": {
-          "n": 12,
-          "n_pass": 4,
-          "n_reject": 6,
-          "n_hold": 2,
-          "automatic_decision_coverage": 0.8333333333333334,
-          "hold_rate": 0.16666666666666666,
-          "escape_rate": 0.0,
-          "selective_risk": 0.2,
-          "n_escape": 0,
-          "n_auto_errors": 2
+          "n": 492,
+          "n_pass": 260,
+          "n_reject": 202,
+          "n_hold": 30,
+          "automatic_decision_coverage": 0.9390243902439024,
+          "hold_rate": 0.06097560975609756,
+          "escape_rate": 0.4751958224543081,
+          "selective_risk": 0.44805194805194803,
+          "n_escape": 182,
+          "n_auto_errors": 207
         }
       },
       {
         "seed": 4012,
         "experiment": "securecoating_gate",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 1.0,
-          "aupr": 1.0,
-          "f1_max": 1.0,
-          "fpr95": 0.0
+          "auroc": 0.6944331329197307,
+          "aupr": 0.900636943653848,
+          "f1_max": 0.880648899188876,
+          "fpr95": 0.8256880733944955
         },
-        "operating_threshold": 2.1302120603976316,
-        "latency_ms_split": 1660.9214000054635,
+        "operating_threshold": 1.6812220697643496,
+        "latency_ms_split": 34119.642000005115,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1441,47 +1561,47 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.0012683742679655552,
+              "n_train_patches": 4000,
+              "reference_score": 0.008347323630005121,
               "method": "density_fps"
             },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.00140232004923746,
+              "n_train_patches": 4000,
+              "reference_score": 0.016991907730698586,
               "method": "density_fps"
             }
           }
         },
         "industrial": {
-          "n": 12,
-          "n_pass": 4,
-          "n_reject": 6,
-          "n_hold": 2,
-          "automatic_decision_coverage": 0.8333333333333334,
-          "hold_rate": 0.16666666666666666,
-          "escape_rate": 0.0,
-          "selective_risk": 0.0,
-          "n_escape": 0,
-          "n_auto_errors": 0
+          "n": 492,
+          "n_pass": 268,
+          "n_reject": 193,
+          "n_hold": 31,
+          "automatic_decision_coverage": 0.9369918699186992,
+          "hold_rate": 0.06300813008130081,
+          "escape_rate": 0.4804177545691906,
+          "selective_risk": 0.43817787418655096,
+          "n_escape": 184,
+          "n_auto_errors": 202
         }
       },
       {
         "seed": 4589,
         "experiment": "securecoating_gate",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 1.0,
-          "aupr": 1.0,
-          "f1_max": 1.0,
-          "fpr95": 0.0
+          "auroc": 0.7437420652981053,
+          "aupr": 0.9160571966477311,
+          "f1_max": 0.882903981264637,
+          "fpr95": 0.7522935779816514
         },
-        "operating_threshold": 2.4793595595586044,
-        "latency_ms_split": 1832.4553000275046,
+        "operating_threshold": 1.8573830774133537,
+        "latency_ms_split": 33665.789899998344,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1492,47 +1612,47 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.0012683742679655552,
+              "n_train_patches": 4000,
+              "reference_score": 0.008467838168144226,
               "method": "density_fps"
             },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.0013591406168416142,
+              "n_train_patches": 4000,
+              "reference_score": 0.01710030436515808,
               "method": "density_fps"
             }
           }
         },
         "industrial": {
-          "n": 12,
-          "n_pass": 5,
-          "n_reject": 6,
-          "n_hold": 1,
-          "automatic_decision_coverage": 0.9166666666666666,
-          "hold_rate": 0.08333333333333333,
-          "escape_rate": 0.0,
-          "selective_risk": 0.0,
-          "n_escape": 0,
-          "n_auto_errors": 0
+          "n": 492,
+          "n_pass": 308,
+          "n_reject": 170,
+          "n_hold": 14,
+          "automatic_decision_coverage": 0.9715447154471545,
+          "hold_rate": 0.028455284552845527,
+          "escape_rate": 0.5483028720626631,
+          "selective_risk": 0.45397489539748953,
+          "n_escape": 210,
+          "n_auto_errors": 217
         }
       },
       {
         "seed": 5021,
         "experiment": "securecoating_gate",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 1.0,
-          "aupr": 1.0,
-          "f1_max": 1.0,
-          "fpr95": 0.0
+          "auroc": 0.7071406328598462,
+          "aupr": 0.9033343801387217,
+          "f1_max": 0.8764302059496567,
+          "fpr95": 0.8073394495412844
         },
-        "operating_threshold": 1.9976136458263507,
-        "latency_ms_split": 1707.3623999604024,
+        "operating_threshold": 1.7642265937463022,
+        "latency_ms_split": 33314.78119996609,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1543,47 +1663,47 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.0012448778143152595,
+              "n_train_patches": 4000,
+              "reference_score": 0.008275603875517845,
               "method": "density_fps"
             },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.0013372133253142238,
+              "n_train_patches": 4000,
+              "reference_score": 0.017232246696949005,
               "method": "density_fps"
             }
           }
         },
         "industrial": {
-          "n": 12,
-          "n_pass": 0,
-          "n_reject": 10,
-          "n_hold": 2,
-          "automatic_decision_coverage": 0.8333333333333334,
-          "hold_rate": 0.16666666666666666,
-          "escape_rate": 0.0,
-          "selective_risk": 0.4,
-          "n_escape": 0,
-          "n_auto_errors": 4
+          "n": 492,
+          "n_pass": 284,
+          "n_reject": 181,
+          "n_hold": 27,
+          "automatic_decision_coverage": 0.9451219512195121,
+          "hold_rate": 0.054878048780487805,
+          "escape_rate": 0.5169712793733682,
+          "selective_risk": 0.4645161290322581,
+          "n_escape": 198,
+          "n_auto_errors": 216
         }
       },
       {
         "seed": 5678,
         "experiment": "securecoating_gate",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 1.0,
-          "aupr": 1.0,
-          "f1_max": 1.0,
-          "fpr95": 0.0
+          "auroc": 0.6862169736747551,
+          "aupr": 0.9004137150183426,
+          "f1_max": 0.8754285714285714,
+          "fpr95": 0.9357798165137615
         },
-        "operating_threshold": 1.9274292663343573,
-        "latency_ms_split": 1941.96369999554,
+        "operating_threshold": 1.6898311225050489,
+        "latency_ms_split": 39111.01759999292,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1594,47 +1714,47 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.001291870721615851,
+              "n_train_patches": 4000,
+              "reference_score": 0.008358028717339039,
               "method": "density_fps"
             },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.0013591406168416142,
+              "n_train_patches": 4000,
+              "reference_score": 0.01699892058968544,
               "method": "density_fps"
             }
           }
         },
         "industrial": {
-          "n": 12,
-          "n_pass": 3,
-          "n_reject": 6,
-          "n_hold": 3,
-          "automatic_decision_coverage": 0.75,
-          "hold_rate": 0.25,
-          "escape_rate": 0.0,
-          "selective_risk": 0.1111111111111111,
-          "n_escape": 0,
-          "n_auto_errors": 1
+          "n": 492,
+          "n_pass": 267,
+          "n_reject": 194,
+          "n_hold": 31,
+          "automatic_decision_coverage": 0.9369918699186992,
+          "hold_rate": 0.06300813008130081,
+          "escape_rate": 0.47780678851174935,
+          "selective_risk": 0.4360086767895879,
+          "n_escape": 183,
+          "n_auto_errors": 201
         }
       },
       {
         "seed": 6234,
         "experiment": "securecoating_gate",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 1.0,
-          "aupr": 1.0,
-          "f1_max": 1.0,
-          "fpr95": 0.0
+          "auroc": 0.6850312597312381,
+          "aupr": 0.8977863409984768,
+          "f1_max": 0.880184331797235,
+          "fpr95": 0.8532110091743119
         },
-        "operating_threshold": 2.812070065015477,
-        "latency_ms_split": 1709.5358000369743,
+        "operating_threshold": 1.614453599356537,
+        "latency_ms_split": 17335.241099994164,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1645,47 +1765,47 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.0012683742679655552,
+              "n_train_patches": 4000,
+              "reference_score": 0.008264800533652306,
               "method": "density_fps"
             },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.0013145420234650373,
+              "n_train_patches": 4000,
+              "reference_score": 0.016875751316547394,
               "method": "density_fps"
             }
           }
         },
         "industrial": {
-          "n": 12,
-          "n_pass": 5,
-          "n_reject": 7,
-          "n_hold": 0,
-          "automatic_decision_coverage": 1.0,
-          "hold_rate": 0.0,
-          "escape_rate": 0.0,
-          "selective_risk": 0.08333333333333333,
-          "n_escape": 0,
-          "n_auto_errors": 1
+          "n": 492,
+          "n_pass": 264,
+          "n_reject": 193,
+          "n_hold": 35,
+          "automatic_decision_coverage": 0.9288617886178862,
+          "hold_rate": 0.07113821138211382,
+          "escape_rate": 0.4804177545691906,
+          "selective_risk": 0.4485776805251641,
+          "n_escape": 184,
+          "n_auto_errors": 205
         }
       },
       {
         "seed": 6789,
         "experiment": "securecoating_gate",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 1.0,
-          "aupr": 1.0,
-          "f1_max": 1.0,
-          "fpr95": 0.0
+          "auroc": 0.6879296715931684,
+          "aupr": 0.8971366357239239,
+          "f1_max": 0.8803716608594657,
+          "fpr95": 0.8440366972477065
         },
-        "operating_threshold": 2.2342923027626127,
-        "latency_ms_split": 1669.0018000081182,
+        "operating_threshold": 1.8331281461565148,
+        "latency_ms_split": 31946.47890003398,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1696,47 +1816,47 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.001291870721615851,
+              "n_train_patches": 4000,
+              "reference_score": 0.008239519316703081,
               "method": "density_fps"
             },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.0013591406168416142,
+              "n_train_patches": 4000,
+              "reference_score": 0.016641009598970413,
               "method": "density_fps"
             }
           }
         },
         "industrial": {
-          "n": 12,
-          "n_pass": 2,
-          "n_reject": 8,
-          "n_hold": 2,
-          "automatic_decision_coverage": 0.8333333333333334,
-          "hold_rate": 0.16666666666666666,
-          "escape_rate": 0.0,
-          "selective_risk": 0.2,
-          "n_escape": 0,
-          "n_auto_errors": 2
+          "n": 492,
+          "n_pass": 288,
+          "n_reject": 184,
+          "n_hold": 20,
+          "automatic_decision_coverage": 0.959349593495935,
+          "hold_rate": 0.04065040650406504,
+          "escape_rate": 0.5274151436031331,
+          "selective_risk": 0.4661016949152542,
+          "n_escape": 202,
+          "n_auto_errors": 220
         }
       },
       {
         "seed": 7345,
         "experiment": "securecoating_gate",
-        "split_source": "protocol_fixture",
+        "split_source": "libad_structured_inputs",
         "comparable_to_paper": false,
-        "n_train": 12,
-        "n_val": 4,
-        "n_test": 12,
+        "n_train": 197,
+        "n_val": 55,
+        "n_test": 492,
         "academic": {
-          "auroc": 1.0,
-          "aupr": 1.0,
-          "f1_max": 1.0,
-          "fpr95": 0.0
+          "auroc": 0.6975351522265073,
+          "aupr": 0.9036779876747612,
+          "f1_max": 0.8765859284890427,
+          "fpr95": 0.8807339449541285
         },
-        "operating_threshold": 1.9320169190794216,
-        "latency_ms_split": 1684.2644999851473,
+        "operating_threshold": 1.8803328549069962,
+        "latency_ms_split": 32613.41230000835,
         "scorer_provenance": {
           "algorithm_family": "memory-bank nearest-neighbor",
           "coreset_method": "density_fps",
@@ -1747,60 +1867,57 @@
           "memories": {
             "vis": {
               "n_memory": 256,
-              "n_train_patches": 1176,
-              "reference_score": 0.001291870721615851,
+              "n_train_patches": 4000,
+              "reference_score": 0.008196000475436449,
               "method": "density_fps"
             },
             "xray_l": {
               "n_memory": 256,
-              "n_train_patches": 588,
-              "reference_score": 0.0013372133253142238,
+              "n_train_patches": 4000,
+              "reference_score": 0.017124686390161514,
               "method": "density_fps"
             }
           }
         },
         "industrial": {
-          "n": 12,
-          "n_pass": 6,
-          "n_reject": 6,
-          "n_hold": 0,
-          "automatic_decision_coverage": 1.0,
-          "hold_rate": 0.0,
-          "escape_rate": 0.0,
-          "selective_risk": 0.0,
-          "n_escape": 0,
-          "n_auto_errors": 0
+          "n": 492,
+          "n_pass": 284,
+          "n_reject": 185,
+          "n_hold": 23,
+          "automatic_decision_coverage": 0.9532520325203252,
+          "hold_rate": 0.046747967479674794,
+          "escape_rate": 0.5091383812010444,
+          "selective_risk": 0.44562899786780386,
+          "n_escape": 195,
+          "n_auto_errors": 209
         }
       }
     ]
   },
-  "latency_ms_total": 49574.479799950495,
+  "latency_ms_total": 1097836.1225000117,
   "hashes": {
     "commit": "d9823dd59ea091e25bcaa9efa1ab2f3fd786f3bb",
     "source_provenance": {
       "commit": "d9823dd59ea091e25bcaa9efa1ab2f3fd786f3bb",
       "working_tree_dirty": true,
-      "source_diff_sha256": "690624b7d96fccc388008df964749faa85ef2144b9d56141f5376729011e24d9"
+      "source_diff_sha256": "aa5218896a692ea879e42b7a6fecf92afc9239ecc4bb28fe5de53b56dc863b43"
     },
     "adapter_implementation": {
       "configs/libad.yaml": "f55bea58664641efcc0c1e1a1fab38f256256193dfaab40c4a5bddea5b59e31c",
       "src/libad/features.py": "dc8ca97f139959dbf64743a96981c4b7f54697249e798de582e7cd0c46598e13",
       "src/libad/memory.py": "eb43cffe4aa4d7712fa936eb23b3ec4ef6e9cc69aaae89a2865cad87ce927cb1",
-      "src/libad/scorer.py": "546c8cd417242490991d2f33092d97cbe73583cb170fc17b757220337477c374",
+      "src/libad/scorer.py": "ee5d2145c0eb9dfcc67a6481bac066c558832502fc96d55611f234d3a0bf7667",
       "src/libad/evidence_gate.py": "804dbbda16d311189a898d0a60ea198d1628450413b07ca91abad89ca8408fe6",
-      "src/libad/dataset.py": "4400ad39f75fa738e8397c189acc348c5e03dfb9824d216dc758a00745b677f9",
+      "src/libad/dataset.py": "90a1c171d4f36791452002622ff9679c2f42aaa3d5bacfa0e2e162190d63ccd6",
       "src/libad/official_code.py": "4b4709f3822705067e6455883aca76fc301e00617f289def5b36515034ab6fb8"
     },
-    "official_dataset_tree_sha256": null,
-    "official_splits_tree_sha256": null,
+    "official_dataset_tree_sha256": "239594e82354fa8d6e3a3ec4a32889674ce45c3b824855a14ea15968172099bc",
+    "official_splits_tree_sha256": "fa401667b9eb1a8f028fd4f866c8d239cf2b3e5e1bb20ee7240089f4c09662ec",
     "official_code_commit": "8f98f2ebde63cd45660e58d6413f5ccd638966f4",
-    "protocol_fixture_definition": {
-      "src/libad/dataset.py": "4400ad39f75fa738e8397c189acc348c5e03dfb9824d216dc758a00745b677f9",
-      "configs/libad.yaml": "f55bea58664641efcc0c1e1a1fab38f256256193dfaab40c4a5bddea5b59e31c"
-    }
+    "protocol_fixture_definition": null
   },
-  "predictions": "480 rows written to predictions file",
+  "predictions": "19680 rows written to predictions file",
   "feature_backbone": "numpy_patch_descriptor",
   "feature_backbone_note": "Local 20-D numpy patch descriptor (intensity stats + gradient magnitude/orientation histograms). Official paper numbers require the authors' DINOv3 + DA-Core implementation and the 4.84 GB dataset.",
-  "predictions_path": "reports/libad/libad_predictions.json"
+  "predictions_path": "outputs/official_local_adapter_predictions.json"
 }

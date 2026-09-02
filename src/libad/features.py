@@ -13,6 +13,8 @@ from typing import Iterable, Optional, Sequence, Tuple
 import cv2
 import numpy as np
 
+FEATURE_DIM = 20
+
 
 def to_gray(image: np.ndarray) -> np.ndarray:
     if image is None:
@@ -35,6 +37,35 @@ def resize_gray(image: np.ndarray, size: Sequence[int]) -> np.ndarray:
     return cv2.resize(gray, (width, height), interpolation=cv2.INTER_AREA)
 
 
+def _patch_descriptor(patch: np.ndarray) -> np.ndarray:
+    grad_x, grad_y = np.gradient(patch)
+    magnitude = np.hypot(grad_x, grad_y)
+    angle = np.mod(np.arctan2(grad_y, grad_x) + np.pi, 2.0 * np.pi)
+    mag_hist, _ = np.histogram(magnitude, bins=8, range=(0.0, 64.0), density=True)
+    if float(np.sum(magnitude)) <= 1e-6:
+        ori_hist = np.full(8, 1.0 / 8.0, dtype=np.float32)
+    else:
+        ori_hist, _ = np.histogram(
+            angle,
+            bins=8,
+            range=(0.0, 2.0 * np.pi),
+            weights=magnitude,
+            density=True,
+        )
+    stats = np.array(
+        [
+            float(patch.mean()),
+            float(patch.std()),
+            float(magnitude.mean()),
+            float(magnitude.std()),
+        ],
+        dtype=np.float32,
+    )
+    return np.concatenate(
+        [stats, mag_hist.astype(np.float32), np.asarray(ori_hist, dtype=np.float32)]
+    )
+
+
 def extract_patch_features(
     image: np.ndarray,
     patch_size: int = 16,
@@ -50,20 +81,8 @@ def extract_patch_features(
     features = []
     for row in range(0, height - patch_size + 1, stride):
         for col in range(0, width - patch_size + 1, stride):
-            patch = gray[row:row + patch_size, col:col + patch_size]
-            grad_x, grad_y = np.gradient(patch)
-            magnitude = np.hypot(grad_x, grad_y)
-            hist, _ = np.histogram(magnitude, bins=8, range=(0.0, 64.0), density=True)
-            feature = np.concatenate(
-                [
-                    np.array(
-                        [float(patch.mean()), float(patch.std()), float(magnitude.mean()), float(magnitude.std())],
-                        dtype=np.float32,
-                    ),
-                    hist.astype(np.float32),
-                ]
-            )
-            features.append(feature)
+            patch = gray[row : row + patch_size, col : col + patch_size]
+            features.append(_patch_descriptor(patch))
     stacked = np.asarray(features, dtype=np.float32)
     norms = np.linalg.norm(stacked, axis=1, keepdims=True)
     return stacked / np.clip(norms, 1e-6, None)
@@ -85,5 +104,5 @@ def extract_image_features(
         blocks.append(feats)
         index.append(np.full((feats.shape[0],), image_id, dtype=np.int32))
     if not blocks:
-        return np.zeros((0, 12), dtype=np.float32), np.zeros((0,), dtype=np.int32)
+        return np.zeros((0, FEATURE_DIM), dtype=np.float32), np.zeros((0,), dtype=np.int32)
     return np.concatenate(blocks, axis=0), np.concatenate(index, axis=0)

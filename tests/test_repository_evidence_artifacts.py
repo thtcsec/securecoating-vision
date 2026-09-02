@@ -183,15 +183,30 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
             ROOT / "reports/libad/libad_benchmark.json",
             *sorted((ROOT / "reports/libad_demo").glob("*.json")),
         ]
+        extra = [
+            ROOT / "reports/libad/official_mount_hashes.json",
+            ROOT / "reports/libad/official_local_adapter.json",
+        ]
+        paths.extend(path for path in extra if path.is_file())
         self.assertTrue(paths)
         for path in paths:
             payload = json.loads(path.read_text(encoding="utf-8"))
             serialized = json.dumps(payload, allow_nan=False)
             self.assertNotIn('"comparable_to_paper": true', serialized, path.as_posix())
-        benchmark = json.loads(paths[0].read_text(encoding="utf-8"))
+        benchmark = json.loads((ROOT / "reports/libad/libad_benchmark.json").read_text(encoding="utf-8"))
         self.assertEqual(benchmark["evidence_class"], "protocol_fixture")
         self.assertFalse(benchmark["comparable_to_paper"])
         self.assertFalse(benchmark["official_protocol_complete"])
+        official = ROOT / "reports/libad/official_local_adapter.json"
+        if official.is_file():
+            payload = json.loads(official.read_text(encoding="utf-8"))
+            self.assertFalse(payload["comparable_to_paper"])
+            self.assertNotEqual(payload["evidence_class"], "protocol_fixture")
+        hashes = ROOT / "reports/libad/official_mount_hashes.json"
+        if hashes.is_file():
+            payload = json.loads(hashes.read_text(encoding="utf-8"))
+            self.assertFalse(payload["comparable_to_paper"])
+            self.assertEqual(payload["official_split_seeds"], [347, 725, 1245, 4012, 4589, 5021, 5678, 6234, 6789, 7345])
 
     def test_four_demo_cases_and_identity_screen_are_consistent(self):
         manifest = json.loads(
@@ -253,6 +268,10 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn("reports/test_manifest.json", string_items)
         self.assertIn("configs/project_identity.yaml", string_items)
         self.assertIn("reports/libad/libad_benchmark.json", string_items)
+        self.assertIn("reports/libad/official_mount_hashes.json", string_items)
+        self.assertIn("scripts/record_libad_official_manifest.py", string_items)
+        self.assertIn("src/libad/official_code.py", string_items)
+        self.assertIn("tests/test_libad_protocol.py", string_items)
         self.assertIn("reports/libad_demo/demo_manifest.json", string_items)
         self.assertIn("SecureCoating-Vision_Final_Defense_6min.pptx", string_items)
         self.assertIn("dashboard/production_console.py", string_items)

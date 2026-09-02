@@ -22,7 +22,7 @@
 - 不得把当前开发评测结果宣传为独立测试集、零漏检、ppm、六西格玛或标准认证结果；
 - 未训练模型、推理超时/异常、传感器缺失、标定未验证、数据库故障、PLC 通信失败和联锁锁存均必须输出 `HOLD`。
 
-LIBAD（VIS + 线内兼容 X-rayL）适配器不替换现有 RGB YOLO/ONNX 路径。当前仓库未包含官方数据集和 10 个官方划分，已跟踪的 demo/benchmark 使用确定性 `protocol_fixture`，不得与论文结果比较。DA-Core 属于论文作者；本地实现使用 numpy patch descriptor，并非作者的 DINOv3/DA-Core 官方实现。本仓库的贡献是证据门控的 PASS/REJECT/HOLD。热成像与轮廓仪仍是仿真接口。
+LIBAD（VIS + 线内兼容 X-rayL）适配器不替换现有 RGB YOLO/ONNX 路径。Git 不收录 4.84 GB 官方数据；本地可按 `scripts/download_libad.py` 挂载，树哈希写入 `reports/libad/official_mount_hashes.json`。已跟踪的 `reports/libad/libad_benchmark.json` 仍是确定性 `protocol_fixture`。官方输入上的本地 numpy 结果在 `reports/libad/official_local_adapter.json`，`comparable_to_paper` 仍为 false。DA-Core 属于论文作者；本地描述子是 CPU 上的 numpy/OpenCV patch descriptor，没有 CUDA 路径，也不是作者的 DINOv3/DA-Core。要对齐论文表，必须跑作者实现并使用 GPU。本仓库的贡献是证据门控的 PASS/REJECT/HOLD。热成像与轮廓仪仍是仿真接口。
 
 当前 `data/evaluation` 与训练验证集存在文件哈希重叠，因此其中的报告只能作为开发调试记录，不能作为泛化性能证明。英文 [README](README.md) 记录了真实的安全边界、配置、测试、训练和评测要求。
 
@@ -45,9 +45,14 @@ uvicorn src.api.main:app --host 127.0.0.1 --port 8000 --workers 1
 
 ```powershell
 .venv\Scripts\python.exe -m pytest -q
+.venv\Scripts\python.exe scripts/record_test_manifest.py
+.venv\Scripts\python.exe scripts/record_libad_official_manifest.py
+.venv\Scripts\python.exe scripts/run_libad_benchmark.py --require-official --out reports/libad/official_local_adapter.json
 .venv\Scripts\python.exe -m compileall -q src dashboard scripts tests
 .venv\Scripts\python.exe -m pip check
 docker compose config
 ```
+
+完整运行命令、安全边界与评测要求以英文 [README](README.md) 为准。
 
 生产模式必须配置 API 密钥、证书签名密钥、真实传感器标定、OPC UA `SignAndEncrypt` 证书和受控 Modbus 网关，并完成厂商 PLC/HIL 与功能安全验证。

@@ -23,7 +23,7 @@ It is **not production-qualified**. The repository does not contain a factory ca
 
 The repository contains a fail-closed inspection prototype, traceability experiments, simulated industrial I/O, and reproducible software checks. Implemented behavior, test evidence, simulation boundaries, and external validation requirements are recorded in the [implementation status ledger](docs/implementation_status.md).
 
-The initial prototype validated the software and safety contract using RGB inspection and simulated secondary modalities. The repository now contains a validation adapter and 10-seed harness for [LIBAD](https://arxiv.org/abs/2608.07958), whose official release contains aligned visible-light and inline-compatible X-ray data from real roll-to-roll electrode manufacturing. The checked-in demo and benchmark reports use deterministic protocol fixtures because the official dataset/splits are not present. This is a validation extension, not a change of topic. Details are in [docs/libad_validation_extension.md](docs/libad_validation_extension.md).
+The initial prototype validated the software and safety contract using RGB inspection and simulated secondary modalities. The repository now contains a validation adapter and 10-seed harness for [LIBAD](https://arxiv.org/abs/2608.07958), whose official release contains aligned visible-light and inline-compatible X-ray data from real roll-to-roll electrode manufacturing. Git does not contain the 4.84 GB mount; a local copy can be hashed with `scripts/record_libad_official_manifest.py`. Checked-in `reports/libad/libad_benchmark.json` remains a deterministic protocol fixture. Official-input numpy numbers live in `reports/libad/official_local_adapter.json` and stay `comparable_to_paper: false`. This is a validation extension, not a change of topic. Details are in [docs/libad_validation_extension.md](docs/libad_validation_extension.md).
 
 <!-- TEST_MANIFEST:START -->
 The current software validation snapshot is 224 passing tests with 0 skips and 0 failures (commit `5ee634b23499`, working tree clean, source diff `none`, Python 3.11.9, 47.98s). The authoritative record is [reports/test_manifest.json](reports/test_manifest.json). This does not constitute evidence of factory performance, physical PLC behavior, safety-rated E-stop operation, or production qualification.
@@ -42,7 +42,7 @@ These properties are covered by software tests, but physical actuator behavior s
 ## Modality honesty
 
 - **RGB / two-class YOLO detector / ONNX:** primary inference path for `surface_crack` and `delamination_crack` on real CoatingVision optical images. The PyTorch and ONNX artifacts share the same class map and are hash-pinned in `configs/model.yaml`.
-- **LIBAD VIS + X-rayL:** adapter for official real multimodal inputs; checked-in artifacts currently use protocol fixtures. PatchCore/DA-Core are attributed baselines of Sui et al.; the local numpy descriptor is not their official DINOv3 implementation and is never paper-comparable. The local contribution is the evidence gate.
+- **LIBAD VIS + X-rayL:** adapter for official real multimodal inputs. Checked-in fixture artifacts stay protocol fixtures; a local official mount is gitignored. PatchCore/DA-Core are attributed baselines of Sui et al.; the local numpy/OpenCV descriptor is CPU-only, not their official DINOv3 implementation, and is never paper-comparable. The local contribution is the evidence gate.
 - **Thermal and profilometry:** simulated or injected interface adapters for registration, fail-closed degradation, and contract tests. They are not plant-instrument measurements in this repository.
 
 ## Status and Upgrade Plan
@@ -97,7 +97,11 @@ Never expose that mode outside a trusted developer workstation.
 .venv\Scripts\python.exe -m pytest -q
 .venv\Scripts\python.exe scripts/record_test_manifest.py
 .venv\Scripts\python.exe scripts/run_libad_demo.py
+.venv\Scripts\python.exe scripts/run_libad_benchmark.py
+.venv\Scripts\python.exe scripts/run_libad_live.py --fetch-official-code --with-api --write-reports
 .venv\Scripts\python.exe scripts/download_libad.py --probe
+.venv\Scripts\python.exe scripts/record_libad_official_manifest.py
+.venv\Scripts\python.exe scripts/run_libad_benchmark.py --require-official --out reports/libad/official_local_adapter.json
 .venv\Scripts\python.exe scripts/verify_coatingvision_dataset.py --grouping
 .venv\Scripts\python.exe scripts/run_modbus_loopback_trigger.py
 .venv\Scripts\python.exe -m compileall -q src dashboard scripts tests

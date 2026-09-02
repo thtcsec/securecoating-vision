@@ -10,9 +10,9 @@
     "reason": "Modality score is inside the uncertainty band; HOLD for manual QA",
     "vis_state": "UNCERTAIN",
     "xray_state": "NORMAL",
-    "vis_score": 1.1180340214424624,
-    "xray_score": 1.0,
-    "fused_score": 1.1180340214424624,
+    "vis_score": 1.0585122832079097,
+    "xray_score": 0.9258201590778119,
+    "fused_score": 1.0585122832079097,
     "contract_holds": [],
     "details": {
       "threshold": 1.0,
@@ -22,9 +22,9 @@
     }
   },
   "scores": {
-    "vis": 1.1180340214424624,
-    "xray_l": 1.0,
-    "fused": 1.1180340214424624
+    "vis": 1.0585122832079097,
+    "xray_l": 0.9258201590778119,
+    "fused": 1.0585122832079097
   },
   "identity": {
     "roll_id": "ROLL_LIBAD_EXT_001",
@@ -40,25 +40,25 @@
     "part_id": "PART_LIBAD_DEMO_04",
     "decision": "HOLD",
     "decision_reason": "Modality score is inside the uncertainty band; HOLD for manual QA",
-    "vis_score": 1.118034,
-    "xray_score": 1.0,
-    "fused_score": 1.118034,
+    "vis_score": 1.058512,
+    "xray_score": 0.92582,
+    "fused_score": 1.058512,
     "vis_state": "UNCERTAIN",
     "xray_state": "NORMAL",
     "calibration_state": "VERIFIED",
     "model_hash": null,
     "dataset_manifest_hash": null,
-    "commit_hash": "12e1ed55728f09f8e4d485c76e4d5a6230af0f7b",
+    "commit_hash": "d9823dd59ea091e25bcaa9efa1ab2f3fd786f3bb",
     "plc_state": "SIMULATED_HOLD",
     "detector_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
     "source_tree_dirty": true,
-    "source_diff_sha256": "1cc052f39d7e949e13e7556b99843e9a069d06a54bf40b74854eef813566ceae",
-    "issued_at": "2026-08-28T14:46:50.316471+00:00",
+    "source_diff_sha256": "690624b7d96fccc388008df964749faa85ef2144b9d56141f5376729011e24d9",
+    "issued_at": "2026-09-02T13:12:53.317767+00:00",
     "signature_algorithm": "HMAC-SHA256",
     "brand": "SecureCoating-Vision",
-    "payload_hash_sha256": "39408ec83b329c51369d4ae12ea154f518bcbd34d663ec2d7d24a83891491dde",
-    "hmac_digital_signature": "3a77b87fa26a4cdf7dab50dd910f96da2e4e51967ba0284f4fb1f82b62a5228c",
-    "canonical_payload_sha256": "39408ec83b329c51369d4ae12ea154f518bcbd34d663ec2d7d24a83891491dde"
+    "payload_hash_sha256": "d2a54dd382eecdd01d10b91ac097d323e4164ebc0982af19adea909efdf99fb6",
+    "hmac_digital_signature": "2ba5006d98dccdbee6f1abba8b246ce1f4bf9dc1780ce9e4900845e3879376b8",
+    "canonical_payload_sha256": "d2a54dd382eecdd01d10b91ac097d323e4164ebc0982af19adea909efdf99fb6"
   },
   "title": "SecureCoating Vision: A High-Throughput and Zero-Trust Edge-Cloud Pipeline for Inline Battery Electrode Defect Inspection and Traceable Quality Decisions",
   "tagline": "Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing",
@@ -68,26 +68,27 @@
     "coreset_method": "density_fps",
     "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
     "feature_backbone": "numpy_patch_descriptor",
+    "feature_dim": 20,
     "late_fusion": "max of modality-normalized image scores",
     "memories": {
       "vis": {
         "n_memory": 294,
         "n_train_patches": 588,
-        "reference_score": 0.0006905339541845024,
+        "reference_score": 0.001220458885654807,
         "method": "density_fps"
       },
       "xray_l": {
         "n_memory": 294,
         "n_train_patches": 588,
-        "reference_score": 0.0008457279182039201,
+        "reference_score": 0.001291870721615851,
         "method": "density_fps"
       }
     }
   },
   "source_provenance": {
-    "commit": "12e1ed55728f09f8e4d485c76e4d5a6230af0f7b",
+    "commit": "d9823dd59ea091e25bcaa9efa1ab2f3fd786f3bb",
     "working_tree_dirty": true,
-    "source_diff_sha256": "1cc052f39d7e949e13e7556b99843e9a069d06a54bf40b74854eef813566ceae"
+    "source_diff_sha256": "690624b7d96fccc388008df964749faa85ef2144b9d56141f5376729011e24d9"
   },
   "overlay": "reports/libad_demo/case_04.png"
 }

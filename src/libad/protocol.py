@@ -38,6 +38,20 @@ LIBAD_PAPER_RESULT_NOTE = (
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
+SKIP_TREE_DIR_NAMES = ("_preview64", "_incoming", ".cache")
+
+
+def _tree_files(root: Path) -> list[Path]:
+    files = []
+    for item in sorted(root.rglob("*")):
+        if not item.is_file():
+            continue
+        if any(part in SKIP_TREE_DIR_NAMES for part in item.relative_to(root).parts):
+            continue
+        files.append(item)
+    return files
+
+
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with Path(path).open("rb") as handle:
@@ -46,21 +60,37 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def sha256_tree(path: Path) -> Optional[str]:
+def sha256_tree(path: Path, progress: bool = False) -> Optional[str]:
     """Content hash for a directory tree, including normalized relative paths."""
     root = Path(path)
     if not root.is_dir():
         return None
-    files = sorted(item for item in root.rglob("*") if item.is_file())
+    files = _tree_files(root)
     if not files:
         return None
     digest = hashlib.sha256()
-    for item in files:
+    for index, item in enumerate(files, 1):
         relative = item.relative_to(root).as_posix().encode("utf-8")
         digest.update(len(relative).to_bytes(8, "big"))
         digest.update(relative)
         digest.update(bytes.fromhex(sha256_file(item)))
+        if progress and (index % 100 == 0 or index == len(files)):
+            print(f"  hashed {index}/{len(files)} {root.name}", flush=True)
     return digest.hexdigest()
+
+
+def tree_stat_fingerprint(path: Path) -> Optional[Dict[str, int]]:
+    """Cheap integrity check: file count and total bytes. Does not read contents."""
+    root = Path(path)
+    if not root.is_dir():
+        return None
+    files = _tree_files(root)
+    if not files:
+        return None
+    return {
+        "n_files": len(files),
+        "total_bytes": int(sum(item.stat().st_size for item in files)),
+    }
 
 
 def sha256_bytes(payload: bytes) -> str:

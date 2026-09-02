@@ -29,11 +29,12 @@ features:
   stride: 8
   image_size: [64, 64]
   backbone: "numpy_patch_descriptor"
-  backbone_note: "Default adapter uses a local numpy patch descriptor so tests and demos run without DINOv3. Official paper numbers require the authors' DINOv3 + DA-Core implementation and the 4.84 GB dataset."
+  backbone_note: "Local 20-D numpy patch descriptor (intensity stats + gradient magnitude/orientation histograms). Official paper numbers require the authors' DINOv3 + DA-Core implementation and the 4.84 GB dataset."
 
 coreset:
   method: "density_fps"   # fps = PatchCore; density_fps = DA-Core (Sui et al.)
-  ratio: 0.25
+  ratio: 0.05             # paper DA-Core --f_coreset 0.05 on large DINOv3 banks
+  min_count: 256          # floor for the small local numpy bank; ignored when 5% already exceeds this
   density_weight: 0.7
   knn: 8
   attribution: "DA-Core density-aware FPS is the LIBAD authors' baseline, not a SecureCoating-Vision algorithm."

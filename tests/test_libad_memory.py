@@ -26,6 +26,13 @@ class TestLibadMemory(unittest.TestCase):
         memory = select_coreset(features, ratio=0.25, method="density_fps", seed=7)
         self.assertEqual(len(memory), 10)
 
+    def test_small_bank_respects_min_count_floor(self):
+        rng = np.random.default_rng(3)
+        features = rng.normal(size=(80, 8)).astype(np.float32)
+        features /= np.linalg.norm(features, axis=1, keepdims=True)
+        memory = select_coreset(features, ratio=0.05, method="fps", seed=3, min_count=20)
+        self.assertEqual(len(memory), 20)
+
     def test_anomaly_image_scores_higher_than_a_matched_normal(self):
         rng = np.random.default_rng(11)
         normals = [np.full((32, 32), 140, dtype=np.uint8) for _ in range(6)]

@@ -10,9 +10,9 @@
     "reason": "Normal agreement: VIS and X-rayL are both below the release threshold",
     "vis_state": "NORMAL",
     "xray_state": "NORMAL",
-    "vis_score": 0.8660254501220278,
-    "xray_score": 1.0,
-    "fused_score": 1.0,
+    "vis_score": 0.9382709019043155,
+    "xray_score": 0.9258201590778119,
+    "fused_score": 0.9382709019043155,
     "contract_holds": [],
     "details": {
       "threshold": 1.0,
@@ -22,9 +22,9 @@
     }
   },
   "scores": {
-    "vis": 0.8660254501220278,
-    "xray_l": 1.0,
-    "fused": 1.0
+    "vis": 0.9382709019043155,
+    "xray_l": 0.9258201590778119,
+    "fused": 0.9382709019043155
   },
   "identity": {
     "roll_id": "ROLL_LIBAD_EXT_001",
@@ -40,25 +40,25 @@
     "part_id": "PART_LIBAD_DEMO_01",
     "decision": "PASS",
     "decision_reason": "Normal agreement: VIS and X-rayL are both below the release threshold",
-    "vis_score": 0.866025,
-    "xray_score": 1.0,
-    "fused_score": 1.0,
+    "vis_score": 0.938271,
+    "xray_score": 0.92582,
+    "fused_score": 0.938271,
     "vis_state": "NORMAL",
     "xray_state": "NORMAL",
     "calibration_state": "VERIFIED",
     "model_hash": null,
     "dataset_manifest_hash": null,
-    "commit_hash": "12e1ed55728f09f8e4d485c76e4d5a6230af0f7b",
+    "commit_hash": "d9823dd59ea091e25bcaa9efa1ab2f3fd786f3bb",
     "plc_state": "SIMULATED_PASS",
     "detector_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
     "source_tree_dirty": true,
-    "source_diff_sha256": "1cc052f39d7e949e13e7556b99843e9a069d06a54bf40b74854eef813566ceae",
-    "issued_at": "2026-08-28T14:46:49.871365+00:00",
+    "source_diff_sha256": "690624b7d96fccc388008df964749faa85ef2144b9d56141f5376729011e24d9",
+    "issued_at": "2026-09-02T13:12:52.863698+00:00",
     "signature_algorithm": "HMAC-SHA256",
     "brand": "SecureCoating-Vision",
-    "payload_hash_sha256": "4a4a20ae6926aff54f072103a9d8c52127e4183087a5b8173a7099d3a94f3b56",
-    "hmac_digital_signature": "85e7ba8fad226ac9346885ebb043f3fb9bd28e96619c752abe6853af1f3d18b3",
-    "canonical_payload_sha256": "4a4a20ae6926aff54f072103a9d8c52127e4183087a5b8173a7099d3a94f3b56"
+    "payload_hash_sha256": "8b91d41e40fe7a3c7564bcb6949afd6a621d5dccdfd29b85a0e15271ea346b24",
+    "hmac_digital_signature": "6a124ddd914d571684d18749ec200c7f98d7593f70ca2896d47051c7f6caca1e",
+    "canonical_payload_sha256": "8b91d41e40fe7a3c7564bcb6949afd6a621d5dccdfd29b85a0e15271ea346b24"
   },
   "title": "SecureCoating Vision: A High-Throughput and Zero-Trust Edge-Cloud Pipeline for Inline Battery Electrode Defect Inspection and Traceable Quality Decisions",
   "tagline": "Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing",
@@ -68,26 +68,27 @@
     "coreset_method": "density_fps",
     "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
     "feature_backbone": "numpy_patch_descriptor",
+    "feature_dim": 20,
     "late_fusion": "max of modality-normalized image scores",
     "memories": {
       "vis": {
         "n_memory": 294,
         "n_train_patches": 588,
-        "reference_score": 0.0006905339541845024,
+        "reference_score": 0.001220458885654807,
         "method": "density_fps"
       },
       "xray_l": {
         "n_memory": 294,
         "n_train_patches": 588,
-        "reference_score": 0.0008457279182039201,
+        "reference_score": 0.001291870721615851,
         "method": "density_fps"
       }
     }
   },
   "source_provenance": {
-    "commit": "12e1ed55728f09f8e4d485c76e4d5a6230af0f7b",
+    "commit": "d9823dd59ea091e25bcaa9efa1ab2f3fd786f3bb",
     "working_tree_dirty": true,
-    "source_diff_sha256": "1cc052f39d7e949e13e7556b99843e9a069d06a54bf40b74854eef813566ceae"
+    "source_diff_sha256": "690624b7d96fccc388008df964749faa85ef2144b9d56141f5376729011e24d9"
   },
   "overlay": "reports/libad_demo/case_01.png"
 }

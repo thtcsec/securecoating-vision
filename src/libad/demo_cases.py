@@ -70,6 +70,8 @@ def build_demo_bank(size: int = 64) -> DemoBank:
     cfg = load_libad_config()
     scorer = MemoryAnomalyScorer(
         method=cfg["coreset"]["method"],
+        # Tiny 12-image demo bank keeps a larger coreset than the paper's 0.05
+        # evaluation setting so the staged PASS/REJECT/HOLD script stays stable.
         coreset_ratio=0.5,
         density_weight=float(cfg["coreset"]["density_weight"]),
         knn=4,

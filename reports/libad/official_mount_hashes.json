@@ -1,0 +1,24 @@
+{
+  "dataset_tree_sha256": "239594e82354fa8d6e3a3ec4a32889674ce45c3b824855a14ea15968172099bc",
+  "splits_tree_sha256": "fa401667b9eb1a8f028fd4f866c8d239cf2b3e5e1bb20ee7240089f4c09662ec",
+  "dataset_n_files": 2976,
+  "dataset_total_bytes": 7802179200,
+  "splits_n_files": 20,
+  "splits_total_bytes": 818540,
+  "official_split_seeds": [
+    347,
+    725,
+    1245,
+    4012,
+    4589,
+    5021,
+    5678,
+    6234,
+    6789,
+    7345
+  ],
+  "comparable_to_paper": false,
+  "feature_backbone": "numpy_patch_descriptor",
+  "hashed_at": "2026-09-02T14:46:05Z",
+  "note": "Local numpy_patch_descriptor hashes of the official CC BY 4.0 mount. This is not a paper-comparable DINOv3/DA-Core run."
+}

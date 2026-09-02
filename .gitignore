@@ -17,6 +17,7 @@ data/coating_defects/
 data/coatingvision_real_detect/
 data/external/
 data/libad/
+third_party/
 outputs/
 runs/
 logs/

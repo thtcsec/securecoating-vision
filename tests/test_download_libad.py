@@ -67,6 +67,43 @@ class TestDownloadLibad(unittest.TestCase):
         download.assert_not_called()
         probe.assert_not_called()
 
+    def test_headroom_refuses_when_disk_is_too_small(self):
+        with tempfile.TemporaryDirectory() as directory:
+            dest = Path(directory)
+            with patch.object(download_libad.shutil, "disk_usage") as usage:
+                usage.return_value = type("Usage", (), {"free": 10})()
+                with self.assertRaises(download_libad.DownloadError) as raised:
+                    download_libad.require_disk_headroom(dest, needed=100)
+        self.assertEqual(raised.exception.exit_code, download_libad.SPACE_EXIT)
+
+    def test_download_one_retries_transient_failures(self):
+        calls = {"n": 0}
+
+        def flaky(*_args, **_kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise ConnectionError("peer closed")
+            return "ok.zip"
+
+        with tempfile.TemporaryDirectory() as directory, patch.object(
+            download_libad, "RETRY_DELAYS_SECONDS", (0,)
+        ):
+            path = download_libad._download_one(
+                flaky, False, Path(directory), "LIBAD.zip", {"files": {}}
+            )
+        self.assertEqual(path, "ok.zip")
+        self.assertEqual(calls["n"], 2)
+
+    def test_cleanup_removes_archives_after_extract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            incoming = Path(directory) / "incoming"
+            incoming.mkdir()
+            zip_path = incoming / "LIBAD.zip"
+            zip_path.write_bytes(b"zip")
+            download_libad._cleanup_incoming(incoming, {"LIBAD.zip": str(zip_path)})
+            self.assertFalse(zip_path.exists())
+            self.assertFalse(incoming.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

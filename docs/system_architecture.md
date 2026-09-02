@@ -21,7 +21,7 @@ The production dashboard consumes one `/api/operations/snapshot` response for li
 ## Not implemented or not verified
 
 - No GigE Vision/LWIR/profilometer acquisition adapter or authoritative sensor timestamp/freshness source exists. Thermal and profilometry remain simulated interface adapters.
-- LIBAD VIS + X-rayL is an external validation adapter. Official-data evidence requires the 4.84 GB dataset and all 10 valid split files. The local numpy patch descriptor is not the authors' DINOv3 implementation, so its reports remain `comparable_to_paper: false` even when run on official inputs.
+- LIBAD VIS + X-rayL is an external validation adapter. Official-data evidence for the local numpy adapter requires the 4.84 GB dataset, all 10 split files, and a recorded tree-hash manifest. That still is not the authors' DINOv3 implementation, so reports remain `comparable_to_paper: false`.
 - DA-Core is not claimed as a SecureCoating-Vision algorithm.
 - No hardware encoder or deterministic multi-camera trigger integration is present.
 - The tracked calibration artifact is explicitly unverified and simulation-only.

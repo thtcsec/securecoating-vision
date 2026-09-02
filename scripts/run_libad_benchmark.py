@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -12,6 +14,19 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from libad.evaluate import evaluate_official_splits  # noqa: E402
 from libad.protocol import OFFICIAL_SPLIT_SEEDS  # noqa: E402
+
+BELOW_NORMAL_PRIORITY_CLASS = 0x00004000
+
+
+def _low_io_priority() -> None:
+    os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
+    if os.name != "nt":
+        return
+    try:
+        handle = ctypes.windll.kernel32.GetCurrentProcess()
+        ctypes.windll.kernel32.SetPriorityClass(handle, BELOW_NORMAL_PRIORITY_CLASS)
+    except OSError:
+        return
 
 
 def main() -> int:
@@ -24,6 +39,7 @@ def main() -> int:
         help="JSON report path.",
     )
     args = parser.parse_args()
+    _low_io_priority()
     seeds = OFFICIAL_SPLIT_SEEDS
     if args.seeds.strip():
         seeds = tuple(int(item.strip()) for item in args.seeds.split(",") if item.strip())
@@ -37,14 +53,18 @@ def main() -> int:
     out_path = PROJECT_ROOT / args.out
     out_path.parent.mkdir(parents=True, exist_ok=True)
     serializable = dict(report)
-    predictions_path = out_path.with_name("libad_predictions.json")
+    if out_path.name == "libad_benchmark.json":
+        predictions_path = out_path.with_name("libad_predictions.json")
+    else:
+        predictions_path = PROJECT_ROOT / "outputs" / f"{out_path.stem}_predictions.json"
+        predictions_path.parent.mkdir(parents=True, exist_ok=True)
     predictions_path.write_text(json.dumps(report["predictions"], indent=2), encoding="utf-8")
     serializable["predictions_path"] = str(predictions_path.relative_to(PROJECT_ROOT)).replace("\\", "/")
     serializable["predictions"] = f"{len(report['predictions'])} rows written to predictions file"
     out_path.write_text(json.dumps(serializable, indent=2), encoding="utf-8")
     print(json.dumps({k: serializable[k] for k in ("evidence_class", "comparable_to_paper", "experiments", "hashes")}, indent=2))
     print(f"Wrote {out_path}")
-    if args.require_official and not report["comparable_to_paper"]:
+    if args.require_official and report["evidence_class"] == "protocol_fixture":
         return 2
     return 0
 

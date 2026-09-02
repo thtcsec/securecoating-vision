@@ -8,7 +8,7 @@ These numbers are **not independent model-performance evidence**: the tracked `d
 
 No accepted artifact currently proves GPU latency, end-to-end latency, probability of detection, escape rate, false rejection rate, factory yield, PLC actuation latency, or regulatory compliance.
 
-The LIBAD adapter can emit AUROC/AUPR/F1-max/FPR95 plus Automatic Decision Coverage, HOLD Rate, Escape Rate, and Selective Risk. Fixture runs are `evidence_class=protocol_fixture` and `comparable_to_paper=false` until the official dataset and splits are hash-recorded.
+The LIBAD adapter can emit AUROC/AUPR/F1-max/FPR95 plus Automatic Decision Coverage, HOLD Rate, Escape Rate, and Selective Risk. Checked-in fixture runs stay `evidence_class=protocol_fixture` and `comparable_to_paper=false`. Official local-adapter numbers, when recorded, live in `reports/libad/official_local_adapter.json` after a hash-verified mount; they still use `numpy_patch_descriptor` and remain `comparable_to_paper=false`.
 
 
 To create a publishable report, use an immutable roll-disjoint dataset, record model/dataset/commit hashes, retain raw predictions and matching policy, calculate confidence intervals, and verify the generated artifact independently.

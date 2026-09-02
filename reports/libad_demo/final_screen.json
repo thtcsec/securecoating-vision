@@ -14,14 +14,14 @@
         "part_id": "PART_LIBAD_DEMO_01"
       },
       "scores": {
-        "vis": 0.8660254501220278,
-        "xray_l": 1.0,
-        "fused": 1.0
+        "vis": 0.9382709019043155,
+        "xray_l": 0.9258201590778119,
+        "fused": 0.9382709019043155
       },
       "calibration_state": "VERIFIED",
       "plc_state": "SIMULATED_PASS",
-      "certificate_signature": "85e7ba8fad226ac9346885ebb043f3fb9bd28e96619c752abe6853af1f3d18b3",
-      "commit_hash": "12e1ed55728f09f8e4d485c76e4d5a6230af0f7b"
+      "certificate_signature": "6a124ddd914d571684d18749ec200c7f98d7593f70ca2896d47051c7f6caca1e",
+      "commit_hash": "d9823dd59ea091e25bcaa9efa1ab2f3fd786f3bb"
     },
     {
       "case_id": 2,
@@ -34,14 +34,14 @@
         "part_id": "PART_LIBAD_DEMO_02"
       },
       "scores": {
-        "vis": 1056.428425082669,
-        "xray_l": 1.0,
-        "fused": 1056.428425082669
+        "vis": 595.4111714017488,
+        "xray_l": 0.9258201590778119,
+        "fused": 595.4111714017488
       },
       "calibration_state": "VERIFIED",
       "plc_state": "SIMULATED_REJECT",
-      "certificate_signature": "d99a5b0e3ec938463202602e13c5684dad60138f52d6590a9c0992e0bd683bf4",
-      "commit_hash": "12e1ed55728f09f8e4d485c76e4d5a6230af0f7b"
+      "certificate_signature": "99270c20d0d8ce07c69029eab6c78ad115fda96511f11be185798be4a9c97528",
+      "commit_hash": "d9823dd59ea091e25bcaa9efa1ab2f3fd786f3bb"
     },
     {
       "case_id": 3,
@@ -54,14 +54,14 @@
         "part_id": "PART_LIBAD_DEMO_03"
       },
       "scores": {
-        "vis": 0.8660254501220278,
-        "xray_l": 1049.1144552511976,
-        "fused": 1049.1144552511976
+        "vis": 0.9382709019043155,
+        "xray_l": 686.7462869753633,
+        "fused": 686.7462869753633
       },
       "calibration_state": "VERIFIED",
       "plc_state": "SIMULATED_REJECT",
-      "certificate_signature": "3e8fe635e1ecd9335ccaf1542f82e5bfd8b4babd522c7ff891f47414fce386c7",
-      "commit_hash": "12e1ed55728f09f8e4d485c76e4d5a6230af0f7b"
+      "certificate_signature": "eb625e286b076007c787b96b6a2f4e3c9c5a04415c3b6762444598dc494ca7e2",
+      "commit_hash": "d9823dd59ea091e25bcaa9efa1ab2f3fd786f3bb"
     },
     {
       "case_id": 4,
@@ -74,14 +74,14 @@
         "part_id": "PART_LIBAD_DEMO_04"
       },
       "scores": {
-        "vis": 1.1180340214424624,
-        "xray_l": 1.0,
-        "fused": 1.1180340214424624
+        "vis": 1.0585122832079097,
+        "xray_l": 0.9258201590778119,
+        "fused": 1.0585122832079097
       },
       "calibration_state": "VERIFIED",
       "plc_state": "SIMULATED_HOLD",
-      "certificate_signature": "3a77b87fa26a4cdf7dab50dd910f96da2e4e51967ba0284f4fb1f82b62a5228c",
-      "commit_hash": "12e1ed55728f09f8e4d485c76e4d5a6230af0f7b"
+      "certificate_signature": "2ba5006d98dccdbee6f1abba8b246ce1f4bf9dc1780ce9e4900845e3879376b8",
+      "commit_hash": "d9823dd59ea091e25bcaa9efa1ab2f3fd786f3bb"
     }
   ],
   "closing_screen": {
@@ -91,24 +91,24 @@
     "part_id": "PART_LIBAD_DEMO_04",
     "decision": "HOLD",
     "decision_reason": "Modality score is inside the uncertainty band; HOLD for manual QA",
-    "vis_score": 1.118034,
-    "xray_score": 1.0,
-    "fused_score": 1.118034,
+    "vis_score": 1.058512,
+    "xray_score": 0.92582,
+    "fused_score": 1.058512,
     "vis_state": "UNCERTAIN",
     "xray_state": "NORMAL",
     "calibration_state": "VERIFIED",
     "model_hash": null,
     "dataset_manifest_hash": null,
-    "commit_hash": "12e1ed55728f09f8e4d485c76e4d5a6230af0f7b",
+    "commit_hash": "d9823dd59ea091e25bcaa9efa1ab2f3fd786f3bb",
     "plc_state": "SIMULATED_HOLD",
     "detector_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
     "source_tree_dirty": true,
-    "source_diff_sha256": "1cc052f39d7e949e13e7556b99843e9a069d06a54bf40b74854eef813566ceae",
-    "issued_at": "2026-08-28T14:46:50.316471+00:00",
+    "source_diff_sha256": "690624b7d96fccc388008df964749faa85ef2144b9d56141f5376729011e24d9",
+    "issued_at": "2026-09-02T13:12:53.317767+00:00",
     "signature_algorithm": "HMAC-SHA256",
     "brand": "SecureCoating-Vision",
-    "payload_hash_sha256": "39408ec83b329c51369d4ae12ea154f518bcbd34d663ec2d7d24a83891491dde",
-    "hmac_digital_signature": "3a77b87fa26a4cdf7dab50dd910f96da2e4e51967ba0284f4fb1f82b62a5228c",
-    "canonical_payload_sha256": "39408ec83b329c51369d4ae12ea154f518bcbd34d663ec2d7d24a83891491dde"
+    "payload_hash_sha256": "d2a54dd382eecdd01d10b91ac097d323e4164ebc0982af19adea909efdf99fb6",
+    "hmac_digital_signature": "2ba5006d98dccdbee6f1abba8b246ce1f4bf9dc1780ce9e4900845e3879376b8",
+    "canonical_payload_sha256": "d2a54dd382eecdd01d10b91ac097d323e4164ebc0982af19adea909efdf99fb6"
   }
 }

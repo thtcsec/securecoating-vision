@@ -58,13 +58,16 @@ Industrial metrics:
 - Escape Rate = (anomalies incorrectly PASS) / (total anomalies)
 - Selective Risk = (errors among automatic decisions) / (N_PASS + N_REJECT)
 
-Without the official 4.84 GB dataset, all 10 valid split manifests, and `data/libad/official_artifact_manifest.json` containing matching dataset/splits tree SHA-256 values, the harness runs a protocol fixture or labels structured inputs unverified. Even with verified official inputs, this local numpy patch descriptor remains `comparable_to_paper: false`; paper comparison requires the authors' official DINOv3/DA-Core implementation and recorded hashes.
+Without the official 4.84 GB dataset, all 10 valid split files, and a hash-recorded artifact manifest, the harness runs a protocol fixture or labels structured inputs unverified. Default status checks a cheap file-count/byte fingerprint against `data/libad/official_artifact_manifest.json` (copied to `reports/libad/official_mount_hashes.json`) so pytest and the API do not SHA-256 4.84 GB on every call. Live rehash is `SECURECOATING_LIBAD_VERIFY_TREES=1` or `dataset_status(verify_trees=True)`. Even with verified official inputs, this local numpy patch descriptor remains `comparable_to_paper: false`; paper comparison requires the authors' official DINOv3/DA-Core implementation and recorded hashes. Checked-in `reports/libad/libad_benchmark.json` stays `evidence_class: protocol_fixture`. Official local-adapter numbers belong in `reports/libad/official_local_adapter.json`.
 
 ```powershell
 .venv\Scripts\python.exe scripts/download_libad.py --probe
 .venv\Scripts\python.exe scripts/download_libad.py --download --accept-license
+.venv\Scripts\python.exe scripts/record_libad_official_manifest.py
+.venv\Scripts\python.exe scripts/run_libad_benchmark.py --require-official --out reports/libad/official_local_adapter.json
 .venv\Scripts\python.exe scripts/run_libad_benchmark.py
 .venv\Scripts\python.exe scripts/run_libad_demo.py
+.venv\Scripts\python.exe scripts/run_libad_live.py --fetch-official-code --with-api --write-reports
 ```
 
 `--probe` HEADs the official zip files and does not download 4.84 GB. `--download` requires `--accept-license` plus a Hugging Face token after accepting the dataset terms. Unauthenticated requests receive HTTP 401 (`GatedRepoError`). Even after a successful mount, this repository's numpy patch descriptor remains `comparable_to_paper: false`.

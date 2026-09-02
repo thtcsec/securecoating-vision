@@ -8,6 +8,7 @@ protocol can be tested without claiming paper-table performance.
 
 from __future__ import annotations
 
+import csv
 import json
 import os
 import re
@@ -26,6 +27,7 @@ from libad.protocol import (
     official_libad_present,
     sha256_tree,
     splits_root_from_config,
+    tree_stat_fingerprint,
 )
 
 DEFECT_GROUPS = (
@@ -151,12 +153,89 @@ def build_protocol_fixture(
 
 
 def _read_gray(path: Path) -> np.ndarray:
-    image = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
+    image = cv2.imread(str(path), cv2.IMREAD_UNCHANGED)
     if image is None:
         raise FileNotFoundError(f"Cannot read LIBAD image: {path}")
-    if image.ndim == 3 and image.shape[-1] == 1:
-        image = image[:, :, 0]
+    if image.ndim == 3:
+        if image.shape[2] == 1:
+            image = image[:, :, 0]
+        else:
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    if image.dtype in (np.float32, np.float64):
+        finite = np.nan_to_num(image.astype(np.float32), nan=0.0, posinf=0.0, neginf=0.0)
+        lo, hi = float(np.min(finite)), float(np.max(finite))
+        if hi <= 1.5 and lo >= 0.0 and (hi - lo) > 1e-6:
+            # Official X-rayL is a narrow float band; stretch for the local uint8 descriptor.
+            image = np.clip((finite - lo) / (hi - lo) * 255.0, 0, 255).astype(np.uint8)
+        elif hi <= 1.5:
+            image = np.clip(finite * 255.0, 0, 255).astype(np.uint8)
+        else:
+            image = cv2.normalize(finite, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+    elif image.dtype != np.uint8:
+        image = cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
     return image
+
+
+def _adapter_frame(
+    path: Path,
+    image_size: Optional[Sequence[int]] = None,
+    cache_root: Optional[Path] = None,
+    dataset_root: Optional[Path] = None,
+) -> np.ndarray:
+    """Load one view, convert to uint8, optionally cache a 64x64 preview."""
+    cache_path: Optional[Path] = None
+    if cache_root is not None and dataset_root is not None:
+        try:
+            relative = Path(path).resolve().relative_to(Path(dataset_root).resolve())
+            cache_path = Path(cache_root) / relative.with_suffix(".png")
+        except ValueError:
+            cache_path = None
+        if cache_path is not None and cache_path.is_file():
+            cached = cv2.imread(str(cache_path), cv2.IMREAD_GRAYSCALE)
+            if cached is not None:
+                return cached
+    image = _read_gray(path)
+    if image_size is not None:
+        height, width = int(image_size[0]), int(image_size[1])
+        if image.shape[0] != height or image.shape[1] != width:
+            image = cv2.resize(image, (width, height), interpolation=cv2.INTER_AREA)
+    if cache_path is not None:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cv2.imwrite(str(cache_path), image)
+    return image
+
+
+def _official_csv_split_path(splits_root: Path, seed: int) -> Optional[Path]:
+    preferred = splits_root / f"LIBAD_normal70base_val15normal_seed{int(seed)}.csv"
+    if preferred.is_file():
+        return preferred
+    fallback = splits_root / f"LIBAD_normal70train_noval_seed{int(seed)}.csv"
+    return fallback if fallback.is_file() else None
+
+
+def _load_official_csv_split_ids(path: Path) -> Dict[str, List[str]]:
+    out: Dict[str, List[str]] = {"train": [], "val": [], "test": []}
+    with Path(path).open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        for row in reader:
+            split = str(row.get("split", "")).strip()
+            key = str(row.get("sample_key", "")).strip()
+            if split in out and key:
+                out[split].append(key)
+    return out
+
+
+def _record_lookup(
+    by_id: Dict[str, Tuple[str, int, Path, str]],
+    sample_id: str,
+) -> Optional[Tuple[str, int, Path, str]]:
+    if sample_id in by_id:
+        return by_id[sample_id]
+    suffix = "/" + sample_id
+    matches = [item for key, item in by_id.items() if key.endswith(suffix)]
+    if len(matches) == 1:
+        return matches[0]
+    return None
 
 
 def _load_official_split_ids(splits_root: Path, seed: int) -> Optional[Dict[str, List[str]]]:
@@ -184,6 +263,9 @@ def _load_official_split_ids(splits_root: Path, seed: int) -> Optional[Dict[str,
                 out[name] = [line.strip() for line in file_path.read_text(encoding="utf-8").splitlines() if line.strip()]
         if out:
             return out
+    csv_path = _official_csv_split_path(splits_root, seed)
+    if csv_path is not None:
+        return _load_official_csv_split_ids(csv_path)
     return None
 
 
@@ -202,6 +284,20 @@ def _iter_official_samples(dataset_root: Path) -> List[Tuple[str, str, int, Path
     return records
 
 
+def _index_official_samples(
+    records: List[Tuple[str, str, int, Path]],
+) -> Dict[str, Tuple[str, int, Path, str]]:
+    """Map CSV sample_key and unique stems to (group, label, folder, stem)."""
+    by_id: Dict[str, Tuple[str, int, Path, str]] = {}
+    for stem, group, label, folder in records:
+        class_dir = folder.parent.name
+        label_name = folder.name
+        payload = (group, label, folder, stem)
+        by_id[f"{class_dir}/{label_name}/{stem}"] = payload
+        by_id.setdefault(stem, payload)
+    return by_id
+
+
 def _official_sample_paths(folder: Path, sample_id: str) -> Tuple[Path, Path, Path]:
     def choose(suffix: str) -> Path:
         tiff = folder / f"{sample_id}{suffix}.tiff"
@@ -212,7 +308,7 @@ def _official_sample_paths(folder: Path, sample_id: str) -> Tuple[Path, Path, Pa
 
 def _split_manifest_is_complete(
     split_ids: Optional[Dict[str, List[str]]],
-    by_id: Dict[str, Tuple[str, int, Path]],
+    by_id: Dict[str, Tuple[str, int, Path, str]],
 ) -> bool:
     if split_ids is None:
         return False
@@ -229,11 +325,11 @@ def _split_manifest_is_complete(
     ):
         return False
     for sample_id in set().union(*split_sets.values()):
-        record = by_id.get(sample_id)
+        record = _record_lookup(by_id, sample_id)
         if record is None:
             return False
-        _, _, folder = record
-        if not all(path.is_file() for path in _official_sample_paths(folder, sample_id)):
+        _, _, folder, stem = record
+        if not all(path.is_file() for path in _official_sample_paths(folder, stem)):
             return False
     return True
 
@@ -247,29 +343,35 @@ def load_official_split(seed: int, config: Optional[dict] = None) -> Optional[Li
     records = _iter_official_samples(dataset_root)
     if not records or split_ids is None:
         return None
-    by_id = {stem: (group, label, folder) for stem, group, label, folder in records}
+    by_id = _index_official_samples(records)
 
     if not _split_manifest_is_complete(split_ids, by_id):
         return None
     required_names = ("train", "val", "test")
+    image_size = tuple(cfg.get("features", {}).get("image_size") or (64, 64))
+    dataset_root = dataset_root.resolve()
+    cache_root = dataset_root.parent / "_preview64"
+    progress = {"n": 0}
 
     def resolve(sample_id: str, split: str) -> Optional[LibadSample]:
-        if sample_id not in by_id:
+        record = _record_lookup(by_id, sample_id)
+        if record is None:
             return None
-        group, label, folder = by_id[sample_id]
-        vis_a, vis_b, xray_l = _official_sample_paths(folder, sample_id)
-        # Paper-protocol inputs contain both visible-light views and X-rayL.
-        # Do not silently duplicate VIS-A when VIS-B is absent.
+        group, label, folder, stem = record
+        vis_a, vis_b, xray_l = _official_sample_paths(folder, stem)
         if not vis_a.is_file() or not vis_b.is_file() or not xray_l.is_file():
             return None
+        progress["n"] += 1
+        if progress["n"] % 80 == 0:
+            print(f"  seed {seed}: loaded {progress['n']} samples (64x64 cache)", flush=True)
         return LibadSample(
             sample_id=sample_id,
             split=split,
             label=label,
             defect_group=group,
-            vis_a=_read_gray(vis_a),
-            vis_b=_read_gray(vis_b),
-            xray_l=_read_gray(xray_l),
+            vis_a=_adapter_frame(vis_a, image_size, cache_root, dataset_root),
+            vis_b=_adapter_frame(vis_b, image_size, cache_root, dataset_root),
+            xray_l=_adapter_frame(xray_l, image_size, cache_root, dataset_root),
             vis_a_path=str(vis_a),
             vis_b_path=str(vis_b),
             xray_l_path=str(xray_l),
@@ -317,19 +419,56 @@ def load_official_splits(
     return [load_split(int(seed), allow_fixture=allow_fixture, config=config) for seed in seeds]
 
 
-def dataset_status(config: Optional[dict] = None) -> Dict[str, object]:
+def _want_tree_verify(verify_trees: Optional[bool]) -> bool:
+    if verify_trees is not None:
+        return bool(verify_trees)
+    flag = os.environ.get("SECURECOATING_LIBAD_VERIFY_TREES", "").strip().lower()
+    return flag in {"1", "true", "yes"}
+
+
+def _is_sha256_hex(value: object) -> bool:
+    if not isinstance(value, str) or len(value) != 64:
+        return False
+    try:
+        int(value, 16)
+    except ValueError:
+        return False
+    return True
+
+
+def _manifest_fingerprint_matches(
+    manifest: dict,
+    dataset_root: Path,
+    splits_root: Path,
+) -> bool:
+    dataset_fp = tree_stat_fingerprint(dataset_root)
+    splits_fp = tree_stat_fingerprint(splits_root)
+    if dataset_fp is None or splits_fp is None:
+        return False
+    try:
+        return (
+            int(manifest.get("dataset_n_files") or 0) == dataset_fp["n_files"]
+            and int(manifest.get("dataset_total_bytes") or 0) == dataset_fp["total_bytes"]
+            and int(manifest.get("splits_n_files") or 0) == splits_fp["n_files"]
+            and int(manifest.get("splits_total_bytes") or 0) == splits_fp["total_bytes"]
+        )
+    except (TypeError, ValueError):
+        return False
+
+
+def dataset_status(
+    config: Optional[dict] = None,
+    verify_trees: Optional[bool] = None,
+) -> Dict[str, object]:
     cfg = config or load_libad_config()
     present = official_libad_present(cfg)
     splits = splits_root_from_config(cfg)
     valid_seeds: List[int] = []
     invalid_seeds: List[int] = []
     if present and splits.is_dir():
-        by_id = {
-            stem: (group, label, folder)
-            for stem, group, label, folder in _iter_official_samples(
-                PROJECT_ROOT / cfg["paths"]["dataset_root"]
-            )
-        }
+        by_id = _index_official_samples(
+            _iter_official_samples(PROJECT_ROOT / cfg["paths"]["dataset_root"])
+        )
         for seed in OFFICIAL_SPLIT_SEEDS:
             split_ids = _load_official_split_ids(splits, seed)
             if not _split_manifest_is_complete(split_ids, by_id):
@@ -346,18 +485,34 @@ def dataset_status(config: Optional[dict] = None) -> Dict[str, object]:
     splits_tree_sha256: Optional[str] = None
     manifest_verified = False
     manifest_error: Optional[str] = None
+    tree_verify = _want_tree_verify(verify_trees)
     if protocol_complete and manifest_path.is_file():
         try:
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            dataset_tree_sha256 = sha256_tree(PROJECT_ROOT / cfg["paths"]["dataset_root"])
-            splits_tree_sha256 = sha256_tree(splits)
-            manifest_verified = (
-                manifest.get("dataset_tree_sha256") == dataset_tree_sha256
-                and manifest.get("splits_tree_sha256") == splits_tree_sha256
-                and manifest.get("official_split_seeds") == list(OFFICIAL_SPLIT_SEEDS)
+            recorded_dataset = manifest.get("dataset_tree_sha256")
+            recorded_splits = manifest.get("splits_tree_sha256")
+            seeds_ok = manifest.get("official_split_seeds") == list(OFFICIAL_SPLIT_SEEDS)
+            hashes_ok = _is_sha256_hex(recorded_dataset) and _is_sha256_hex(recorded_splits)
+            fingerprint_ok = _manifest_fingerprint_matches(
+                manifest,
+                PROJECT_ROOT / cfg["paths"]["dataset_root"],
+                splits,
             )
+            if tree_verify:
+                dataset_tree_sha256 = sha256_tree(PROJECT_ROOT / cfg["paths"]["dataset_root"])
+                splits_tree_sha256 = sha256_tree(splits)
+                manifest_verified = (
+                    hashes_ok
+                    and seeds_ok
+                    and recorded_dataset == dataset_tree_sha256
+                    and recorded_splits == splits_tree_sha256
+                )
+            else:
+                dataset_tree_sha256 = recorded_dataset if hashes_ok else None
+                splits_tree_sha256 = recorded_splits if hashes_ok else None
+                manifest_verified = hashes_ok and seeds_ok and fingerprint_ok
             if not manifest_verified:
-                manifest_error = "Artifact manifest hashes or official seed list do not match"
+                manifest_error = "Artifact manifest hashes, fingerprint, or official seed list do not match"
         except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
             manifest_error = f"Artifact manifest is unreadable: {exc}"
     elif protocol_complete:
@@ -381,6 +536,7 @@ def dataset_status(config: Optional[dict] = None) -> Dict[str, object]:
         "official_artifact_manifest": str(manifest_path),
         "official_artifact_manifest_verified": manifest_verified,
         "official_artifact_manifest_error": manifest_error,
+        "tree_hash_verified_live": bool(tree_verify and manifest_verified),
         "dataset_tree_sha256": dataset_tree_sha256,
         "splits_tree_sha256": splits_tree_sha256,
         "valid_official_split_seeds": valid_seeds,

@@ -7,7 +7,7 @@ from typing import Dict, List, Literal, Optional, Sequence
 
 import numpy as np
 
-from libad.features import extract_patch_features
+from libad.features import FEATURE_DIM, extract_patch_features
 from libad.memory import CoresetMethod, image_anomaly_score, select_coreset
 
 Modality = Literal["vis", "xray_l"]
@@ -47,7 +47,7 @@ class MemoryAnomalyScorer:
     def __init__(
         self,
         method: CoresetMethod = "density_fps",
-        coreset_ratio: float = 0.25,
+        coreset_ratio: float = 0.05,
         density_weight: float = 0.7,
         knn: int = 8,
         patch_size: int = 16,
@@ -56,6 +56,7 @@ class MemoryAnomalyScorer:
         vis_scale: float = 1.0,
         xray_scale: float = 1.0,
         seed: int = 0,
+        min_coreset_count: int = 0,
     ):
         self.method = method
         self.coreset_ratio = coreset_ratio
@@ -67,6 +68,7 @@ class MemoryAnomalyScorer:
         self.vis_scale = vis_scale
         self.xray_scale = xray_scale
         self.seed = seed
+        self.min_coreset_count = int(min_coreset_count)
         self.memories: Dict[str, ModalityMemory] = {}
 
     def _extract(self, image: np.ndarray) -> np.ndarray:
@@ -86,6 +88,10 @@ class MemoryAnomalyScorer:
             return None
         patches = [self._extract(image) for image in images]
         stacked = np.concatenate(patches, axis=0)
+        if len(stacked) > 4000:
+            rng = np.random.default_rng(int(self.seed))
+            keep = rng.choice(len(stacked), 4000, replace=False)
+            stacked = stacked[keep]
         memory = select_coreset(
             stacked,
             ratio=self.coreset_ratio,
@@ -93,6 +99,7 @@ class MemoryAnomalyScorer:
             density_weight=self.density_weight,
             knn=self.knn,
             seed=self.seed,
+            min_count=self.min_coreset_count,
         )
         train_scores = [image_anomaly_score(item, memory) for item in patches]
         reference = float(np.median(train_scores)) if train_scores else 1.0
@@ -144,8 +151,10 @@ class MemoryAnomalyScorer:
         if xray_score is not None:
             xray_score *= self.xray_scale
         fused = None
+        extras: Dict[str, float] = {}
         if vis_score is not None and xray_score is not None:
             fused = max(vis_score, xray_score)
+            extras["mean_fusion"] = float(0.5 * (vis_score + xray_score))
         elif vis_score is not None:
             fused = vis_score
         elif xray_score is not None:
@@ -159,6 +168,7 @@ class MemoryAnomalyScorer:
             xray_available=xray_score is not None,
             label=label,
             defect_group=defect_group,
+            extras=extras,
         )
 
     def provenance(self) -> Dict[str, object]:
@@ -170,6 +180,7 @@ class MemoryAnomalyScorer:
                 "(Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm."
             ),
             "feature_backbone": "numpy_patch_descriptor",
+            "feature_dim": FEATURE_DIM,
             "late_fusion": "max of modality-normalized image scores",
             "memories": {
                 name: {

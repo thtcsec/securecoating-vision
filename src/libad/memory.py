@@ -103,16 +103,19 @@ def density_aware_fps(
 
 def select_coreset(
     features: np.ndarray,
-    ratio: float = 0.25,
+    ratio: float = 0.05,
     method: CoresetMethod = "density_fps",
     density_weight: float = 0.7,
     knn: int = 8,
     seed: int = 0,
+    min_count: int = 0,
 ) -> np.ndarray:
     features = np.asarray(features, dtype=np.float32)
     if len(features) == 0:
         return features
     count = max(1, int(round(len(features) * float(ratio))))
+    if int(min_count) > 0:
+        count = max(count, min(int(min_count), len(features)))
     count = min(count, len(features))
     rng = np.random.default_rng(int(seed))
     if method == "fps":

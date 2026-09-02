@@ -11,9 +11,9 @@
       "reason": "Normal agreement: VIS and X-rayL are both below the release threshold",
       "vis_state": "NORMAL",
       "xray_state": "NORMAL",
-      "vis_score": 0.8660254501220278,
-      "xray_score": 1.0,
-      "fused_score": 1.0,
+      "vis_score": 0.9382709019043155,
+      "xray_score": 0.9258201590778119,
+      "fused_score": 0.9382709019043155,
       "contract_holds": [],
       "details": {
         "threshold": 1.0,
@@ -23,9 +23,9 @@
       }
     },
     "scores": {
-      "vis": 0.8660254501220278,
-      "xray_l": 1.0,
-      "fused": 1.0
+      "vis": 0.9382709019043155,
+      "xray_l": 0.9258201590778119,
+      "fused": 0.9382709019043155
     },
     "identity": {
       "roll_id": "ROLL_LIBAD_EXT_001",
@@ -41,25 +41,25 @@
       "part_id": "PART_LIBAD_DEMO_01",
       "decision": "PASS",
       "decision_reason": "Normal agreement: VIS and X-rayL are both below the release threshold",
-      "vis_score": 0.866025,
-      "xray_score": 1.0,
-      "fused_score": 1.0,
+      "vis_score": 0.938271,
+      "xray_score": 0.92582,
+      "fused_score": 0.938271,
       "vis_state": "NORMAL",
       "xray_state": "NORMAL",
       "calibration_state": "VERIFIED",
       "model_hash": null,
       "dataset_manifest_hash": null,
-      "commit_hash": "12e1ed55728f09f8e4d485c76e4d5a6230af0f7b",
+      "commit_hash": "d9823dd59ea091e25bcaa9efa1ab2f3fd786f3bb",
       "plc_state": "SIMULATED_PASS",
       "detector_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
       "source_tree_dirty": true,
-      "source_diff_sha256": "1cc052f39d7e949e13e7556b99843e9a069d06a54bf40b74854eef813566ceae",
-      "issued_at": "2026-08-28T14:46:49.871365+00:00",
+      "source_diff_sha256": "690624b7d96fccc388008df964749faa85ef2144b9d56141f5376729011e24d9",
+      "issued_at": "2026-09-02T13:12:52.863698+00:00",
       "signature_algorithm": "HMAC-SHA256",
       "brand": "SecureCoating-Vision",
-      "payload_hash_sha256": "4a4a20ae6926aff54f072103a9d8c52127e4183087a5b8173a7099d3a94f3b56",
-      "hmac_digital_signature": "85e7ba8fad226ac9346885ebb043f3fb9bd28e96619c752abe6853af1f3d18b3",
-      "canonical_payload_sha256": "4a4a20ae6926aff54f072103a9d8c52127e4183087a5b8173a7099d3a94f3b56"
+      "payload_hash_sha256": "8b91d41e40fe7a3c7564bcb6949afd6a621d5dccdfd29b85a0e15271ea346b24",
+      "hmac_digital_signature": "6a124ddd914d571684d18749ec200c7f98d7593f70ca2896d47051c7f6caca1e",
+      "canonical_payload_sha256": "8b91d41e40fe7a3c7564bcb6949afd6a621d5dccdfd29b85a0e15271ea346b24"
     },
     "title": "SecureCoating Vision: A High-Throughput and Zero-Trust Edge-Cloud Pipeline for Inline Battery Electrode Defect Inspection and Traceable Quality Decisions",
     "tagline": "Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing",
@@ -69,26 +69,27 @@
       "coreset_method": "density_fps",
       "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
       "feature_backbone": "numpy_patch_descriptor",
+      "feature_dim": 20,
       "late_fusion": "max of modality-normalized image scores",
       "memories": {
         "vis": {
           "n_memory": 294,
           "n_train_patches": 588,
-          "reference_score": 0.0006905339541845024,
+          "reference_score": 0.001220458885654807,
           "method": "density_fps"
         },
         "xray_l": {
           "n_memory": 294,
           "n_train_patches": 588,
-          "reference_score": 0.0008457279182039201,
+          "reference_score": 0.001291870721615851,
           "method": "density_fps"
         }
       }
     },
     "source_provenance": {
-      "commit": "12e1ed55728f09f8e4d485c76e4d5a6230af0f7b",
+      "commit": "d9823dd59ea091e25bcaa9efa1ab2f3fd786f3bb",
       "working_tree_dirty": true,
-      "source_diff_sha256": "1cc052f39d7e949e13e7556b99843e9a069d06a54bf40b74854eef813566ceae"
+      "source_diff_sha256": "690624b7d96fccc388008df964749faa85ef2144b9d56141f5376729011e24d9"
     },
     "overlay": "reports/libad_demo/case_01.png"
   },
@@ -104,9 +105,9 @@
       "reason": "REJECT \u2014 surface evidence: VIS anomaly with complementary or weaker X-rayL",
       "vis_state": "ANOMALY",
       "xray_state": "NORMAL",
-      "vis_score": 1056.428425082669,
-      "xray_score": 1.0,
-      "fused_score": 1056.428425082669,
+      "vis_score": 595.4111714017488,
+      "xray_score": 0.9258201590778119,
+      "fused_score": 595.4111714017488,
       "contract_holds": [],
       "details": {
         "threshold": 1.0,
@@ -116,9 +117,9 @@
       }
     },
     "scores": {
-      "vis": 1056.428425082669,
-      "xray_l": 1.0,
-      "fused": 1056.428425082669
+      "vis": 595.4111714017488,
+      "xray_l": 0.9258201590778119,
+      "fused": 595.4111714017488
     },
     "identity": {
       "roll_id": "ROLL_LIBAD_EXT_001",
@@ -134,25 +135,25 @@
       "part_id": "PART_LIBAD_DEMO_02",
       "decision": "REJECT",
       "decision_reason": "REJECT \u2014 surface evidence: VIS anomaly with complementary or weaker X-rayL",
-      "vis_score": 1056.428425,
-      "xray_score": 1.0,
-      "fused_score": 1056.428425,
+      "vis_score": 595.411171,
+      "xray_score": 0.92582,
+      "fused_score": 595.411171,
       "vis_state": "ANOMALY",
       "xray_state": "NORMAL",
       "calibration_state": "VERIFIED",
       "model_hash": null,
       "dataset_manifest_hash": null,
-      "commit_hash": "12e1ed55728f09f8e4d485c76e4d5a6230af0f7b",
+      "commit_hash": "d9823dd59ea091e25bcaa9efa1ab2f3fd786f3bb",
       "plc_state": "SIMULATED_REJECT",
       "detector_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
       "source_tree_dirty": true,
-      "source_diff_sha256": "1cc052f39d7e949e13e7556b99843e9a069d06a54bf40b74854eef813566ceae",
-      "issued_at": "2026-08-28T14:46:50.024958+00:00",
+      "source_diff_sha256": "690624b7d96fccc388008df964749faa85ef2144b9d56141f5376729011e24d9",
+      "issued_at": "2026-09-02T13:12:53.005519+00:00",
       "signature_algorithm": "HMAC-SHA256",
       "brand": "SecureCoating-Vision",
-      "payload_hash_sha256": "cfa4b84c4da0aec7d52af984a69ab80ac23eb30f653e3685cd4ae9e1399586d1",
-      "hmac_digital_signature": "d99a5b0e3ec938463202602e13c5684dad60138f52d6590a9c0992e0bd683bf4",
-      "canonical_payload_sha256": "cfa4b84c4da0aec7d52af984a69ab80ac23eb30f653e3685cd4ae9e1399586d1"
+      "payload_hash_sha256": "9bcebf6d2e4ac91432bed55af5fd82c328521b9d2f26d4ab45b27e70d4208cae",
+      "hmac_digital_signature": "99270c20d0d8ce07c69029eab6c78ad115fda96511f11be185798be4a9c97528",
+      "canonical_payload_sha256": "9bcebf6d2e4ac91432bed55af5fd82c328521b9d2f26d4ab45b27e70d4208cae"
     },
     "title": "SecureCoating Vision: A High-Throughput and Zero-Trust Edge-Cloud Pipeline for Inline Battery Electrode Defect Inspection and Traceable Quality Decisions",
     "tagline": "Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing",
@@ -162,26 +163,27 @@
       "coreset_method": "density_fps",
       "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
       "feature_backbone": "numpy_patch_descriptor",
+      "feature_dim": 20,
       "late_fusion": "max of modality-normalized image scores",
       "memories": {
         "vis": {
           "n_memory": 294,
           "n_train_patches": 588,
-          "reference_score": 0.0006905339541845024,
+          "reference_score": 0.001220458885654807,
           "method": "density_fps"
         },
         "xray_l": {
           "n_memory": 294,
           "n_train_patches": 588,
-          "reference_score": 0.0008457279182039201,
+          "reference_score": 0.001291870721615851,
           "method": "density_fps"
         }
       }
     },
     "source_provenance": {
-      "commit": "12e1ed55728f09f8e4d485c76e4d5a6230af0f7b",
+      "commit": "d9823dd59ea091e25bcaa9efa1ab2f3fd786f3bb",
       "working_tree_dirty": true,
-      "source_diff_sha256": "1cc052f39d7e949e13e7556b99843e9a069d06a54bf40b74854eef813566ceae"
+      "source_diff_sha256": "690624b7d96fccc388008df964749faa85ef2144b9d56141f5376729011e24d9"
     },
     "overlay": "reports/libad_demo/case_02.png"
   },
@@ -197,9 +199,9 @@
       "reason": "REJECT \u2014 complementary X-ray evidence: internal/density anomaly with near-normal VIS",
       "vis_state": "NORMAL",
       "xray_state": "ANOMALY",
-      "vis_score": 0.8660254501220278,
-      "xray_score": 1049.1144552511976,
-      "fused_score": 1049.1144552511976,
+      "vis_score": 0.9382709019043155,
+      "xray_score": 686.7462869753633,
+      "fused_score": 686.7462869753633,
       "contract_holds": [],
       "details": {
         "threshold": 1.0,
@@ -209,9 +211,9 @@
       }
     },
     "scores": {
-      "vis": 0.8660254501220278,
-      "xray_l": 1049.1144552511976,
-      "fused": 1049.1144552511976
+      "vis": 0.9382709019043155,
+      "xray_l": 686.7462869753633,
+      "fused": 686.7462869753633
     },
     "identity": {
       "roll_id": "ROLL_LIBAD_EXT_001",
@@ -227,25 +229,25 @@
       "part_id": "PART_LIBAD_DEMO_03",
       "decision": "REJECT",
       "decision_reason": "REJECT \u2014 complementary X-ray evidence: internal/density anomaly with near-normal VIS",
-      "vis_score": 0.866025,
-      "xray_score": 1049.114455,
-      "fused_score": 1049.114455,
+      "vis_score": 0.938271,
+      "xray_score": 686.746287,
+      "fused_score": 686.746287,
       "vis_state": "NORMAL",
       "xray_state": "ANOMALY",
       "calibration_state": "VERIFIED",
       "model_hash": null,
       "dataset_manifest_hash": null,
-      "commit_hash": "12e1ed55728f09f8e4d485c76e4d5a6230af0f7b",
+      "commit_hash": "d9823dd59ea091e25bcaa9efa1ab2f3fd786f3bb",
       "plc_state": "SIMULATED_REJECT",
       "detector_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
       "source_tree_dirty": true,
-      "source_diff_sha256": "1cc052f39d7e949e13e7556b99843e9a069d06a54bf40b74854eef813566ceae",
-      "issued_at": "2026-08-28T14:46:50.169694+00:00",
+      "source_diff_sha256": "690624b7d96fccc388008df964749faa85ef2144b9d56141f5376729011e24d9",
+      "issued_at": "2026-09-02T13:12:53.144518+00:00",
       "signature_algorithm": "HMAC-SHA256",
       "brand": "SecureCoating-Vision",
-      "payload_hash_sha256": "3640f8675d81c69304b0b14350aa3cc96f166d14ad9ab43cb8a58d5952346c2b",
-      "hmac_digital_signature": "3e8fe635e1ecd9335ccaf1542f82e5bfd8b4babd522c7ff891f47414fce386c7",
-      "canonical_payload_sha256": "3640f8675d81c69304b0b14350aa3cc96f166d14ad9ab43cb8a58d5952346c2b"
+      "payload_hash_sha256": "d8eacf0a9a4fd54ed03646538f8cd5aa69f54000ccc49de9916e8b7f86a4e83c",
+      "hmac_digital_signature": "eb625e286b076007c787b96b6a2f4e3c9c5a04415c3b6762444598dc494ca7e2",
+      "canonical_payload_sha256": "d8eacf0a9a4fd54ed03646538f8cd5aa69f54000ccc49de9916e8b7f86a4e83c"
     },
     "title": "SecureCoating Vision: A High-Throughput and Zero-Trust Edge-Cloud Pipeline for Inline Battery Electrode Defect Inspection and Traceable Quality Decisions",
     "tagline": "Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing",
@@ -255,26 +257,27 @@
       "coreset_method": "density_fps",
       "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
       "feature_backbone": "numpy_patch_descriptor",
+      "feature_dim": 20,
       "late_fusion": "max of modality-normalized image scores",
       "memories": {
         "vis": {
           "n_memory": 294,
           "n_train_patches": 588,
-          "reference_score": 0.0006905339541845024,
+          "reference_score": 0.001220458885654807,
           "method": "density_fps"
         },
         "xray_l": {
           "n_memory": 294,
           "n_train_patches": 588,
-          "reference_score": 0.0008457279182039201,
+          "reference_score": 0.001291870721615851,
           "method": "density_fps"
         }
       }
     },
     "source_provenance": {
-      "commit": "12e1ed55728f09f8e4d485c76e4d5a6230af0f7b",
+      "commit": "d9823dd59ea091e25bcaa9efa1ab2f3fd786f3bb",
       "working_tree_dirty": true,
-      "source_diff_sha256": "1cc052f39d7e949e13e7556b99843e9a069d06a54bf40b74854eef813566ceae"
+      "source_diff_sha256": "690624b7d96fccc388008df964749faa85ef2144b9d56141f5376729011e24d9"
     },
     "overlay": "reports/libad_demo/case_03.png"
   },
@@ -290,9 +293,9 @@
       "reason": "Modality score is inside the uncertainty band; HOLD for manual QA",
       "vis_state": "UNCERTAIN",
       "xray_state": "NORMAL",
-      "vis_score": 1.1180340214424624,
-      "xray_score": 1.0,
-      "fused_score": 1.1180340214424624,
+      "vis_score": 1.0585122832079097,
+      "xray_score": 0.9258201590778119,
+      "fused_score": 1.0585122832079097,
       "contract_holds": [],
       "details": {
         "threshold": 1.0,
@@ -302,9 +305,9 @@
       }
     },
     "scores": {
-      "vis": 1.1180340214424624,
-      "xray_l": 1.0,
-      "fused": 1.1180340214424624
+      "vis": 1.0585122832079097,
+      "xray_l": 0.9258201590778119,
+      "fused": 1.0585122832079097
     },
     "identity": {
       "roll_id": "ROLL_LIBAD_EXT_001",
@@ -320,25 +323,25 @@
       "part_id": "PART_LIBAD_DEMO_04",
       "decision": "HOLD",
       "decision_reason": "Modality score is inside the uncertainty band; HOLD for manual QA",
-      "vis_score": 1.118034,
-      "xray_score": 1.0,
-      "fused_score": 1.118034,
+      "vis_score": 1.058512,
+      "xray_score": 0.92582,
+      "fused_score": 1.058512,
       "vis_state": "UNCERTAIN",
       "xray_state": "NORMAL",
       "calibration_state": "VERIFIED",
       "model_hash": null,
       "dataset_manifest_hash": null,
-      "commit_hash": "12e1ed55728f09f8e4d485c76e4d5a6230af0f7b",
+      "commit_hash": "d9823dd59ea091e25bcaa9efa1ab2f3fd786f3bb",
       "plc_state": "SIMULATED_HOLD",
       "detector_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
       "source_tree_dirty": true,
-      "source_diff_sha256": "1cc052f39d7e949e13e7556b99843e9a069d06a54bf40b74854eef813566ceae",
-      "issued_at": "2026-08-28T14:46:50.316471+00:00",
+      "source_diff_sha256": "690624b7d96fccc388008df964749faa85ef2144b9d56141f5376729011e24d9",
+      "issued_at": "2026-09-02T13:12:53.317767+00:00",
       "signature_algorithm": "HMAC-SHA256",
       "brand": "SecureCoating-Vision",
-      "payload_hash_sha256": "39408ec83b329c51369d4ae12ea154f518bcbd34d663ec2d7d24a83891491dde",
-      "hmac_digital_signature": "3a77b87fa26a4cdf7dab50dd910f96da2e4e51967ba0284f4fb1f82b62a5228c",
-      "canonical_payload_sha256": "39408ec83b329c51369d4ae12ea154f518bcbd34d663ec2d7d24a83891491dde"
+      "payload_hash_sha256": "d2a54dd382eecdd01d10b91ac097d323e4164ebc0982af19adea909efdf99fb6",
+      "hmac_digital_signature": "2ba5006d98dccdbee6f1abba8b246ce1f4bf9dc1780ce9e4900845e3879376b8",
+      "canonical_payload_sha256": "d2a54dd382eecdd01d10b91ac097d323e4164ebc0982af19adea909efdf99fb6"
     },
     "title": "SecureCoating Vision: A High-Throughput and Zero-Trust Edge-Cloud Pipeline for Inline Battery Electrode Defect Inspection and Traceable Quality Decisions",
     "tagline": "Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing",
@@ -348,26 +351,27 @@
       "coreset_method": "density_fps",
       "coreset_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
       "feature_backbone": "numpy_patch_descriptor",
+      "feature_dim": 20,
       "late_fusion": "max of modality-normalized image scores",
       "memories": {
         "vis": {
           "n_memory": 294,
           "n_train_patches": 588,
-          "reference_score": 0.0006905339541845024,
+          "reference_score": 0.001220458885654807,
           "method": "density_fps"
         },
         "xray_l": {
           "n_memory": 294,
           "n_train_patches": 588,
-          "reference_score": 0.0008457279182039201,
+          "reference_score": 0.001291870721615851,
           "method": "density_fps"
         }
       }
     },
     "source_provenance": {
-      "commit": "12e1ed55728f09f8e4d485c76e4d5a6230af0f7b",
+      "commit": "d9823dd59ea091e25bcaa9efa1ab2f3fd786f3bb",
       "working_tree_dirty": true,
-      "source_diff_sha256": "1cc052f39d7e949e13e7556b99843e9a069d06a54bf40b74854eef813566ceae"
+      "source_diff_sha256": "690624b7d96fccc388008df964749faa85ef2144b9d56141f5376729011e24d9"
     },
     "overlay": "reports/libad_demo/case_04.png"
   }
