@@ -303,7 +303,16 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertNotIn("Coating_Surface_Evidence", source)
         self.assertNotIn("Evidence_Aware", source)
         self.assertIn("coating_surface_heldout.png", source)
+        self.assertIn("logo.png", source)
         self.assertTrue((ROOT / "reports/defense_gifs/coating_surface_heldout.png").is_file())
+        self.assertTrue((ROOT / "logo.png").is_file())
+        with zipfile.ZipFile(ROOT / "SecureCoating-Vision_Final_Defense_6min.pptx") as archive:
+            media = [
+                archive.read(name)
+                for name in archive.namelist()
+                if name.startswith("ppt/media/")
+            ]
+        self.assertIn((ROOT / "logo.png").read_bytes(), media)
         leftover_decks = (
             "SecureCoating-Vision_Final_Defense_6min_Evidence_Aware.pptx",
             "SecureCoating-Vision_Final_Defense_6min_Coating_Surface_Evidence.pptx",
