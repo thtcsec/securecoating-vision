@@ -27,8 +27,11 @@ TEAM = (
     "Team Members: N/A (individual submission)\n"
     "Affiliation: Ho Chi Minh City University of Foreign Languages – Information "
     "Technology (HUFLIT)\n"
+    "Advisor: Prof. Kris Singh · Visiting Professor, Tsinghua University · "
+    "Founder & CEO, SRII\n"
     "Role: Sole author of the SecureCoating-Vision research prototype, evidence pipeline, "
-    "and Track 4 final-defense materials."
+    "and Track 4 final-defense materials. Advisor provides academic guidance only and is "
+    "not a co-author of the detector metrics."
 )
 
 
@@ -83,7 +86,10 @@ def fix(path: Path = DOCX) -> dict:
                     if _replace_in_cell(cell, OLD, NEW):
                         replaced += 1
                 text = (cell.text or "").strip()
-                if text == "7、Team Member Information" or (
+                if text.startswith("7、Team Member Information") and "Advisor:" not in text:
+                    _set_cell_text(cell, TEAM)
+                    team_filled += 1
+                elif text == "7、Team Member Information" or (
                     text.startswith("7、Team Member Information") and len(text) < 80
                 ):
                     _set_cell_text(cell, TEAM)

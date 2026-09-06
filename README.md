@@ -1,31 +1,51 @@
-# SecureCoating-Vision
+# SecureCoating Vision
 
-<p align="center">
-  <img src="logo.png" alt="SecureCoating-Vision" width="450">
-</p>
-
-[![Track 4 Finalist](https://img.shields.io/badge/Tsinghua%20MSE%202026-Track%204%20Finalist-C8102E.svg)](README.md)
+[![Track 4 Finalist 2026](https://img.shields.io/badge/Track%204%20Finalist-2026-C8102E.svg)](README.md)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
 
 [中文说明](README_CN.md)
 
-**Team 71** · Trịnh Hoàng Tú — HUFLIT  
-**Advisor:** Prof. Kris Singh — SRII / Visiting Professor, Tsinghua University  
-**Competition:** 2026 Global AI + Materials Innovation Application Competition · Track 4 (AI + Materials Testing and Characterization)
+**Evidence-Gated AI Inspection for Battery Electrode Manufacturing**
+
+**Team 71** · Global AI + Materials Innovation Application Competition 2026  
+**Track 4** · AI + Materials Testing & Characterization  
+**Trinh Hoang Tu** · HUFLIT  
+**Advisor:** Prof. Kris Singh · Visiting Professor, Tsinghua University · Founder & CEO, SRII
 
 **Registered title:** SecureCoating Vision: A High-Throughput and Zero-Trust Edge-Cloud Pipeline for Inline Battery Electrode Defect Inspection and Traceable Quality Decisions
 
 **Tagline:** Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing
 
-SecureCoating-Vision is an **industrial computer-vision research prototype** for real-image coating-defect detection, fail-closed inspection decisions, simulated roll synchronization, PLC protocol integration, and traceability experiments. Zero-Trust-ready target architecture; mTLS/RBAC/OT segmentation not claimed complete.
+SecureCoating-Vision is an **industrial computer-vision research prototype** by Team 71 (HUFLIT). Zero-Trust in the registered title names the **target** Edge-Cloud architecture; mTLS/RBAC/OT segmentation is not claimed complete.
 
 It is **not production-qualified**. The repository does not contain a factory calibration certificate, PLC hardware-in-the-loop evidence, an independent roll-disjoint test set, or plant safety approval. Do not connect it directly to a production gate or treat the software E-stop as a safety-rated E-stop.
+
+## What is actually implemented?
+
+- RGB inspection on real CoatingVision test evidence (image-disjoint; hash-pinned weights)
+- Evidence / readiness gate before automatic disposition
+- PASS / REJECT / HOLD software semantics
+- PLC command/ACK contract verified in software
+- Traceability hooks (roll/batch/part + certificate snapshot)
+- Reproducibility manifests and packed pytest evidence
+- LIBAD multimodal validation adapter (not paper-comparable DINOv3/DA-Core)
+
+## What is NOT claimed?
+
+- Factory-qualified or plant-approved deployment
+- Roll-disjoint validation of the current RGB headline metric
+- Physical safety-rated E-stop
+- Completed production mTLS / RBAC / OT segmentation
+- Electrochemical performance prediction
+- Paper-comparable LIBAD DINOv3 reproduction
+
+Deployment phases and industrial value are summarized in [docs/industrialization_path.md](docs/industrialization_path.md).
 
 ## Scope and Evidence
 
 The repository contains a fail-closed inspection prototype, traceability experiments, simulated industrial I/O, and reproducible software checks. Implemented behavior, test evidence, simulation boundaries, and external validation requirements are recorded in the [implementation status ledger](docs/implementation_status.md).
 
-The initial prototype validated the software and safety contract using RGB inspection and simulated secondary modalities. The repository now contains a validation adapter and 10-seed harness for [LIBAD](https://arxiv.org/abs/2608.07958), whose official release contains aligned visible-light and inline-compatible X-ray data from real roll-to-roll electrode manufacturing. Git does not contain the 4.84 GB mount; a local copy can be hashed with `scripts/record_libad_official_manifest.py`. Checked-in `reports/libad/libad_benchmark.json` remains a deterministic protocol fixture. Official-input numpy numbers live in `reports/libad/official_local_adapter.json` (~AUROC 0.70 / FPR95 0.84, 10 seeds). An authors' runner interim DINOv2 smoke lives in `reports/libad/official_dinov2_dacore_interim.json` (~AUROC 0.856 / FPR95 0.716, 1 seed). Both stay `comparable_to_paper: false`; DINOv3 ConvNeXt remains gated/unfinished here. Textual PAPER_SPEC is DINOv3 ViT-S/16 (paper↔code mismatch vs common ConvNeXt upstream defaults). This is a validation extension, not a change of topic. Details are in [docs/libad_validation_extension.md](docs/libad_validation_extension.md).
+The initial prototype validated the software and safety contract using RGB inspection and simulated secondary modalities. The repository now contains a validation adapter and 10-seed harness for [LIBAD](https://arxiv.org/abs/2608.07958), whose official release contains aligned visible-light and inline-compatible X-ray data from real roll-to-roll electrode manufacturing. Git does not contain the 4.84 GB mount; a local copy can be hashed with `scripts/record_libad_official_manifest.py`. Checked-in `reports/libad/libad_benchmark.json` remains a deterministic protocol fixture. Official-input numpy numbers live in `reports/libad/official_local_adapter.json` (~AUROC 0.70 / FPR95 0.84, 10 seeds). An authors' runner interim DINOv2 smoke lives in `reports/libad/official_dinov2_dacore_interim.json` (~AUROC 0.856 / FPR95 0.716, 1 seed). Both stay `comparable_to_paper: false`. Textual PAPER_SPEC is DINOv3 ViT-S/16 (paper↔code mismatch vs common ConvNeXt upstream defaults). This is a validation extension, not a change of topic. Details are in [docs/libad_validation_extension.md](docs/libad_validation_extension.md).
 
 <!-- TEST_MANIFEST:START -->
 The current software validation snapshot is 278 passing tests with 0 skips and 0 failures (commit `c174e60e28b6`, working tree clean, source diff `none`, Python 3.11.9, 88.58s). The authoritative record is [reports/test_manifest.json](reports/test_manifest.json). This does not constitute evidence of factory performance, physical PLC behavior, safety-rated E-stop operation, or production qualification.

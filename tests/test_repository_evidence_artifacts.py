@@ -250,8 +250,11 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
             ROOT / "reports/coatingvision_real_demo/coatingvision_model_output.json",
             ROOT / "reports/external_coatingvision_demo/coatingvision_model_output.json",
         ])
-        self.assertGreaterEqual(len(paths), 3)
-        for path in paths:
+        # Full-repo development galleries stay in git; competition ZIP may omit them.
+        existing = [path for path in paths if path.is_file()]
+        if len(existing) < 3:
+            self.skipTest("development CoatingVision gallery artifacts not present")
+        for path in existing:
             payload = json.loads(path.read_text(encoding="utf-8"))
             pipeline = payload["seven_stage_pipeline"]
             self.assertEqual(pipeline["raw_detections_count"], len(payload["detections"]), path.as_posix())
@@ -299,7 +302,13 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn("assert_test_snapshot_certifies_head", source)
         self.assertIn("test snapshot does not certify current HEAD", source)
         self.assertIn("CLAIM_HASH_PREFIXES", source)
-        self.assertIn("reports/coatingvision_visual_evidence", source)
+        self.assertIn("reports/defense_gifs", source)
+        self.assertIn("docs/industrialization_path.md", source)
+        self.assertIn("ZIP_ARCNAMES", source)
+        self.assertNotIn("logo.png", string_items)
+        self.assertNotIn("official_dinov3_dacore.json", source)
+        self.assertNotIn("reports/pilot_validation_dossier.md", source)
+        self.assertNotIn("reports/coatingvision_gallery", source)
         self.assertIn("tests/test_defense_gifs.py", source)
         # Packed contract gate must execute defense GIF regeneration, not only ship the GIFs.
         self.assertGreaterEqual(source.count("tests/test_defense_gifs.py"), 2)
@@ -359,16 +368,18 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn("coatingvision_real_test_metrics.json", source)
         self.assertIn("_load_rgb_metrics", source)
         self.assertIn("coating_surface_heldout.png", source)
-        self.assertIn("logo.png", source)
+        self.assertIn("Prof. Kris Singh", source)
+        self.assertIn("Trinh Hoang Tu · HUFLIT", source)
+        self.assertNotIn("logo.png", source)
+        self.assertNotIn("MSE Lab", source)
         self.assertTrue((ROOT / "reports/defense_gifs/coating_surface_heldout.png").is_file())
-        self.assertTrue((ROOT / "logo.png").is_file())
         with zipfile.ZipFile(ROOT / "SecureCoating-Vision_Final_Defense_6min.pptx") as archive:
-            media = [
-                archive.read(name)
-                for name in archive.namelist()
-                if name.startswith("ppt/media/")
-            ]
-        self.assertIn((ROOT / "logo.png").read_bytes(), media)
+            media_names = [name for name in archive.namelist() if name.startswith("ppt/media/")]
+            # Title slide is typography-only; logo.png must not appear as product branding.
+            if (ROOT / "logo.png").is_file():
+                logo_bytes = (ROOT / "logo.png").read_bytes()
+                media = [archive.read(name) for name in media_names]
+                self.assertNotIn(logo_bytes, media)
         leftover_decks = (
             "SecureCoating-Vision_Final_Defense_6min_Evidence_Aware.pptx",
             "SecureCoating-Vision_Final_Defense_6min_Coating_Surface_Evidence.pptx",

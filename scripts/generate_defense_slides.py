@@ -1,13 +1,12 @@
 """Generate the 6-minute final-defense deck from the registered identity.
 
-White MSE Lab title treatment (logo.png). Honest current evidence, not the
-retired leftover decks.
+Clean typography title slide (Team 71 / HUFLIT). No organizer lab logo as
+product branding. Honest current evidence, not retired leftover decks.
 
 Optional extra (not an API runtime dependency):
     .venv\\Scripts\\python.exe -m pip install python-pptx
     .venv\\Scripts\\python.exe scripts/generate_defense_slides.py
 """
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -20,7 +19,6 @@ from pptx.util import Emu, Inches, Pt
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "SecureCoating-Vision_Final_Defense_6min.pptx"
-LOGO = ROOT / "logo.png"
 EXTERNAL_DEMO = ROOT / "reports/external_coatingvision_demo/coatingvision_model_output.png"
 RGB_GIF = ROOT / "reports/defense_gifs/rgb_hold_replay.gif"
 LIBAD_GIF = ROOT / "reports/defense_gifs/libad_gate.gif"
@@ -196,41 +194,65 @@ def build() -> Path:
 
     s = prs.slides.add_slide(blank)
     paint_bg(s)
-    if LOGO.is_file():
-        s.shapes.add_picture(str(LOGO), Inches(0.45), Inches(0.22), width=Inches(4.7))
-    add_textbox(s, Inches(7.4), Inches(0.22), Inches(5.45), Inches(1.05), [
-        {"text": "GLOBAL AI + MATERIALS INNOVATION COMPETITION 2026", "size": 11, "color": ACCENT, "bold": True, "space_after": 4},
-        {"text": "TRACK 4  ·  AI + MATERIALS TESTING AND CHARACTERIZATION", "size": 12, "color": INK, "bold": True, "space_after": 2},
-        {"text": "人工智能 + 材料检测与表征", "size": 12, "color": MUTED},
-    ], align=PP_ALIGN.RIGHT)
-    add_textbox(s, Inches(0.45), Inches(1.45), Inches(12.4), Inches(0.4), [
-        {"text": "SecureCoating-Vision", "size": 28, "color": INK, "bold": True}
+    add_textbox(s, Inches(0.45), Inches(0.35), Inches(12.4), Inches(0.35), [
+        {
+            "text": "Global AI + Materials Innovation Application Competition 2026",
+            "size": 14,
+            "color": ACCENT,
+            "bold": True,
+        }
     ])
-    add_textbox(s, Inches(0.45), Inches(1.95), Inches(12.4), Inches(1.35), [
-        {"text": TITLE, "size": 18, "color": INK, "bold": True, "space_after": 0}
+    add_textbox(s, Inches(0.45), Inches(1.05), Inches(12.4), Inches(0.45), [
+        {"text": "SecureCoating Vision", "size": 32, "color": INK, "bold": True}
     ])
-    add_textbox(s, Inches(0.45), Inches(3.35), Inches(12.4), Inches(0.4), [
+    add_textbox(s, Inches(0.45), Inches(1.55), Inches(12.4), Inches(1.35), [
+        {"text": TITLE, "size": 17, "color": INK, "bold": True, "space_after": 0}
+    ])
+    add_textbox(s, Inches(0.45), Inches(3.05), Inches(12.4), Inches(0.4), [
         {"text": TAGLINE, "size": 18, "color": ACCENT, "bold": True}
     ])
-    _rule(s, Inches(0.45), Inches(3.85), Inches(12.4))
-    cards = (
-        ("Team", "71  ·  Trịnh Hoàng Tú"),
-        ("Affiliation", "HUFLIT"),
-        ("Track", "4  ·  AI + Materials Testing and Characterization"),
-        ("Advisor", "Prof. Kris Singh  ·  SRII / Tsinghua (visiting)"),
-    )
-    for i, (label, value) in enumerate(cards):
-        left = Inches(0.45 + (i % 2) * 6.3)
-        top = Inches(4.1 + (i // 2) * 1.1)
-        _box(s, left, top, Inches(6.05), Inches(0.95), accent=True)
-        add_textbox(s, left + Inches(0.25), top + Inches(0.1), Inches(5.6), Inches(0.25), [
-            {"text": label.upper(), "size": 11, "color": MUTED, "bold": True}
-        ])
-        add_textbox(s, left + Inches(0.25), top + Inches(0.4), Inches(5.6), Inches(0.4), [
-            {"text": value, "size": 16, "color": INK, "bold": True}
-        ])
-    add_textbox(s, Inches(0.45), Inches(6.4), Inches(12.4), Inches(0.5), [
-        {"text": "Decision objective: prove a defensible inline inspection architecture. Supervised factory pilot is the next gate.", "size": 14, "color": MUTED}
+    _rule(s, Inches(0.45), Inches(3.55), Inches(12.4))
+    add_textbox(s, Inches(0.45), Inches(3.85), Inches(12.4), Inches(0.9), [
+        {
+            "text": "Team 71 · Track 4 — AI + Materials Testing & Characterization",
+            "size": 18,
+            "color": INK,
+            "bold": True,
+            "space_after": 8,
+        },
+        {
+            "text": "Trinh Hoang Tu · HUFLIT",
+            "size": 18,
+            "color": INK,
+            "bold": True,
+            "space_after": 10,
+        },
+        {
+            "text": (
+                "Advisor: Prof. Kris Singh · Visiting Professor, Tsinghua University "
+                "· Founder & CEO, SRII"
+            ),
+            "size": 13,
+            "color": MUTED,
+            "bold": False,
+        },
+    ])
+    add_textbox(s, Inches(0.45), Inches(5.55), Inches(12.4), Inches(1.1), [
+        {
+            "text": (
+                "Registered title describes the target Zero-Trust Edge-Cloud architecture. "
+                "This prototype validates inspection, evidence gating, and fail-closed contracts — "
+                "not completed mTLS/RBAC/OT or factory qualification."
+            ),
+            "size": 14,
+            "color": MUTED,
+            "space_after": 8,
+        },
+        {
+            "text": "Decision objective: prove a defensible inline inspection architecture. Supervised factory pilot is the next gate.",
+            "size": 14,
+            "color": MUTED,
+        },
     ])
     footer(s, 1)
 

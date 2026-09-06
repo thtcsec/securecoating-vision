@@ -6,7 +6,9 @@
 **Brand:** SecureCoating-Vision  
 **Format:** 6-Minute Presentation + 2-Minute Q&A  
 
-Do not introduce a fourth title. Present `SecureCoating-Vision_Final_Defense_6min.pptx` (git): white slides, MSE Lab logo on the title. Do not present leftover `*_Fixed.pptx` or `*_Evidence_Aware.pptx` decks.
+Do not introduce a fourth title. Present `SecureCoating-Vision_Final_Defense_6min.pptx` (git): clean typography title slide for Team 71 / HUFLIT — no organizer lab logo as product branding. Do not present leftover `*_Fixed.pptx` or `*_Evidence_Aware.pptx` decks.
+
+**Slide 1 identity (small, contestant first):** Team 71 · Track 4; Trinh Hoang Tu · HUFLIT; Advisor line smaller — Prof. Kris Singh · Visiting Professor, Tsinghua University · Founder & CEO, SRII.
 
 Organizer update: final materials deadline is **10 September 2026**. Play the two looping GIFs in minute 6 (Slideshow mode so GIF animates).
 

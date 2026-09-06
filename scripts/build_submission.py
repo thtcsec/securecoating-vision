@@ -158,23 +158,19 @@ WHITELIST = [
     "scripts/verify_coatingvision_dataset.py" if os.path.exists("scripts/verify_coatingvision_dataset.py") else None,
     "scripts/train_coatingvision_real.py" if os.path.exists("scripts/train_coatingvision_real.py") else None,
     "reports/coatingvision_real_test_metrics.json" if os.path.exists("reports/coatingvision_real_test_metrics.json") else None,
-    "reports/external_coatingvision_demo/coatingvision_model_output.json" if os.path.exists("reports/external_coatingvision_demo/coatingvision_model_output.json") else None,
-    "reports/external_coatingvision_demo/coatingvision_model_output.png" if os.path.exists("reports/external_coatingvision_demo/coatingvision_model_output.png") else None,
     # Documentation
     "README.md",
     "README_CN.md",
     "LICENSE",
     "NOTICE.md",
-    "logo.png",
     "reports/analysis_report.md",
-    "reports/analysis_report_template.md",
-    "reports/pilot_validation_dossier.md",
     "docs/system_architecture.md",
     "docs/inspection_workflow.md",
     "docs/scoring_rubric_mapping.md",
     "docs/presentation_pitch.md",
     "docs/libad_validation_extension.md",
     "docs/implementation_status.md",
+    "docs/industrialization_path.md" if os.path.exists("docs/industrialization_path.md") else None,
     "docs/hardware_profiles.md",
     "scripts/generate_defense_slides.py",
     "scripts/generate_defense_gifs.py",
@@ -206,17 +202,16 @@ WHITELIST = [
     "outputs/official_local_adapter_predictions.json" if os.path.exists("outputs/official_local_adapter_predictions.json") else None,
     "reports/libad/official_dinov2_dacore_interim.json" if os.path.exists("reports/libad/official_dinov2_dacore_interim.json") else None,
     "reports/libad/official_dinov2_dacore_interim_results.csv" if os.path.exists("reports/libad/official_dinov2_dacore_interim_results.csv") else None,
-    "reports/libad/official_dinov3_dacore.json" if os.path.exists("reports/libad/official_dinov3_dacore.json") else None,
-    "reports/libad/official_dinov3_run_card.json" if os.path.exists("reports/libad/official_dinov3_run_card.json") else None,
+    # Failed/gated DINOv3 experiment reports stay in git history, not the competition ZIP.
     "reports/submission_manifest.json",
     "reports/libad_demo/demo_manifest.json",
     "reports/libad_demo/final_screen.json",
     "reports/defense_gifs/rgb_hold_replay.gif" if os.path.exists("reports/defense_gifs/rgb_hold_replay.gif") else None,
     "reports/defense_gifs/libad_gate.gif" if os.path.exists("reports/defense_gifs/libad_gate.gif") else None,
     "reports/defense_gifs/coating_surface_heldout.png" if os.path.exists("reports/defense_gifs/coating_surface_heldout.png") else None,
+    # Synthetic evaluator contract fixture (not RGB defense metrics).
     "reports/evaluation_results.json" if os.path.exists("reports/evaluation_results.json") else None,
     "reports/evaluation_results.csv" if os.path.exists("reports/evaluation_results.csv") else None,
-    "reports/ultralytics_validation_results.json" if os.path.exists("reports/ultralytics_validation_results.json") else None,
     "reports/synthetic_evaluation_manifest.json" if os.path.exists("reports/synthetic_evaluation_manifest.json") else None,
     "reports/model_sha256.txt" if os.path.exists("reports/model_sha256.txt") else None,
     "reports/test_manifest.json",
@@ -224,7 +219,7 @@ WHITELIST = [
     "reports/pytest_output.txt" if os.path.exists("reports/pytest_output.txt") else None,
     "reports/environment.txt" if os.path.exists("reports/environment.txt") else None,
     "reports/evaluation_command.txt" if os.path.exists("reports/evaluation_command.txt") else None,
-    # Model artifacts (REQUIRED)
+    # Model artifacts (REQUIRED). Kept under outputs/ to match configs/runtime paths.
     "outputs/model.onnx",
     "outputs/best.pt",
 ]
@@ -237,10 +232,6 @@ TREE_DIRS = [
     ("data/evaluation/labels", "data/evaluation/labels"),
     ("data/evaluation/reference", "data/evaluation/reference"),
     ("reports/libad_demo", "reports/libad_demo"),
-    ("reports/coatingvision_gallery", "reports/coatingvision_gallery"),
-    ("reports/coatingvision_real_demo", "reports/coatingvision_real_demo"),
-    ("reports/external_coatingvision_demo", "reports/external_coatingvision_demo"),
-    ("reports/coatingvision_visual_evidence", "reports/coatingvision_visual_evidence"),
 ]
 TREE_ALLOWED_SUFFIXES = (".jpg", ".jpeg", ".png", ".txt", ".json", ".md", ".gif")
 # Legacy flat IMAGE_DIRS name kept for tests that may reference the idea.
@@ -288,15 +279,21 @@ ARTIFACT_REQUIRED_PATHS = [
     "NOTICE.md",
     "reports/libad/official_dinov2_dacore_interim_results.csv",
     "data/evaluation/README.md",
-    "reports/coatingvision_visual_evidence/image_1548_optical_raw.png",
-    "reports/coatingvision_visual_evidence/image_1548_contrast_clahe.png",
-    "reports/coatingvision_visual_evidence/image_1548_yolo_candidate_zoom.png",
+    "reports/defense_gifs/rgb_hold_replay.gif",
+    "reports/defense_gifs/libad_gate.gif",
+    "reports/defense_gifs/coating_surface_heldout.png",
+    "docs/industrialization_path.md",
     "scripts/generate_defense_gifs.py",
     "scripts/build_synthetic_evaluation_manifest.py",
     "scripts/evaluate_coatingvision_real.py",
     "tests/test_evaluation_integrity.py",
     "tests/test_defense_gifs.py",
 ]
+
+# Optional ZIP arcname remaps (disk path → judge-facing name inside the archive).
+ZIP_ARCNAMES = {
+    "Al + Materials Competition Application Form.docx": "AI+Materials_Competition_Application_Form.docx",
+}
 
 
 def is_blacklisted(path):
@@ -414,12 +411,17 @@ CLAIM_HASH_EXACT = {
     ".env.example",
     "SecureCoating-Vision_Final_Defense_6min.pptx",
     "Al + Materials Competition Application Form.docx",
+    "AI+Materials_Competition_Application_Form.docx",
     "data/demo_real/manifest.json",
 }
 
 
-def write_submission_manifest(added_files):
-    """Record artifact-level hashes judges can verify without .git."""
+def write_submission_manifest(entries):
+    """Record artifact-level hashes judges can verify without .git.
+
+    entries: iterable of (disk_rel, arcname) pairs. Content is hashed from disk_rel;
+    map keys use the ZIP arcname so they match the unzipped tree.
+    """
     import hashlib
     import json
     from datetime import datetime, timezone
@@ -428,13 +430,15 @@ def write_submission_manifest(added_files):
     certified = str(test_manifest.get("commit_sha") or "")
 
     files = {}
-    for rel in sorted(set(added_files)):
-        rel_n = rel.replace("\\", "/")
+    for disk_rel, arcname in sorted(set(entries), key=lambda item: item[1]):
+        rel_n = arcname.replace("\\", "/")
+        disk_n = disk_rel.replace("\\", "/")
         if rel_n == "reports/submission_manifest.json":
             continue  # avoid self-reference
         if not rel_n.startswith(CLAIM_HASH_PREFIXES) and rel_n not in CLAIM_HASH_EXACT:
-            continue
-        full = os.path.join(PROJECT_ROOT, rel_n)
+            if disk_n not in CLAIM_HASH_EXACT and not disk_n.startswith(CLAIM_HASH_PREFIXES):
+                continue
+        full = os.path.join(PROJECT_ROOT, disk_n)
         if not os.path.isfile(full):
             continue
         digest = hashlib.sha256()
@@ -492,17 +496,25 @@ def verify_packed_artifact(zip_path: str) -> None:
         if len(demo_imgs) < 1:
             print("  [ERROR] ZIP missing data/demo_real/images/*")
             sys.exit(1)
-        evidence_json = [
-            n for n in names
-            if n.endswith("coatingvision_model_output.json")
-            and (
-                n.startswith("reports/coatingvision_gallery/")
-                or n.startswith("reports/coatingvision_real_demo/")
-                or n.startswith("reports/external_coatingvision_demo/")
-            )
+        defense_gifs = [
+            "reports/defense_gifs/rgb_hold_replay.gif",
+            "reports/defense_gifs/libad_gate.gif",
+            "reports/defense_gifs/coating_surface_heldout.png",
         ]
-        if len(evidence_json) < 3:
-            print(f"  [ERROR] ZIP needs >=3 coatingvision evidence JSON files, found {len(evidence_json)}")
+        missing_gifs = [path for path in defense_gifs if path not in names]
+        if missing_gifs:
+            print("  [ERROR] ZIP missing defense media:")
+            for path in missing_gifs:
+                print(f"    - {path}")
+            sys.exit(1)
+        if "AI+Materials_Competition_Application_Form.docx" not in names:
+            print("  [ERROR] ZIP missing AI+Materials_Competition_Application_Form.docx")
+            sys.exit(1)
+        if any(n.startswith("reports/libad/official_dinov3_") for n in names):
+            print("  [ERROR] ZIP must not ship failed/gated DINOv3 experiment reports")
+            sys.exit(1)
+        if "logo.png" in names:
+            print("  [ERROR] ZIP must not ship organizer lab logo as product branding")
             sys.exit(1)
         with tempfile.TemporaryDirectory(prefix="scv_zip_verify_") as tmp:
             zf.extractall(tmp)
@@ -624,7 +636,8 @@ def build_zip(require_live_api=False, skip_tests=False):
             if is_blacklisted(filepath):
                 skipped_files.append(filepath)
                 continue
-            planned.append((full_path, filepath.replace("\\", "/")))
+            disk_rel = filepath.replace("\\", "/")
+            planned.append((full_path, disk_rel, ZIP_ARCNAMES.get(disk_rel, disk_rel)))
         else:
             skipped_files.append(f"(missing) {filepath}")
 
@@ -633,26 +646,27 @@ def build_zip(require_live_api=False, skip_tests=False):
             if is_blacklisted(rel):
                 skipped_files.append(rel)
                 continue
-            planned.append((fpath, rel))
+            disk_rel = rel.replace("\\", "/")
+            planned.append((fpath, disk_rel, ZIP_ARCNAMES.get(disk_rel, disk_rel)))
 
     # Deduplicate by arcname
     seen = set()
     unique_planned = []
-    for fpath, rel in planned:
-        if rel in seen:
+    for fpath, disk_rel, arcname in planned:
+        if arcname in seen:
             continue
-        seen.add(rel)
-        unique_planned.append((fpath, rel))
+        seen.add(arcname)
+        unique_planned.append((fpath, disk_rel, arcname))
 
-    write_submission_manifest([rel for _fpath, rel in unique_planned])
+    write_submission_manifest([(disk_rel, arcname) for _fpath, disk_rel, arcname in unique_planned])
     manifest_path = os.path.join(PROJECT_ROOT, "reports", "submission_manifest.json")
     if os.path.isfile(manifest_path) and "reports/submission_manifest.json" not in seen:
-        unique_planned.append((manifest_path, "reports/submission_manifest.json"))
+        unique_planned.append((manifest_path, "reports/submission_manifest.json", "reports/submission_manifest.json"))
 
     with zipfile.ZipFile(OUTPUT_ZIP, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
-        for fpath, rel in unique_planned:
-            zf.write(fpath, rel)
-            added_files.append(rel)
+        for fpath, _disk_rel, arcname in unique_planned:
+            zf.write(fpath, arcname)
+            added_files.append(arcname)
 
     zip_size = os.path.getsize(OUTPUT_ZIP) / (1024 * 1024)
 

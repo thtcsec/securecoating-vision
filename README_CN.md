@@ -1,26 +1,41 @@
-# SecureCoating-Vision（安全涂层视觉）
+# SecureCoating Vision（安全涂层视觉）
 
-<p align="center">
-  <img src="logo.png" alt="SecureCoating-Vision" width="450">
-</p>
-
-[![Track 4 Finalist](https://img.shields.io/badge/清华大学材料学院2026-赛道四全国总决赛入围-C8102E.svg)](README_CN.md)
+[![Track 4 Finalist 2026](https://img.shields.io/badge/赛道四全国总决赛入围-2026-C8102E.svg)](README_CN.md)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
 
 [English README](README.md)
 
-**队伍 71** · 队长 Trịnh Hoàng Tú — 胡志明市外语信息科技大学（HUFLIT）<br>
-**学术顾问：** Kris Singh 教授 — SRII / 清华大学客座教授<br>
-**竞赛：** 2026 全球 AI+材料创新应用大赛 · 赛道四（AI + 材料检测与表征）
+**Evidence-Gated AI Inspection for Battery Electrode Manufacturing**
+
+**队伍 71** · 2026 全球 AI+材料创新应用大赛  
+**赛道四** · AI + 材料检测与表征  
+**队长 Trinh Hoang Tu** · 胡志明市外语信息科技大学（HUFLIT）  
+**学术顾问：** Kris Singh 教授 · 清华大学客座教授 · SRII Founder & CEO
 
 注册英文名称、版本和口号以 [README.md](README.md) 与
 [`configs/project_identity.yaml`](configs/project_identity.yaml) 为唯一来源。
 
-SecureCoating-Vision 是一个面向卷对卷涂布场景的**证据感知、失效闭锁工业视觉原型**。
-它把真实光学图像、公开标签、独立 AI 检测、可选多模态输入、卷材追溯和 PLC
-安全门控连接为一条可审计流程。注册英文名称中的 Zero-Trust 指**目标架构**（Zero-Trust-ready）；
-mTLS / RBAC / OT 分区尚未宣称完成。当前仓库不是经产线认证的生产系统，也不宣称
-“零漏检”、ppm、六西格玛、安全等级急停或工厂节拍达标。
+SecureCoating-Vision 是 **Team 71 / HUFLIT** 的证据感知、失效闭锁工业视觉原型。
+注册名称中的 Zero-Trust 指**目标** Edge-Cloud 架构；mTLS / RBAC / OT 分区尚未宣称完成。
+当前仓库不是经产线认证的生产系统，也不宣称“零漏检”、ppm、六西格玛、安全等级急停或工厂节拍达标。
+
+## 已实现
+
+- 真实 CoatingVision 光学测试证据上的 RGB 检测（image-disjoint）
+- 证据 / readiness 门控
+- PASS / REJECT / HOLD
+- 软件验证的 PLC command/ACK 契约
+- 追溯与可复现 manifests
+- LIBAD 多模态验证适配（不可与论文 DINOv3/DA-Core 直接对比）
+
+## 不宣称
+
+- 工厂资质 / roll-disjoint 产线验证
+- 物理安全等级急停
+- 生产级 mTLS/RBAC/OT 已完成
+- 电化学性能预测
+
+产业化路径见 [docs/industrialization_path.md](docs/industrialization_path.md)。
 
 <!-- TEST_MANIFEST:START -->
 当前软件验证快照为 278 项测试通过、0 项跳过、0 项失败（提交 `c174e60e28b6`，工作树干净，源码差异 `none`，Python 3.11.9，耗时 88.58 秒）。权威记录为 [reports/test_manifest.json](reports/test_manifest.json)。该记录仅证明当前软件测试结果，不代表工厂性能、真实 PLC 行为、安全等级急停认证或生产资质。
