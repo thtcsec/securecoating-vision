@@ -276,6 +276,40 @@ class TestEvaluationIntegrity(unittest.TestCase):
         csv_text = (ROOT / "reports" / "evaluation_results.csv").read_text(encoding="utf-8")
         self.assertIn("evidence_class=SYNTHETIC_EVALUATOR_FIXTURE", csv_text)
         self.assertIn("used_for_defense_rgb_metrics=False", csv_text)
+        provenance = payload["provenance"]
+        self.assertIn("generation_base_commit", provenance)
+        self.assertNotIn("source_commit", provenance)
+        self.assertEqual(
+            provenance.get("final_artifact_provenance"),
+            "reports/submission_manifest.json",
+        )
+
+    def test_analysis_report_does_not_cite_stale_fixture_metrics(self):
+        text = (ROOT / "reports" / "analysis_report.md").read_text(encoding="utf-8")
+        self.assertIn("not model-performance evidence", text.lower())
+        self.assertIn("reports/evaluation_results.json", text)
+        self.assertIn("reports/coatingvision_real_test_metrics.json", text)
+        self.assertNotIn("0.5000", text)
+        self.assertNotIn("0.6667", text)
+        self.assertNotIn("100.90", text)
+        self.assertNotIn("rejects that overlap", text)
+        status = (ROOT / "docs" / "implementation_status.md").read_text(encoding="utf-8")
+        self.assertNotIn("refused to publish metrics", status)
+        self.assertIn("used_for_defense_rgb_metrics=false", status)
+
+    def test_legacy_dataset_manifest_is_superseded_and_not_packed(self):
+        payload = json.loads(
+            (ROOT / "reports" / "dataset_manifest.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(payload["status"], "SUPERSEDED")
+        self.assertEqual(
+            payload["authoritative_manifest"],
+            "reports/synthetic_evaluation_manifest.json",
+        )
+        self.assertEqual(payload["evidence_class"], "SYNTHETIC_EVALUATOR_FIXTURE")
+        self.assertFalse(payload["used_for_defense_rgb_metrics"])
+        builder = (ROOT / "scripts" / "build_submission.py").read_text(encoding="utf-8")
+        self.assertNotIn('"reports/dataset_manifest.json"', builder)
 
     def test_synthetic_manifest_builder_is_self_contained(self):
         from scripts.build_synthetic_evaluation_manifest import build_manifest

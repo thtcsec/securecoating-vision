@@ -597,7 +597,8 @@ def run_evaluation(
             "dataset_manifest": _posix_relpath(dataset_manifest),
             "reference_dataset_dir": _posix_relpath(reference_dataset_dir),
             "roll_disjoint_manifest": manifest_summary,
-            "source_commit": _git_commit(),
+            "generation_base_commit": _git_commit(),
+            "final_artifact_provenance": "reports/submission_manifest.json",
             "matching_policy": (
                 "class-aware, confidence-descending, one-to-one greedy bbox matching; "
                 "mask metrics evaluated on the same matched instance pair"

@@ -122,7 +122,7 @@ The local live Uvicorn smoke run on port 8011 verified API liveness/readiness, c
 
 The Docker production-mode smoke used an isolated temporary database and real CoatingVision test image. It verified authenticated readiness returned 503 while sensors/PLC/calibration were unavailable, inference completed on CPU, the final action stayed `HOLD`, and PLC signal history recorded `acknowledged=false`. Docker Scout reduced from 5 Critical/43 High on the old base to 2 Critical/2 High on the current image; the remaining no-fix `perl-base` findings are an open release blocker, not a clean security result.
 
-The default evaluation command was also run and correctly refused to publish metrics because all 50 evaluation images overlap the development validation set by SHA-256.
+The synthetic evaluator fixture is documented in `reports/evaluation_results.json` (`SYNTHETIC_EVALUATOR_FIXTURE`, `used_for_defense_rgb_metrics=false`). It reuses development images by design and is ZIP-safe via `data/evaluation/reference/` stubs. Authoritative real RGB defense metrics remain in `reports/coatingvision_real_test_metrics.json`; do not compare the two.
 
 ## Release Gates
 

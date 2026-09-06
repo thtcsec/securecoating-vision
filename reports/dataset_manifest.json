@@ -1,14 +1,7 @@
 {
-  "dataset": "SecureCoating-Vision Evaluation Subset",
-  "images": 50,
-  "labels": 50,
-  "instances": 30,
-  "negative_images": 20,
-  "class_counts": {
-    "scratch": 6,
-    "void": 10,
-    "blister": 8,
-    "delamination": 6
-  },
-  "seed": 42
+  "status": "SUPERSEDED",
+  "authoritative_manifest": "reports/synthetic_evaluation_manifest.json",
+  "evidence_class": "SYNTHETIC_EVALUATOR_FIXTURE",
+  "used_for_defense_rgb_metrics": false,
+  "reason": "Legacy evaluation-subset counts. The current ZIP-safe evaluator uses reports/synthetic_evaluation_manifest.json."
 }

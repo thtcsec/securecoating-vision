@@ -1,6 +1,8 @@
 """
 Build a clean submission ZIP with strict whitelist.
-Ensures NO ground-truth labels, __pycache__, .env, or build artifacts are included.
+Ensures no training/private ground-truth labels are included.
+Synthetic evaluation-fixture labels are explicitly allowed for reproducibility.
+Also excludes __pycache__, .env, and build artifacts.
 
 Usage:
     python scripts/build_submission.py
@@ -204,7 +206,6 @@ WHITELIST = [
     "reports/evaluation_results.json" if os.path.exists("reports/evaluation_results.json") else None,
     "reports/evaluation_results.csv" if os.path.exists("reports/evaluation_results.csv") else None,
     "reports/ultralytics_validation_results.json" if os.path.exists("reports/ultralytics_validation_results.json") else None,
-    "reports/dataset_manifest.json" if os.path.exists("reports/dataset_manifest.json") else None,
     "reports/synthetic_evaluation_manifest.json" if os.path.exists("reports/synthetic_evaluation_manifest.json") else None,
     "reports/model_sha256.txt" if os.path.exists("reports/model_sha256.txt") else None,
     "reports/test_manifest.json",
@@ -239,7 +240,7 @@ BLACKLIST_PATTERNS = [
     ".env",
     ".git",
     ".venv",
-    "labels",  # NO ground truth labels
+    "labels",  # Training/private labels forbidden; synthetic evaluation labels allowed
     "coating_defects",  # full training data stays local
     "runs/",
     "yolo_training",

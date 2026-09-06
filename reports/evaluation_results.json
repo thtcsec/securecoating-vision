@@ -37,7 +37,8 @@
       "roll_count": 52,
       "file_count": 52
     },
-    "source_commit": "cd3b5d4f20ea08fa8e54652d6c1ca592f5be6ba4",
+    "generation_base_commit": "cd3b5d4f20ea08fa8e54652d6c1ca592f5be6ba4",
+    "final_artifact_provenance": "reports/submission_manifest.json",
     "matching_policy": "class-aware, confidence-descending, one-to-one greedy bbox matching; mask metrics evaluated on the same matched instance pair",
     "box_format": "xyxy"
   },
