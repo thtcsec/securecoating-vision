@@ -88,7 +88,10 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn('toolbarMode = "minimal"', streamlit_config)
         self.assertIn('primaryColor = "#00E5FF"', streamlit_config)
         self.assertIn("./outputs:/app/outputs", compose)
-        self.assertIn('SECURECOATING_INFERENCE_DEVICE: "cpu"', compose)
+        self.assertIn("SECURECOATING_HARDWARE_PROFILE:", compose)
+        gpu_compose = (ROOT / "docker-compose.gpu.yml").read_text(encoding="utf-8")
+        self.assertIn("Dockerfile.gpu", gpu_compose)
+        self.assertIn("gpus: all", gpu_compose)
         self.assertIn('SECURECOATING_DASHBOARD_SANDBOX: "false"', compose)
         self.assertNotIn('["CMD", "curl"', compose)
         dashboard_source = (ROOT / "dashboard/app.py").read_text(encoding="utf-8")
@@ -271,6 +274,9 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn("reports/libad/official_mount_hashes.json", string_items)
         self.assertIn("scripts/record_libad_official_manifest.py", string_items)
         self.assertIn("src/libad/official_code.py", string_items)
+        self.assertIn("src/libad/official_baseline.py", string_items)
+        self.assertIn("scripts/run_libad_official_baseline.py", string_items)
+        self.assertIn("tests/test_libad_official_baseline.py", string_items)
         self.assertIn("tests/test_libad_protocol.py", string_items)
         self.assertIn("reports/libad_demo/demo_manifest.json", string_items)
         self.assertIn("SecureCoating-Vision_Final_Defense_6min.pptx", string_items)
@@ -346,6 +352,22 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         current = git_source_provenance(ROOT)
         self.assertEqual(manifest["working_tree_dirty"], current["working_tree_dirty"])
         self.assertEqual(manifest["source_diff_sha256"], current["source_diff_sha256"])
+
+    def test_both_readmes_share_the_generated_test_manifest_contract(self):
+        for name in ("README.md", "README_CN.md"):
+            text = (ROOT / name).read_text(encoding="utf-8")
+            self.assertEqual(text.count("<!-- TEST_MANIFEST:START -->"), 1, name)
+            self.assertEqual(text.count("<!-- TEST_MANIFEST:END -->"), 1, name)
+            self.assertIn("reports/test_manifest.json", text, name)
+
+    def test_ci_and_compose_keep_security_gates_enabled(self):
+        workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+        self.assertIn("persist-credentials: false", workflow)
+        self.assertIn("docker-compose.gpu.yml config", workflow)
+        self.assertIn("no-new-privileges:true", compose)
+        self.assertIn("max-size: \"10m\"", compose)
+        self.assertIn("stop_grace_period: 20s", compose)
 
 
 if __name__ == "__main__":

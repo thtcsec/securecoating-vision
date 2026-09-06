@@ -21,6 +21,7 @@ paths:
   dataset_root: "data/libad/LIBAD"
   splits_root: "data/libad/splits"
   official_artifact_manifest: "data/libad/official_artifact_manifest.json"
+  official_sample_index: "data/libad/official_sample_index.json"
   reports_dir: "reports/libad"
   demo_dir: "reports/libad_demo"
 
@@ -49,6 +50,26 @@ gate:
   strong_margin: 0.18
   # Image-level scores are divided by the training-normal reference before gating.
   normal_reference: "median"
+
+# Authors' evenrose/LIBAD runner (scripts/run_libad_official_baseline.py).
+# Laptop profile is the default for RTX 4050 6 GB hosts — do not enable bank dumps.
+official_runner:
+  profile: "laptop"
+  backbone_family: "convnext"
+  dino_version: "v3"
+  backbone_variant: "tiny"
+  batch_size: 1
+  num_workers: 0
+  coreset_device: "cpu"
+  distance_device: "cuda"
+  distance_chunk_size: 8192
+  density_chunk_size: 512
+  modalities: ["vis_xray_l"]
+  pause_seconds: 8
+  save_bank: false
+  save_raw_scores: false
+  save_pixel_maps: false
+  note: "Thermal/I/O safe defaults. Paper ConvNeXt-base requires --paper-config --allow-heavy."
 
 identity:
   roll_id: "ROLL_LIBAD_EXT_001"

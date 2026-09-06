@@ -7,6 +7,8 @@
 [![Track 4 Finalist](https://img.shields.io/badge/Tsinghua%20MSE%202026-Track%204%20Finalist-C8102E.svg)](README.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+[中文说明](README_CN.md)
+
 **Team 71** · Trịnh Hoàng Tú — HUFLIT  
 **Advisor:** Prof. Kris Singh — SRII / Visiting Professor, Tsinghua University  
 **Competition:** 2026 Global AI + Materials Innovation Application Competition · Track 4 (AI + Materials Testing and Characterization)
@@ -26,8 +28,46 @@ The repository contains a fail-closed inspection prototype, traceability experim
 The initial prototype validated the software and safety contract using RGB inspection and simulated secondary modalities. The repository now contains a validation adapter and 10-seed harness for [LIBAD](https://arxiv.org/abs/2608.07958), whose official release contains aligned visible-light and inline-compatible X-ray data from real roll-to-roll electrode manufacturing. Git does not contain the 4.84 GB mount; a local copy can be hashed with `scripts/record_libad_official_manifest.py`. Checked-in `reports/libad/libad_benchmark.json` remains a deterministic protocol fixture. Official-input numpy numbers live in `reports/libad/official_local_adapter.json` and stay `comparable_to_paper: false`. This is a validation extension, not a change of topic. Details are in [docs/libad_validation_extension.md](docs/libad_validation_extension.md).
 
 <!-- TEST_MANIFEST:START -->
-The current software validation snapshot is 241 passing tests with 0 skips and 0 failures (commit `96376735a407`, working tree clean, source diff `none`, Python 3.11.9, 55.52s). The authoritative record is [reports/test_manifest.json](reports/test_manifest.json). This does not constitute evidence of factory performance, physical PLC behavior, safety-rated E-stop operation, or production qualification.
+The current software validation snapshot is 259 passing tests with 0 skips and 0 failures (commit `e7981a96bb09`, working tree dirty, source diff `19034d9bb04e`, Python 3.11.9, 76.8s). The authoritative record is [reports/test_manifest.json](reports/test_manifest.json). This does not constitute evidence of factory performance, physical PLC behavior, safety-rated E-stop operation, or production qualification.
 <!-- TEST_MANIFEST:END -->
+
+## Verified local demo path
+
+The default Compose deployment is the conservative CPU path:
+
+```powershell
+docker compose up --build -d
+```
+
+Open `http://127.0.0.1:8501`. The live runtime card must report the runtime that
+is actually active, for example `EDGE · ONNX CPU · FP32 · 512px`. History shows
+the evidence sequence on the same acquired frame: original JPEG → published
+pixel mask → published-label heatmap → independent AI overlay. A model result
+does not override the safety gate; missing physical sensors, PLC readiness, or
+verified calibration remains `HOLD_REQUIRED`.
+
+For an NVIDIA host with NVIDIA Container Toolkit:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build -d
+```
+
+Do not describe the GPU path as TensorRT unless the live card reports TensorRT.
+When TensorRT libraries are unavailable, the tested RTX path falls back to YOLO
+CUDA FP16 and records the reason. See [adaptive inference profiles](docs/hardware_profiles.md).
+
+## Data inventory and evidence classes
+
+| Source | Role | Evidence boundary |
+|---|---|---|
+| Argonne CoatingVision | Real optical images, published masks and multi-label classes | Current detector report is image-disjoint, not factory roll-disjoint |
+| LIBAD official mount | Real aligned VIS + X-rayL validation input | Local adapter is not the authors' DINOv3/DA-Core and is not paper-comparable |
+| Synthetic paired coating data | Development, fault injection and contract tests | Never presented as real plant performance |
+| Thermal/profilometry adapters | Registration and fail-closed interface tests | Simulated/injected unless factory instruments are connected and calibrated |
+
+Dataset pages and reports preserve these evidence classes rather than combining
+public labels, synthetic artifacts and model predictions into one unsupported
+metric.
 
 ## Current safety contract
 
@@ -79,6 +119,14 @@ You must also replace the simulation-only values in `configs/calibration.yaml`, 
 
 Production operator controls are disabled unless `SECURECOATING_OPERATOR_CREDENTIALS` contains hashed tokens. `operator` may request E-stop, `safety_reset` may reset the line, and `maintenance` may arm an inference recovery probe. Never store plaintext operator tokens in the repository.
 
+Production secrets must each contain at least 32 bytes. Production startup also
+rejects wildcard CORS origins, wildcard trusted hosts, malformed origins, and
+non-HTTPS non-loopback origins. API responses—including authentication and body
+limit failures—carry no-store, anti-framing, MIME-sniffing, restrictive CSP,
+permissions-policy, and cross-origin resource-policy headers. HSTS is emitted
+only when the request is already HTTPS; TLS termination remains the deployer's
+responsibility.
+
 For an explicit unauthenticated local test sandbox only:
 
 ```powershell
@@ -98,6 +146,9 @@ Never expose that mode outside a trusted developer workstation.
 .venv\Scripts\python.exe scripts/record_test_manifest.py
 .venv\Scripts\python.exe scripts/run_libad_demo.py
 .venv\Scripts\python.exe scripts/run_libad_benchmark.py
+.venv\Scripts\python.exe scripts/run_libad_official_baseline.py --run-card
+.venv\Scripts\python.exe scripts/run_libad_official_baseline.py --smoke
+.venv\Scripts\python.exe scripts/run_libad_official_baseline.py --allow-heavy --modalities vis_xray_l
 .venv\Scripts\python.exe scripts/run_libad_live.py --fetch-official-code --with-api --write-reports
 .venv\Scripts\python.exe scripts/download_libad.py --probe
 .venv\Scripts\python.exe scripts/record_libad_official_manifest.py
@@ -141,6 +192,19 @@ The manifest must contain non-empty `train`, `val`, and `test` lists. Each entry
 ## Deployment limits
 
 The supplied Compose file runs one API worker because PLC, inference and active-roll ownership are stateful. Scaling requires an external transactional state/event service and a single PLC-command owner. Containers run as a non-root user with dropped capabilities and bind only to loopback by default.
+
+Inference serving is hardware-adaptive. The CPU Compose image resolves `auto` to
+the ONNX-first `edge` profile; NVIDIA hosts can use the GPU overlay for
+CUDA/TensorRT-capable `balanced` or `performance` routing. Live health telemetry
+reports the requested and active profile, provider, actual precision, image size,
+and fallback reason. See [docs/hardware_profiles.md](docs/hardware_profiles.md).
+
+The Compose services use a non-root image user, read-only root filesystem,
+dropped Linux capabilities, `no-new-privileges`, bounded PID/file-descriptor
+limits, bounded temporary filesystems, graceful shutdown, and rotated local
+JSON logs. Ports bind to loopback. These controls reduce software risk; they do
+not replace network segmentation, a reverse proxy/TLS boundary, image signing,
+SBOM review, vulnerability scanning, backups, or factory HIL validation.
 
 `requirements-lock.txt` pins the local runtime while `requirements-docker-lock.txt` pins CPU-only PyTorch variants for the container. They are direct-version locks, not hash-locked fully resolved environments. A release still requires CI-generated locks with hashes plus a container build/SBOM scan for the target platform.
 

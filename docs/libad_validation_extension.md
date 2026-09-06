@@ -13,7 +13,7 @@ The original software-and-safety contract remains:
 
 LIBAD is an **external validation extension**, not a topic change:
 
-> The initial prototype validated the software and safety contract using RGB inspection and simulated secondary modalities. We then added an adapter and evidence gate for a newly released real multimodal battery-electrode benchmark. Official external validation remains pending until its dataset, all 10 splits, and implementation hashes are recorded.
+> The initial prototype validated the software and safety contract using RGB inspection and simulated secondary modalities. We then mounted official LIBAD, hashed the trees, and ran the 10-seed local numpy adapter. Authors' DINOv3+DA-Core is launched via `scripts/run_libad_official_baseline.py` once gated HF model access is available.
 
 Honest modality split:
 
@@ -65,12 +65,16 @@ Without the official 4.84 GB dataset, all 10 valid split files, and a hash-recor
 .venv\Scripts\python.exe scripts/download_libad.py --download --accept-license
 .venv\Scripts\python.exe scripts/record_libad_official_manifest.py
 .venv\Scripts\python.exe scripts/run_libad_benchmark.py --require-official --out reports/libad/official_local_adapter.json
+.venv\Scripts\python.exe scripts/run_libad_official_baseline.py --run-card
+.venv\Scripts\python.exe scripts/run_libad_official_baseline.py --smoke
+.venv\Scripts\python.exe scripts/run_libad_official_baseline.py --allow-heavy --modalities vis_xray_l
+.venv\Scripts\python.exe scripts/run_libad_official_baseline.py --smoke --dino-version v2 --backbone-family vit --backbone-variant small --out reports/libad/official_dinov2_dacore_interim.json
 .venv\Scripts\python.exe scripts/run_libad_benchmark.py
 .venv\Scripts\python.exe scripts/run_libad_demo.py
 .venv\Scripts\python.exe scripts/run_libad_live.py --fetch-official-code --with-api --write-reports
 ```
 
-`--probe` HEADs the official zip files and does not download 4.84 GB. `--download` requires `--accept-license` plus a Hugging Face token after accepting the dataset terms. Unauthenticated requests receive HTTP 401 (`GatedRepoError`). Even after a successful mount, this repository's numpy patch descriptor remains `comparable_to_paper: false`.
+`--probe` HEADs the official zip files and does not download 4.84 GB. `--download` requires `--accept-license` plus a Hugging Face token after accepting the dataset terms. Unauthenticated requests receive HTTP 401 (`GatedRepoError`). Even after a successful mount, this repository's numpy patch descriptor remains `comparable_to_paper: false`. The authors' DINOv3 ConvNeXt weights are separately gated on Hugging Face; set `HF_TOKEN` in `.env` after accepting `facebook/dinov3-convnext-*` terms. Default harness uses a **laptop profile** (ConvNeXt-tiny, batch 1, coreset on CPU, no bank dumps, cool-down pauses, `--allow-heavy` required for multi-cell runs). `--paper-config` selects ConvNeXt-base and also requires `--allow-heavy`.
 
 ## 90-second demo
 

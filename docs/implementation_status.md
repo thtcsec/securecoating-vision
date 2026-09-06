@@ -109,12 +109,12 @@ The latest repository validation is recorded by `scripts/record_test_manifest.py
 <!-- TEST_MANIFEST:START -->
 ```text
 D:\tu_projects\securecoating-vision\.venv\Scripts\python.exe -m pytest -q
-241 passed in 55.52s
+259 passed in 76.8s
 python 3.11.9
-commit 96376735a4077e8834aa8180e2f86089e129c6c9
-working_tree_dirty False
-source_diff_sha256 None
-log_sha256 8c1e6720681586ef59a02e14fd33077971b06d0ff0fd72a2866e56d695b20a95
+commit e7981a96bb09037cb74f489c0618412cbac63126
+working_tree_dirty True
+source_diff_sha256 19034d9bb04e5b5c3e82c4b75be3179067610778b6ab14bc7c1ebfb7a7c4e1e0
+log_sha256 e44ba84866115ef9896f8edfd449684beca4af3f223fc56a30e6ecca20bfbad1
 ```
 <!-- TEST_MANIFEST:END -->
 
@@ -137,8 +137,9 @@ A release may be called **research/demo-ready** only when automated tests and ev
 
 ## Next Execution Plan
 
-1. **Next evidence slice**: present the git 6-minute deck (`SecureCoating-Vision_Final_Defense_6min.pptx`, white MSE Lab title) in Slideshow so the looping GIFs animate, and submit the rebuilt `SecureCoatingVision_Submission.zip` before the 10 September 2026 organizer deadline; authors' DINOv3 remains optional and non-blocking.
-2. **Next engineering slice**: keep GitHub Actions green; add Compose/browser smoke only when the runner has enough RAM.
-3. **Next integration slice**: vendor PLC HIL remains open; localhost Modbus command/ACK now runs through the live API (`scripts/run_modbus_loopback_trigger.py`).
-4. **Next deployment slice**: replace or refresh the base when the remaining `perl-base` findings are fixable, generate an SBOM, and exercise rollback/backup on the target host.
-5. **Release decision**: keep the classification at research prototype until every external gate above has attached evidence.
+1. **Next evidence slice**: laptop-safe authors' runner only — `--smoke` first, then `--allow-heavy --modalities vis_xray_l` for 10 seeds if thermals OK. DINOv3 needs HF gated Accept; if blocked use DINOv2 interim (`comparable_to_paper: false`). Then risk–coverage gate; CoatingVision seg only if time before 10 September 2026.
+2. **Laptop hard rule**: no bank dumps, no live 4.84 GB tree rehash, no multi-modality × 10-seed without `--allow-heavy`, keep Task Manager open.
+3. **Next engineering slice**: keep GitHub Actions green; add Compose/browser smoke only when the runner has enough RAM.
+4. **Next integration slice**: vendor PLC HIL remains open; localhost Modbus command/ACK now runs through the live API (`scripts/run_modbus_loopback_trigger.py`).
+5. **Next deployment slice**: replace or refresh the base when the remaining `perl-base` findings are fixable, generate an SBOM, and exercise rollback/backup on the target host.
+6. **Release decision**: keep the classification at research prototype until every external gate above has attached evidence.

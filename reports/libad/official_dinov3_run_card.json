@@ -1,0 +1,78 @@
+{
+  "generated_at": "2026-09-05T21:22:33Z",
+  "official_code": {
+    "present": true,
+    "path": "third_party/evenrose-libad",
+    "url": "https://github.com/evenrose/LIBAD.git",
+    "commit": "8f98f2ebde63cd45660e58d6413f5ccd638966f4",
+    "runnable_as_paper_baseline": false,
+    "note": "evenrose/LIBAD belongs to Sui et al. Presence of their source does not make this repository's numpy adapter comparable to the published table. Paper-comparable DINOv3+DA-Core numbers require scripts/run_libad_official_baseline.py with HF auth for gated ConvNeXt weights, the hash-verified 4.84 GB mount, and paper-default backbone_variant=base."
+  },
+  "dataset_status": {
+    "official_protocol_complete": true,
+    "dataset_tree_sha256": "239594e82354fa8d6e3a3ec4a32889674ce45c3b824855a14ea15968172099bc",
+    "splits_tree_sha256": "fa401667b9eb1a8f028fd4f866c8d239cf2b3e5e1bb20ee7240089f4c09662ec",
+    "comparability_blockers": [
+      "Local runner uses numpy_patch_descriptor, not the authors' official DINOv3/DA-Core implementation"
+    ]
+  },
+  "dinov3_access": {
+    "hf_auth_present": true,
+    "model_access_ok": false,
+    "gated_models": [
+      "facebook/dinov3-convnext-tiny-pretrain-lvd1689m",
+      "facebook/dinov3-convnext-small-pretrain-lvd1689m",
+      "facebook/dinov3-convnext-base-pretrain-lvd1689m"
+    ],
+    "probes": [],
+    "ready": false,
+    "note": "HF auth detected; DINOv3 ConvNeXt model access not probed (offline-safe). Pass probe=True to verify gated repo authorization."
+  },
+  "planned_config": {
+    "profile": "laptop",
+    "backbone_family": "convnext",
+    "dino_version": "v3",
+    "backbone_variant": "small",
+    "extractor_precision": "fp16",
+    "coreset_selection_method": "density_fps",
+    "coreset_density_weight": 0.7,
+    "f_coreset": 0.05,
+    "batch_size": 1,
+    "test_batch_size": 1,
+    "num_workers": 0,
+    "resize_h": 640,
+    "resize_w": 512,
+    "coreset_device": "cpu",
+    "distance_device": "cuda",
+    "distance_chunk_size": 8192,
+    "density_chunk_size": 512,
+    "modalities": [
+      "vis_xray_l"
+    ],
+    "seeds": [
+      347,
+      725,
+      1245,
+      4012,
+      4589,
+      5021,
+      5678,
+      6234,
+      6789,
+      7345
+    ],
+    "pause_seconds": 8,
+    "save_bank": false
+  },
+  "paper_config_match": false,
+  "comparable_to_paper_eligible": false,
+  "paper_comparability_blockers": [
+    "DINOv3 ConvNeXt gated access not verified (probe skipped)",
+    "backbone_variant='small' is not paper default 'base' (VRAM-adapted run on constrained GPUs)"
+  ],
+  "attribution": "DA-Core is the density-aware coreset baseline published by the LIBAD authors. SecureCoating-Vision does not claim DA-Core as an original algorithm.",
+  "paper_result_note": "Sui et al. report that the best LIBAD setting still has FPR95 of 54.3% at AUROC 86.7%, AUPR 95.7%, and F1-max 90.6%. The authors conclude that this false-positive rate is too high for direct deployment and call out modality disagreement and closed-loop process control as open problems. LIBAD addresses how to detect; SecureCoating-Vision addresses when a detection is safe enough to act on.",
+  "cwd_required": "third_party/evenrose-libad",
+  "output_report": "reports/libad/official_dinov3_dacore.json",
+  "predictions_dir": "outputs/libad_official_baseline"
+}
