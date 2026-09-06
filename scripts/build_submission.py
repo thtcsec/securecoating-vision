@@ -222,6 +222,7 @@ TREE_DIRS = [
     ("reports/coatingvision_gallery", "reports/coatingvision_gallery"),
     ("reports/coatingvision_real_demo", "reports/coatingvision_real_demo"),
     ("reports/external_coatingvision_demo", "reports/external_coatingvision_demo"),
+    ("reports/coatingvision_visual_evidence", "reports/coatingvision_visual_evidence"),
 ]
 TREE_ALLOWED_SUFFIXES = (".jpg", ".jpeg", ".png", ".txt", ".json", ".md", ".gif")
 # Legacy flat IMAGE_DIRS name kept for tests that may reference the idea.
@@ -260,6 +261,11 @@ ARTIFACT_REQUIRED_PATHS = [
     "outputs/model.onnx",
     "outputs/best.pt",
     "data/demo_real/manifest.json",
+    "reports/coatingvision_visual_evidence/image_1548_optical_raw.png",
+    "reports/coatingvision_visual_evidence/image_1548_contrast_clahe.png",
+    "reports/coatingvision_visual_evidence/image_1548_yolo_candidate_zoom.png",
+    "scripts/generate_defense_gifs.py",
+    "tests/test_defense_gifs.py",
 ]
 
 
@@ -496,6 +502,7 @@ def verify_packed_artifact(zip_path: str) -> None:
                     "tests/test_predictor.py",
                     "tests/test_libad_evidence_gate.py",
                     "tests/test_repository_evidence_artifacts.py",
+                    "tests/test_defense_gifs.py",
                 ],
                 cwd=tmp,
                 env=env,

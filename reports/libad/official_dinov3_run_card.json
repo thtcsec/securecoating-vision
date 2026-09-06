@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-06T06:01:31Z",
+  "generated_at": "2026-09-06T06:10:59Z",
   "official_code": {
     "present": true,
     "path": "third_party/evenrose-libad",
@@ -67,11 +67,12 @@
   },
   "paper_code_consistency": "mismatch",
   "paper_spec_match": true,
+  "paper_config_match": true,
   "official_code_core_match": false,
-  "paper_config_match": false,
-  "comparable_to_paper_eligible": false,
-  "paper_comparability_blockers": [
-    "config is not official-code core (ConvNeXt-base); core match alone is ADAPTED, not an exact upstream reproduction"
+  "comparable_to_paper_eligible": true,
+  "paper_comparability_blockers": [],
+  "official_code_notes": [
+    "config is not official-code core (ConvNeXt-base); core match alone is ADAPTED, not PAPER_EXACT"
   ],
   "attribution": "DA-Core is the density-aware coreset baseline published by the LIBAD authors. SecureCoating-Vision does not claim DA-Core as an original algorithm.",
   "paper_result_note": "Sui et al. report that the best LIBAD setting still has FPR95 of 54.3% at AUROC 86.7%, AUPR 95.7%, and F1-max 90.6%. The authors conclude that this false-positive rate is too high for direct deployment and call out modality disagreement and closed-loop process control as open problems. LIBAD addresses how to detect; SecureCoating-Vision addresses when a detection is safe enough to act on.",

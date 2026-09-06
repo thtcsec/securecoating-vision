@@ -298,6 +298,10 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn("assert_test_snapshot_certifies_head", source)
         self.assertIn("test snapshot does not certify current HEAD", source)
         self.assertIn("CLAIM_HASH_PREFIXES", source)
+        self.assertIn("reports/coatingvision_visual_evidence", source)
+        self.assertIn("tests/test_defense_gifs.py", source)
+        # Packed contract gate must execute defense GIF regeneration, not only ship the GIFs.
+        self.assertGreaterEqual(source.count("tests/test_defense_gifs.py"), 2)
         self.assertIn("reports/libad/libad_benchmark.json", string_items)
         self.assertIn("reports/libad/official_mount_hashes.json", string_items)
         self.assertIn("scripts/record_libad_official_manifest.py", string_items)

@@ -313,7 +313,7 @@ def official_authors_interim_summary() -> Optional[Dict[str, Any]]:
         "paper_comparability_blockers": list(payload.get("paper_comparability_blockers") or []),
         "note": (
             "Authors' evenrose/LIBAD runner interim on official splits. "
-            "DINOv2 ViT-small smoke (not DINOv3 ConvNeXt-base). Not paper-comparable."
+            "DINOv2 ViT-small smoke (not textual PAPER_SPEC DINOv3 ViT-S/16). Not paper-comparable."
         ),
     }
 

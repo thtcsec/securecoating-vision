@@ -112,9 +112,10 @@ class TestLibadOfficialBaseline(unittest.TestCase):
                 }
             )
         )
-        # Legacy alias points at official-code core, not textual paper.
+        # Legacy PAPER_BACKBONE_VARIANT still names official-code core (ConvNeXt-base).
         self.assertEqual(PAPER_BACKBONE_VARIANT, OFFICIAL_CODE_BACKBONE_VARIANT)
-        self.assertTrue(
+        # paper_config_match is an alias of textual PAPER_SPEC (ViT-S/16), not ConvNeXt-base.
+        self.assertFalse(
             paper_config_match(
                 {
                     "backbone_family": "convnext",
@@ -123,6 +124,20 @@ class TestLibadOfficialBaseline(unittest.TestCase):
                     "coreset_selection_method": "density_fps",
                     "f_coreset": 0.05,
                     "coreset_density_weight": 0.7,
+                    "image_score_method": "max",
+                }
+            )
+        )
+        self.assertTrue(
+            paper_config_match(
+                {
+                    "backbone_family": "vit",
+                    "dino_version": "v3",
+                    "backbone_variant": "small",
+                    "coreset_selection_method": "density_fps",
+                    "f_coreset": 0.05,
+                    "coreset_density_weight": 0.7,
+                    "image_score_method": "max",
                 }
             )
         )
@@ -440,7 +455,17 @@ class TestLibadOfficialBaseline(unittest.TestCase):
         self.assertEqual(planned["backbone_variant"], "small")
         self.assertEqual(planned["image_score_method"], "max")
         self.assertTrue(card["paper_spec_match"])
+        self.assertTrue(card["paper_config_match"])
         self.assertFalse(card["official_code_core_match"])
+        # Official-code core mismatch must not poison paper eligibility blockers.
+        self.assertTrue(
+            all("official-code core" not in b for b in card["paper_comparability_blockers"])
+        )
+        self.assertTrue(any("official-code core" in n for n in card["official_code_notes"]))
+        if card["dataset_status"]["official_protocol_complete"] and card["official_code"].get("present"):
+            self.assertTrue(card["comparable_to_paper_eligible"])
+        else:
+            self.assertFalse(card["comparable_to_paper_eligible"])
 
     def test_official_code_core_match_is_adapted_not_reproduction(self):
         with tempfile.TemporaryDirectory() as tmp:

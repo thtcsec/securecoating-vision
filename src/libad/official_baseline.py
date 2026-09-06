@@ -258,8 +258,8 @@ def official_code_core_match(config: Dict[str, Any]) -> bool:
 
 
 def paper_config_match(config: Dict[str, Any]) -> bool:
-    """Deprecated alias: upstream ConvNeXt-base core match (NOT textual paper ViT-S/16)."""
-    return official_code_core_match(config)
+    """Alias of paper_spec_match (textual PAPER_SPEC). Do not point at ConvNeXt-base core."""
+    return paper_spec_match(config)
 
 
 def run_card(
@@ -301,29 +301,33 @@ def run_card(
         "pause_seconds": laptop["pause_seconds"],
         "save_bank": False,
     }
-    blockers: List[str] = []
+    paper_blockers: List[str] = []
+    official_code_notes: List[str] = []
     if not code.get("present"):
-        blockers.append("authors' evenrose/LIBAD checkout missing under third_party/evenrose-libad")
+        paper_blockers.append("authors' evenrose/LIBAD checkout missing under third_party/evenrose-libad")
     if not status.get("official_protocol_complete"):
-        blockers.append("official LIBAD mount incomplete or hashes not trusted")
+        paper_blockers.append("official LIBAD mount incomplete or hashes not trusted")
+    # ConvNeXt HF gating only blocks the official-code ConvNeXt path, not PAPER_SPEC ViT.
     if str(backbone_family).lower() == "convnext" and str(dino_version).lower() == "v3":
         if not access.get("hf_auth_present"):
-            blockers.append("Hugging Face auth missing for gated DINOv3 ConvNeXt weights")
+            official_code_notes.append("Hugging Face auth missing for gated DINOv3 ConvNeXt weights")
         elif not access.get("model_access_ok"):
             if access.get("probes"):
-                blockers.append("DINOv3 ConvNeXt gated access not authorized (403)")
+                official_code_notes.append("DINOv3 ConvNeXt gated access not authorized (403)")
             else:
-                blockers.append("DINOv3 ConvNeXt gated access not verified (probe skipped)")
-    if not paper_spec_match(config):
-        blockers.append(
+                official_code_notes.append("DINOv3 ConvNeXt gated access not verified (probe skipped)")
+    paper_exact = paper_spec_match(config)
+    official_core = official_code_core_match(config)
+    if not paper_exact:
+        paper_blockers.append(
             "config is not textual PAPER_SPEC (DINOv3 ViT-S/16 + max-NN); "
             f"got {config.get('backbone_family')}/{config.get('dino_version')}/"
             f"{config.get('backbone_variant')}/score={config.get('image_score_method')}"
         )
-    if not official_code_core_match(config):
-        blockers.append(
+    if not official_core:
+        official_code_notes.append(
             f"config is not official-code core (ConvNeXt-{OFFICIAL_CODE_BACKBONE_VARIANT}); "
-            "core match alone is ADAPTED, not an exact upstream reproduction"
+            "core match alone is ADAPTED, not PAPER_EXACT"
         )
     return {
         "generated_at": _utc_now(),
@@ -337,11 +341,12 @@ def run_card(
         "dinov3_access": access,
         "planned_config": config,
         "paper_code_consistency": PAPER_CODE_CONSISTENCY,
-        "paper_spec_match": paper_spec_match(config),
-        "official_code_core_match": official_code_core_match(config),
-        "paper_config_match": official_code_core_match(config),
-        "comparable_to_paper_eligible": not blockers and paper_spec_match(config),
-        "paper_comparability_blockers": blockers,
+        "paper_spec_match": paper_exact,
+        "paper_config_match": paper_exact,
+        "official_code_core_match": official_core,
+        "comparable_to_paper_eligible": not paper_blockers and paper_exact,
+        "paper_comparability_blockers": paper_blockers,
+        "official_code_notes": official_code_notes,
         "attribution": LIBAD_CITATION["da_core_attribution"],
         "paper_result_note": LIBAD_PAPER_RESULT_NOTE,
         "cwd_required": OFFICIAL_CODE_RELATIVE,
@@ -668,7 +673,7 @@ def laptop_runner_defaults() -> Dict[str, Any]:
         "note": (
             "Laptop profile: one modality (vis_xray_l), batch=1, workers=0, "
             "coreset on CPU, smaller distance chunks, no bank dumps, below-normal "
-            "priority. Not paper ConvNeXt-base."
+            "priority. Not textual PAPER_SPEC (DINOv3 ViT-S/16)."
         ),
     }
 
