@@ -86,7 +86,8 @@ def record_test_manifest(pytest_args: list[str] | None = None) -> dict:
         command.extend(pytest_args)
     completed = subprocess.run(command, cwd=PROJECT_ROOT, capture_output=True, text=True)
     log = (completed.stdout or "") + (completed.stderr or "")
-    output_path.write_text(log, encoding="utf-8", errors="replace")
+    log_bytes = log.encode("utf-8", errors="replace")
+    output_path.write_bytes(log_bytes)
     root = ET.parse(junit_path).getroot() if junit_path.is_file() else None
     # pytest may emit testsuites or testsuite as the root.
     suite = root
@@ -109,7 +110,7 @@ def record_test_manifest(pytest_args: list[str] | None = None) -> dict:
     failed = failures + errors
     passed = max(collected - failed - skipped, 0)
     identity = _load_identity()
-    log_sha = _sha256_bytes(log.encode("utf-8", errors="replace"))
+    log_sha = _sha256_bytes(log_bytes)
     junit_sha = (
         _sha256_bytes(junit_path.read_bytes()) if junit_path.is_file() else None
     )
