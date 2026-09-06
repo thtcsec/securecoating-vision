@@ -9,7 +9,8 @@ Default profile is **laptop-safe** for RTX 4050-class 6 GB machines:
   - pause between seed/modality cells
 
 DA-Core and DINOv3 belong to Sui et al. / Meta. comparable_to_paper stays false
-unless paper-default ConvNeXt-base completes all requested seeds/modalities.
+unless textual PAPER_SPEC (DINOv3 ViT-S/16) completes all requested seeds/modalities
+with harness run_id provenance. ConvNeXt-base is official-code core, not auto paper-exact.
 
 Usage (lightweight first):
   .venv\\Scripts\\python.exe scripts/run_libad_official_baseline.py --run-card
@@ -38,13 +39,17 @@ from libad.official_baseline import (  # noqa: E402
     DEFAULT_VRAM_BACKBONE_VARIANT,
     PAPER_BACKBONE_VARIANT,
     aggregate_experiment_log,
+    append_harness_ledger_row,
     apply_laptop_process_guards,
     build_report,
     build_run_command,
+    config_fingerprint,
     dinov3_access_status,
+    harvest_upstream_metrics,
     laptop_runner_defaults,
     launch_official_run,
     load_project_env,
+    new_run_id,
     run_card,
     write_json,
 )
@@ -263,15 +268,22 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     }
     if not paper_path:
         config["interim_note"] = (
-            "DINOv2/ViT interim stronger baseline only. Not paper-comparable; "
-            "paper table uses DINOv3 ConvNeXt + DA-Core."
+            "Adapted / interim authors' runner only. Not PAPER_EXACT "
+            "(textual paper DA-Core uses DINOv3 ViT-S/16). "
+            "paper_code_consistency=mismatch with common ConvNeXt upstream defaults."
         )
+
+    run_id = new_run_id()
+    config_sha = config_fingerprint(config)
+    config["run_id"] = run_id
+    config["config_sha256"] = config_sha
+    ledger_path = pred_dir / f"harness_ledger_{run_id}.csv"
 
     run_records = []
     if not args.aggregate_only:
         guards = apply_laptop_process_guards()
         print(
-            f"Laptop-safe official runner: cells={cell_count} seeds={seeds} "
+            f"Laptop-safe official runner: run_id={run_id} cells={cell_count} seeds={seeds} "
             f"modalities={modalities} backbone={args.backbone_family}/{backbone} "
             f"dino={args.dino_version} coreset={args.coreset_device} "
             f"distance={args.distance_device} pause={args.pause_seconds}s "
@@ -280,6 +292,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         )
         for index, seed in enumerate(seeds):
             for modality in modalities:
+                started = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
                 cmd = build_run_command(
                     seed=seed,
                     modality=modality,
@@ -296,15 +309,53 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     dino_version=args.dino_version,
                     distance_chunk_size=args.distance_chunk_size,
                     density_chunk_size=args.density_chunk_size,
+                    run_id=run_id,
+                    config_sha256=config_sha,
                 )
                 print(f"\n=== seed={seed} modality={modality} ===", flush=True)
                 print(" ".join(cmd), flush=True)
                 completed = launch_official_run(cmd, cwd=code_root)
+                finished = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                metrics = {}
+                if completed.returncode == 0:
+                    metrics = harvest_upstream_metrics(
+                        results_csv,
+                        seed=seed,
+                        modality=modality,
+                        dino_version=args.dino_version,
+                        backbone_family=args.backbone_family,
+                        backbone_variant=backbone,
+                    )
+                append_harness_ledger_row(
+                    ledger_path,
+                    {
+                        "schema_version": "securecoating-harness-ledger/v1",
+                        "run_id": run_id,
+                        "config_sha256": config_sha,
+                        "started_at_utc": started,
+                        "finished_at_utc": finished,
+                        "seed": seed,
+                        "modality": modality,
+                        "dino_version": args.dino_version,
+                        "backbone_family": args.backbone_family,
+                        "backbone_variant": backbone,
+                        "extractor_precision": args.precision,
+                        "coreset_selection_method": "density_fps",
+                        "coreset_density_weight": 0.7,
+                        "f_coreset": 0.05,
+                        "returncode": completed.returncode,
+                        "image_auroc": metrics.get("image_auroc", ""),
+                        "image_aupr": metrics.get("image_aupr", ""),
+                        "image_best_f1": metrics.get("image_best_f1", ""),
+                        "image_fpr95": metrics.get("image_fpr95", ""),
+                    },
+                )
                 record = {
                     "seed": seed,
                     "modality": modality,
                     "returncode": completed.returncode,
                     "command": cmd,
+                    "run_id": run_id,
                 }
                 run_records.append(record)
                 if completed.returncode != 0:
@@ -318,13 +369,23 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     print(f"Cool-down {args.pause_seconds}s ({remaining} cells left)...", flush=True)
                     time.sleep(float(args.pause_seconds))
 
+    accepted = [
+        (int(r["seed"]), str(r["modality"]))
+        for r in run_records
+        if int(r.get("returncode") or 0) == 0
+    ]
+    aggregate_path = ledger_path if ledger_path.is_file() else results_csv
     aggregation = aggregate_experiment_log(
-        results_csv,
+        aggregate_path,
         seeds=seeds,
         modalities=modalities,
         backbone_variant=backbone,
         dino_version=str(config.get("dino_version", "v3")),
         backbone_family=str(config.get("backbone_family", "convnext")),
+        f_coreset=0.05,
+        coreset_density_weight=0.7,
+        run_id=run_id,
+        accepted_cells=accepted,
     )
     report = build_report(
         config=config,
@@ -338,16 +399,23 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         },
         code_meta=code,
         run_records=run_records,
+        run_id=run_id,
+        config_sha256=config_sha,
     )
     out_path = PROJECT_ROOT / args.out
     write_json(out_path, report)
-    write_json(pred_dir / "last_run_records.json", {"records": run_records, "config": config})
+    write_json(
+        pred_dir / "last_run_records.json",
+        {"records": run_records, "config": config, "run_id": run_id, "ledger": str(ledger_path)},
+    )
     write_json(
         PROJECT_ROOT / "reports/libad/official_dinov3_run_card.json",
         run_card(backbone_variant=backbone, probe=False),
     )
     print(json.dumps({
         "wrote": str(out_path.as_posix()),
+        "run_id": run_id,
+        "claim_class": report.get("claim_class"),
         "profile": "laptop",
         "evidence_class": report["evidence_class"],
         "comparable_to_paper": report["comparable_to_paper"],

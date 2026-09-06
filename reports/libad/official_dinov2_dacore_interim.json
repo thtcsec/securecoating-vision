@@ -20,6 +20,13 @@
   "local_contribution": "SecureCoating-Vision launches and records the authors' evenrose/LIBAD runner (Authors' runner DINO v2 vit-small + DA-Core multimodal baseline). DA-Core remains attributed to Sui et al. The repository contribution is the evidence-gated PASS/REJECT/HOLD layer.",
   "evidence_class": "official_libad_authors_runner_partial_or_adapted",
   "comparable_to_paper": false,
+  "claim_class": "ADAPTED_REPRODUCTION",
+  "paper_code_consistency": "mismatch",
+  "paper_spec_match": false,
+  "official_code_core_match": false,
+  "official_code_reproduction": false,
+  "dataset_protocol_complete": true,
+  "experiment_coverage_complete": true,
   "paper_comparability_blockers": [
     "run config differs from paper defaults (backbone_variant='small'; paper uses 'base')"
   ],

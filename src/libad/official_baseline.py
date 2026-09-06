@@ -1,22 +1,29 @@
 """Harness helpers for the authors' evenrose/LIBAD DINOv3 + DA-Core runner.
 
 This module does not reimplement DA-Core. It only launches the upstream
-``run.py``, aggregates ``results/experiment_log.csv``, and records honest
-comparability status.
+``run.py``, aggregates a harness-owned ledger (not a stale global CSV), and
+records honest comparability status.
+
+Protocol identities (must stay distinct):
+- PAPER_SPEC (arXiv:2608.07958 text): frozen DINOv3 ViT-S/16 + DA-FPS + max-NN score.
+- OFFICIAL_CODE_CORE: pinned evenrose/LIBAD defaults often resolve to ConvNeXt-base.
+  That is *not* automatically PAPER_EXACT while paper↔code disagree.
 """
 
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import math
 import os
 import statistics
 import subprocess
 import sys
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 from libad.dataset import dataset_status
 from libad.official_code import OFFICIAL_CODE_RELATIVE, official_code_root, official_code_status
@@ -28,8 +35,36 @@ from libad.protocol import (
     load_libad_config,
 )
 
-PAPER_BACKBONE_VARIANT = "base"
+# Upstream evenrose/LIBAD CLI default path many READMEs reproduce (ConvNeXt-base).
+OFFICIAL_CODE_BACKBONE_VARIANT = "base"
+PAPER_BACKBONE_VARIANT = OFFICIAL_CODE_BACKBONE_VARIANT  # legacy alias; not PAPER_SPEC
+# Textual paper methodology for DA-Core (ar5iv 2608.07958): DINOv3 ViT-S/16.
+PAPER_SPEC_BACKBONE_FAMILY = "vit"
+PAPER_SPEC_DINO_VERSION = "v3"
+PAPER_SPEC_BACKBONE_VARIANT = "small"
+PAPER_CODE_CONSISTENCY = "mismatch"
 DEFAULT_VRAM_BACKBONE_VARIANT = "tiny"
+LEDGER_FIELDNAMES = [
+    "schema_version",
+    "run_id",
+    "config_sha256",
+    "started_at_utc",
+    "finished_at_utc",
+    "seed",
+    "modality",
+    "dino_version",
+    "backbone_family",
+    "backbone_variant",
+    "extractor_precision",
+    "coreset_selection_method",
+    "coreset_density_weight",
+    "f_coreset",
+    "returncode",
+    "image_auroc",
+    "image_aupr",
+    "image_best_f1",
+    "image_fpr95",
+]
 DINOV3_GATED_MODELS = (
     "facebook/dinov3-convnext-tiny-pretrain-lvd1689m",
     "facebook/dinov3-convnext-small-pretrain-lvd1689m",
@@ -171,15 +206,56 @@ def dinov3_access_status(*, probe: bool = True) -> Dict[str, Any]:
     }
 
 
-def paper_config_match(config: Dict[str, Any]) -> bool:
+def new_run_id() -> str:
+    return uuid.uuid4().hex
+
+
+def config_fingerprint(config: Dict[str, Any]) -> str:
+    payload = {
+        "backbone_family": str(config.get("backbone_family", "")).lower(),
+        "dino_version": str(config.get("dino_version", "")).lower(),
+        "backbone_variant": str(config.get("backbone_variant", "")).lower(),
+        "extractor_precision": str(config.get("extractor_precision", "")).lower(),
+        "coreset_selection_method": str(config.get("coreset_selection_method", "")).lower(),
+        "coreset_density_weight": float(config.get("coreset_density_weight", 0.0)),
+        "f_coreset": float(config.get("f_coreset", 0.0)),
+        "resize_h": int(config.get("resize_h") or 0),
+        "resize_w": int(config.get("resize_w") or 0),
+        "batch_size": int(config.get("batch_size") or 0),
+        "modalities": list(config.get("modalities") or []),
+        "seeds": list(config.get("seeds") or []),
+    }
+    blob = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(blob).hexdigest()
+
+
+def paper_spec_match(config: Dict[str, Any]) -> bool:
+    """True only for the textual paper DA-Core backbone (DINOv3 ViT-S/16) + DA-FPS knobs."""
     return (
-        str(config.get("backbone_family", "")).lower() == "convnext"
-        and str(config.get("dino_version", "")).lower() == "v3"
-        and str(config.get("backbone_variant", "")).lower() == PAPER_BACKBONE_VARIANT
+        str(config.get("backbone_family", "")).lower() == PAPER_SPEC_BACKBONE_FAMILY
+        and str(config.get("dino_version", "")).lower() == PAPER_SPEC_DINO_VERSION
+        and str(config.get("backbone_variant", "")).lower() == PAPER_SPEC_BACKBONE_VARIANT
         and str(config.get("coreset_selection_method", "")).lower() == "density_fps"
         and abs(float(config.get("f_coreset", 0.0)) - 0.05) < 1e-9
         and abs(float(config.get("coreset_density_weight", 0.0)) - 0.7) < 1e-9
     )
+
+
+def official_code_core_match(config: Dict[str, Any]) -> bool:
+    """True for the common pinned-upstream ConvNeXt-base core knobs (not PAPER_EXACT)."""
+    return (
+        str(config.get("backbone_family", "")).lower() == "convnext"
+        and str(config.get("dino_version", "")).lower() == "v3"
+        and str(config.get("backbone_variant", "")).lower() == OFFICIAL_CODE_BACKBONE_VARIANT
+        and str(config.get("coreset_selection_method", "")).lower() == "density_fps"
+        and abs(float(config.get("f_coreset", 0.0)) - 0.05) < 1e-9
+        and abs(float(config.get("coreset_density_weight", 0.0)) - 0.7) < 1e-9
+    )
+
+
+def paper_config_match(config: Dict[str, Any]) -> bool:
+    """Deprecated alias: upstream ConvNeXt-base core match (NOT textual paper ViT-S/16)."""
+    return official_code_core_match(config)
 
 
 def run_card(
@@ -229,10 +305,16 @@ def run_card(
             blockers.append("DINOv3 ConvNeXt gated access not authorized (403)")
         else:
             blockers.append("DINOv3 ConvNeXt gated access not verified (probe skipped)")
-    if not paper_config_match(config):
+    if not paper_spec_match(config):
         blockers.append(
-            f"backbone_variant={backbone_variant!r} is not paper default "
-            f"{PAPER_BACKBONE_VARIANT!r} (VRAM-adapted run on constrained GPUs)"
+            "config is not textual PAPER_SPEC (DINOv3 ViT-S/16); "
+            f"got {config.get('backbone_family')}/{config.get('dino_version')}/"
+            f"{config.get('backbone_variant')}"
+        )
+    if not official_code_core_match(config):
+        blockers.append(
+            f"backbone_variant={backbone_variant!r} is not official-code core "
+            f"{OFFICIAL_CODE_BACKBONE_VARIANT!r} (VRAM-adapted / adapted reproduction)"
         )
     return {
         "generated_at": _utc_now(),
@@ -245,8 +327,11 @@ def run_card(
         },
         "dinov3_access": access,
         "planned_config": config,
-        "paper_config_match": paper_config_match(config),
-        "comparable_to_paper_eligible": not blockers and paper_config_match(config),
+        "paper_code_consistency": PAPER_CODE_CONSISTENCY,
+        "paper_spec_match": paper_spec_match(config),
+        "official_code_core_match": official_code_core_match(config),
+        "paper_config_match": official_code_core_match(config),
+        "comparable_to_paper_eligible": not blockers and paper_spec_match(config),
         "paper_comparability_blockers": blockers,
         "attribution": LIBAD_CITATION["da_core_attribution"],
         "paper_result_note": LIBAD_PAPER_RESULT_NOTE,
@@ -277,6 +362,121 @@ def _read_csv_rows(path: Path) -> List[Dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
+def _norm_token(value: Any) -> str:
+    return str(value or "").strip().lower()
+
+
+def _float_close(raw: Any, expected: float) -> bool:
+    try:
+        return abs(float(raw) - expected) < 1e-9
+    except (TypeError, ValueError):
+        return False
+
+
+def _row_config_matches(
+    row: Dict[str, Any],
+    *,
+    dino_version: str,
+    backbone_family: str,
+    backbone_variant: str,
+    f_coreset: float,
+    coreset_density_weight: float,
+) -> bool:
+    """Reject rows that disagree with requested config when fields are present.
+
+    Missing scientific fields are rejected: silent defaults would reintroduce
+    stale-CSV mixing across DINOv2/v3 and ConvNeXt/ViT runs.
+    """
+    required = {
+        "dino_version": _norm_token(dino_version),
+        "backbone_family": _norm_token(backbone_family),
+        "backbone_variant": _norm_token(backbone_variant),
+        "coreset_selection_method": "density_fps",
+    }
+    for key, expected in required.items():
+        raw = row.get(key)
+        if raw in (None, ""):
+            return False
+        if _norm_token(raw) != expected:
+            return False
+    if row.get("f_coreset") in (None, "") or not _float_close(row.get("f_coreset"), f_coreset):
+        return False
+    if row.get("coreset_density_weight") in (None, "") or not _float_close(
+        row.get("coreset_density_weight"), coreset_density_weight
+    ):
+        return False
+    return True
+
+
+def _cell_key(seed: int, modality: str) -> Tuple[int, str]:
+    return (int(seed), str(modality).strip())
+
+
+def append_harness_ledger_row(ledger_path: Path, row: Dict[str, Any]) -> None:
+    ledger_path.parent.mkdir(parents=True, exist_ok=True)
+    exists = ledger_path.is_file()
+    with ledger_path.open("a", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=LEDGER_FIELDNAMES, extrasaction="ignore")
+        if not exists:
+            writer.writeheader()
+        writer.writerow({key: row.get(key, "") for key in LEDGER_FIELDNAMES})
+
+
+def harvest_upstream_metrics(
+    csv_path: Path,
+    *,
+    seed: int,
+    modality: str,
+    dino_version: str,
+    backbone_family: str,
+    backbone_variant: str,
+    f_coreset: float = 0.05,
+    coreset_density_weight: float = 0.7,
+) -> Dict[str, Any]:
+    """Take the last matching upstream row for one cell; empty dict if none."""
+    matches: List[Dict[str, Any]] = []
+    for row in _read_csv_rows(csv_path):
+        try:
+            row_seed = int(float(row.get("seed") or row.get("dataset_seed") or -1))
+        except (TypeError, ValueError):
+            continue
+        if row_seed != int(seed):
+            continue
+        if str(row.get("modality") or "").strip() != modality:
+            continue
+        if not _row_config_matches(
+            row,
+            dino_version=dino_version,
+            backbone_family=backbone_family,
+            backbone_variant=backbone_variant,
+            f_coreset=f_coreset,
+            coreset_density_weight=coreset_density_weight,
+        ):
+            # Upstream CSV often omits config columns; fall back to variant+method only
+            # for *harvest after a live process*, then stamp full config into our ledger.
+            variant = str(row.get("backbone_variant") or "").strip()
+            method = str(row.get("coreset_selection_method") or "").strip()
+            has_strict = any(
+                row.get(k) not in (None, "")
+                for k in ("dino_version", "backbone_family", "f_coreset", "coreset_density_weight")
+            )
+            if has_strict:
+                continue
+            if variant and variant != backbone_variant:
+                continue
+            if method and method != "density_fps":
+                continue
+        matches.append(row)
+    if not matches:
+        return {}
+    last = matches[-1]
+    out: Dict[str, Any] = {}
+    for key in ("image_auroc", "image_aupr", "image_best_f1", "image_fpr95"):
+        if last.get(key) not in (None, ""):
+            out[key] = last.get(key)
+    return out
+
+
 def _experiment_purpose(
     modality: str,
     *,
@@ -305,7 +505,19 @@ def aggregate_experiment_log(
     backbone_variant: str,
     dino_version: str = "v3",
     backbone_family: str = "convnext",
+    f_coreset: float = 0.05,
+    coreset_density_weight: float = 0.7,
+    run_id: Optional[str] = None,
+    accepted_cells: Optional[Sequence[Tuple[int, str]]] = None,
 ) -> Dict[str, Any]:
+    """Aggregate metrics only from this invocation's accepted cells / run_id.
+
+    Never trusts a global CSV alone: without ``run_id`` or ``accepted_cells``,
+    no metric rows are kept (prevents stale-run inflation).
+    """
+    accepted: Optional[Set[Tuple[int, str]]] = None
+    if accepted_cells is not None:
+        accepted = {_cell_key(s, m) for s, m in accepted_cells}
     rows = _read_csv_rows(csv_path)
     seed_set = {int(s) for s in seeds}
     selected: List[Dict[str, Any]] = []
@@ -315,13 +527,25 @@ def aggregate_experiment_log(
         except (TypeError, ValueError):
             continue
         modality = str(row.get("modality") or "").strip()
-        variant = str(row.get("backbone_variant") or "").strip()
-        method = str(row.get("coreset_selection_method") or "").strip()
         if seed not in seed_set or modality not in modalities:
             continue
-        if variant and variant != backbone_variant:
+        if run_id is not None:
+            if str(row.get("run_id") or "").strip() != run_id:
+                continue
+        elif accepted is not None:
+            if _cell_key(seed, modality) not in accepted:
+                continue
+        else:
+            # No provenance scope → refuse to harvest (stale-CSV guard).
             continue
-        if method and method != "density_fps":
+        if not _row_config_matches(
+            row,
+            dino_version=dino_version,
+            backbone_family=backbone_family,
+            backbone_variant=backbone_variant,
+            f_coreset=f_coreset,
+            coreset_density_weight=coreset_density_weight,
+        ):
             continue
         selected.append(row)
 
@@ -329,11 +553,20 @@ def aggregate_experiment_log(
     for modality in modalities:
         key = MODALITY_KEYS.get(modality, modality)
         modality_rows = [r for r in selected if r.get("modality") == modality]
-        # Keep latest row per seed.
+        # Prefer finished_at_utc when present; else last matching row in file order.
         latest: Dict[int, Dict[str, Any]] = {}
         for row in modality_rows:
             seed = int(float(row.get("seed") or row.get("dataset_seed") or -1))
-            latest[seed] = row
+            prev = latest.get(seed)
+            if prev is None:
+                latest[seed] = row
+                continue
+            prev_ts = str(prev.get("finished_at_utc") or "")
+            cur_ts = str(row.get("finished_at_utc") or "")
+            if cur_ts and cur_ts >= prev_ts:
+                latest[seed] = row
+            elif not prev_ts:
+                latest[seed] = row
         kept = [latest[s] for s in seeds if s in latest]
         academic = {}
         for metric_src, metric_dst in (
@@ -363,6 +596,7 @@ def aggregate_experiment_log(
     return {
         "source_csv": str(csv_path.as_posix()),
         "n_matching_rows": len(selected),
+        "run_id": run_id,
         "experiments": experiments,
         "raw_rows": selected,
     }
@@ -447,8 +681,18 @@ def build_run_command(
     dino_version: str = "v3",
     distance_chunk_size: int = 8192,
     density_chunk_size: int = 512,
+    run_id: str = "",
+    config_sha256: str = "",
 ) -> List[str]:
     py = sys.executable
+    note = (
+        f"securecoating_official_baseline seed={seed} modality={modality} "
+        f"dino={dino_version} family={backbone_family} profile=laptop_safe"
+    )
+    if run_id:
+        note += f" run_id={run_id}"
+    if config_sha256:
+        note += f" config_sha256={config_sha256[:16]}"
     return [
         py,
         "run.py",
@@ -495,10 +739,7 @@ def build_run_command(
         # Explicitly omit --save_bank / --save_raw_scores / --save_pixel_maps
         # to avoid multi-GB disk dumps on laptops.
         "--notes",
-        (
-            f"securecoating_official_baseline seed={seed} modality={modality} "
-            f"dino={dino_version} family={backbone_family} profile=laptop_safe"
-        ),
+        note,
     ]
 
 
@@ -531,42 +772,105 @@ def build_report(
     dataset_meta: Dict[str, Any],
     code_meta: Dict[str, Any],
     run_records: Iterable[Dict[str, Any]],
+    run_id: Optional[str] = None,
+    config_sha256: Optional[str] = None,
 ) -> Dict[str, Any]:
     blockers: List[str] = []
-    if not code_meta.get("present"):
-        blockers.append("authors' evenrose/LIBAD checkout missing")
-    if not dataset_meta.get("official_protocol_complete"):
-        blockers.append("official LIBAD mount incomplete")
-    if not paper_config_match(config):
-        blockers.append(
-            "run config differs from paper defaults "
-            f"(backbone_variant={config.get('backbone_variant')!r}; paper uses {PAPER_BACKBONE_VARIANT!r})"
-        )
+    records = list(run_records)
     expected_modalities = list(config.get("modalities") or [])
-    expected_seeds = list(config.get("seeds") or list(OFFICIAL_SPLIT_SEEDS))
-    for modality in expected_modalities:
-        key = MODALITY_KEYS.get(modality, modality)
-        block = (aggregation.get("experiments") or {}).get(key) or {}
-        if int(block.get("n_splits") or 0) < len(expected_seeds):
-            blockers.append(f"incomplete {modality} coverage: {block.get('n_splits', 0)}/{len(expected_seeds)} seeds")
+    # Empty seeds must NOT silently expand to all official seeds (false OK).
+    raw_seeds = config.get("seeds")
+    expected_seeds = list(raw_seeds) if raw_seeds is not None else list(OFFICIAL_SPLIT_SEEDS)
 
-    comparable = len(blockers) == 0 and paper_config_match(config)
-    evidence_class = (
-        "official_libad_dinov3_dacore"
-        if comparable
-        else "official_libad_authors_runner_partial_or_adapted"
+    code_ok = bool(code_meta.get("present"))
+    dataset_ok = bool(dataset_meta.get("official_protocol_complete"))
+    if not code_ok:
+        blockers.append("authors' evenrose/LIBAD checkout missing")
+    if not dataset_ok:
+        blockers.append("official LIBAD mount incomplete")
+
+    paper_exact_cfg = paper_spec_match(config)
+    official_core_cfg = official_code_core_match(config)
+    if not paper_exact_cfg:
+        blockers.append(
+            "config is not textual PAPER_SPEC (DINOv3 ViT-S/16 + DA-FPS λ=0.7, f=0.05); "
+            f"paper↔code consistency={PAPER_CODE_CONSISTENCY}"
+        )
+    if not official_core_cfg:
+        blockers.append(
+            "config differs from official-code core defaults "
+            f"(ConvNeXt-{OFFICIAL_CODE_BACKBONE_VARIANT}); "
+            f"got {config.get('backbone_family')}/{config.get('dino_version')}/"
+            f"{config.get('backbone_variant')}"
+        )
+
+    expected_cells = len(expected_seeds) * len(expected_modalities)
+    processes_ok = (
+        bool(records)
+        and expected_cells > 0
+        and len(records) >= expected_cells
+        and all(int(r.get("returncode") or 0) == 0 for r in records)
     )
+    if not processes_ok:
+        blockers.append(
+            "official runner processes incomplete or failed "
+            f"(records={len(records)}, expected_cells={expected_cells})"
+        )
+
+    coverage_ok = (
+        bool(expected_modalities)
+        and bool(expected_seeds)
+        and all(
+            int(
+                ((aggregation.get("experiments") or {}).get(MODALITY_KEYS.get(m, m)) or {}).get(
+                    "n_splits"
+                )
+                or 0
+            )
+            >= len(expected_seeds)
+            for m in expected_modalities
+        )
+    )
+    if not coverage_ok:
+        for modality in expected_modalities:
+            key = MODALITY_KEYS.get(modality, modality)
+            block = (aggregation.get("experiments") or {}).get(key) or {}
+            blockers.append(
+                f"incomplete {modality} coverage: {block.get('n_splits', 0)}/{len(expected_seeds)} seeds"
+            )
+        if not expected_modalities or not expected_seeds:
+            blockers.append("empty modalities/seeds — refusing false-complete coverage")
+
+    if run_id is None and not aggregation.get("run_id"):
+        blockers.append("missing harness run_id provenance scope")
+
+    has_run_scope = bool(run_id or aggregation.get("run_id"))
+    # Claim gates use booleans directly — blockers remain the human-readable audit trail.
+    comparable = (
+        code_ok and dataset_ok and processes_ok and coverage_ok and paper_exact_cfg and has_run_scope
+    )
+    official_repro = (
+        code_ok and dataset_ok and processes_ok and coverage_ok and official_core_cfg and has_run_scope
+    )
+
+    if comparable:
+        claim_class = "PAPER_EXACT"
+        evidence_class = "official_libad_paper_spec_dinov3_vit_s"
+    elif official_repro:
+        claim_class = "OFFICIAL_CODE_REPRODUCTION"
+        evidence_class = "official_libad_official_code_reproduction"
+    elif not processes_ok or not coverage_ok:
+        claim_class = "INVALID"
+        evidence_class = "official_libad_authors_runner_partial_or_adapted"
+    else:
+        claim_class = "ADAPTED_REPRODUCTION"
+        evidence_class = "official_libad_authors_runner_partial_or_adapted"
+
     dino_version = str(config.get("dino_version", "v3"))
     backbone_family = str(config.get("backbone_family", "convnext"))
     backbone_variant = str(config.get("backbone_variant", "base"))
-    records = list(run_records)
     failed = any(int(r.get("returncode") or 0) != 0 for r in records)
-    complete = all(
-        int(((aggregation.get("experiments") or {}).get(MODALITY_KEYS.get(m, m)) or {}).get("n_splits") or 0)
-        >= len(expected_seeds)
-        for m in expected_modalities
-    )
-    status = "OK" if complete and not failed else ("FAILED" if failed else "PARTIAL")
+    status = "OK" if processes_ok and coverage_ok else ("FAILED" if failed or not records else "PARTIAL")
     runner_label = _experiment_purpose(
         "vis_xray_l",
         dino_version=dino_version,
@@ -582,6 +886,11 @@ def build_report(
             f"runner ({runner_label}). DA-Core remains attributed to Sui et al. The "
             "repository contribution is the evidence-gated PASS/REJECT/HOLD layer."
         ),
+        "claim_class": claim_class,
+        "paper_code_consistency": PAPER_CODE_CONSISTENCY,
+        "paper_spec_match": paper_exact_cfg,
+        "official_code_core_match": official_core_cfg,
+        "official_code_reproduction": bool(official_repro),
         "evidence_class": evidence_class,
         "comparable_to_paper": bool(comparable),
         "paper_comparability_blockers": blockers,
@@ -591,13 +900,15 @@ def build_report(
             if status == "OK"
             else (
                 "Retained for transparency: authors' runner did not complete a "
-                "paper-comparable result. Do not treat empty/NaN-free null metrics "
-                "as a successful DINOv3 paper baseline."
+                "trusted result. Do not treat incomplete metrics as paper-comparable."
                 if status == "FAILED"
                 else "Partial authors' runner coverage; not paper-comparable."
             )
         ),
-        "official_protocol_complete": complete,
+        "dataset_protocol_complete": dataset_ok,
+        "experiment_coverage_complete": bool(coverage_ok),
+        # Legacy key: kept as experiment coverage for older readers; prefer the two fields above.
+        "official_protocol_complete": bool(coverage_ok),
         "feature_backbone": (
             f"dino{dino_version}_"
             f"{backbone_family}_"
@@ -608,6 +919,8 @@ def build_report(
         "official_code": code_meta,
         "dataset": dataset_meta,
         "run_config": config,
+        "run_id": run_id or aggregation.get("run_id"),
+        "config_sha256": config_sha256 or config.get("config_sha256"),
         "official_split_seeds": expected_seeds,
         "experiments": aggregation.get("experiments") or {},
         "run_records": records,
