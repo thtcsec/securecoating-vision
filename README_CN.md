@@ -23,7 +23,7 @@ mTLS / RBAC / OT 分区尚未宣称完成。当前仓库不是经产线认证的
 “零漏检”、ppm、六西格玛、安全等级急停或工厂节拍达标。
 
 <!-- TEST_MANIFEST:START -->
-当前软件验证快照为 278 项测试通过、0 项跳过、0 项失败（提交 `32a472322be2`，工作树干净，源码差异 `none`，Python 3.11.9，耗时 109.74 秒）。权威记录为 [reports/test_manifest.json](reports/test_manifest.json)。该记录仅证明当前软件测试结果，不代表工厂性能、真实 PLC 行为、安全等级急停认证或生产资质。
+当前软件验证快照为 278 项测试通过、0 项跳过、0 项失败（提交 `c174e60e28b6`，工作树干净，源码差异 `none`，Python 3.11.9，耗时 88.58 秒）。权威记录为 [reports/test_manifest.json](reports/test_manifest.json)。该记录仅证明当前软件测试结果，不代表工厂性能、真实 PLC 行为、安全等级急停认证或生产资质。
 <!-- TEST_MANIFEST:END -->
 
 ## 评委可复现的本地演示
