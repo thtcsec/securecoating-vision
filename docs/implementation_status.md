@@ -138,11 +138,6 @@ A release may be called **research/demo-ready** only when automated tests and ev
 5. Container build/runtime and rollback/backup procedures pass in the target environment.
 6. Security review approves authentication, certificates, key rotation, RBAC, and OT segmentation.
 
-## Next Execution Plan
+## Final Submission Status
 
-1. **Next evidence slice**: defense surfaces synced to numpy 10-seed + authors' DINOv2 interim (1 seed, not paper-comparable). Rebuild intentional ZIP (no failed DINOv3 dump, no organizer logo as product mark). Present clean Team 71 / HUFLIT deck in Slideshow. DINOv3 remains gated — do not rush before 10 September 2026.
-2. **Laptop hard rule**: no bank dumps, no live 4.84 GB tree rehash, no multi-modality × 10-seed without `--allow-heavy`, keep Task Manager open.
-3. **Next engineering slice**: keep GitHub Actions green; add Compose/browser smoke only when the runner has enough RAM.
-4. **Next integration slice**: vendor PLC HIL remains open; localhost Modbus command/ACK now runs through the live API (`scripts/run_modbus_loopback_trigger.py`).
-5. **Next deployment slice**: replace or refresh the base when the remaining `perl-base` findings are fixable, generate an SBOM, and exercise rollback/backup on the target host.
-6. **Release decision**: keep the classification at research prototype until every external gate above has attached evidence.
+Final submission snapshot includes the hash-verified CoatingVision RGB evidence, LIBAD validation extension, raw test evidence, test manifest, and submission manifest. DINOv3 remains future validation work pending gated model access; no DINOv3 performance claim is made in this submission. Factory roll-disjoint validation, vendor PLC HIL, plant calibration, and production safety qualification remain post-submission validation gates.

@@ -39,7 +39,7 @@ It is **not production-qualified**. The repository does not contain a factory ca
 - Electrochemical performance prediction
 - Paper-comparable LIBAD DINOv3 reproduction
 
-Deployment phases and industrial value are summarized in [docs/industrialization_path.md](docs/industrialization_path.md).
+Deployment phases and industrial value are summarized in [docs/industrialization_path.md](docs/industrialization_path.md). The Track 4 inspection-system proposal identity is [docs/Inspection_System_Proposal.md](docs/Inspection_System_Proposal.md).
 
 ## Scope and Evidence
 

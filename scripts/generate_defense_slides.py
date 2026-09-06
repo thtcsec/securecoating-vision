@@ -52,16 +52,21 @@ def _load_rgb_metrics() -> dict:
     payload = json.loads(RGB_METRICS.read_text(encoding="utf-8"))
     metrics = payload["metrics"]
     provenance = payload.get("dataset_provenance") or {}
+    speed = payload.get("speed_ms_per_image") or {}
     weights = str(payload.get("weights_sha256") or "")
     dataset = str(provenance.get("dataset_tree_sha256") or "")
     if len(weights) < 8 or len(dataset) < 8:
         raise ValueError("coatingvision_real_test_metrics.json missing weight/dataset hashes")
+    inference_ms = float(speed.get("inference") or 0.0)
+    if inference_ms <= 0.0:
+        raise ValueError("coatingvision_real_test_metrics.json missing inference speed")
     return {
         "precision_pct": f"{float(metrics['metrics/precision(B)']) * 100:.1f}%",
         "recall_pct": f"{float(metrics['metrics/recall(B)']) * 100:.1f}%",
         "map50_pct": f"{float(metrics['metrics/mAP50(B)']) * 100:.1f}%",
         "map50_95_pct": f"{float(metrics['metrics/mAP50-95(B)']) * 100:.1f}%",
         "map50_short": f"{float(metrics['metrics/mAP50(B)']):.3f}",
+        "inference_ms": f"{inference_ms:.1f} ms/image",
         "n_test": int((provenance.get("splits") or {}).get("test") or 88),
         "seed": provenance.get("seed", 71),
         "weights_prefix": weights[:8],
@@ -405,24 +410,37 @@ def build() -> Path:
     )
     for i, (key, value, note) in enumerate(metrics):
         left = Inches(0.45 + i * 3.15)
-        _box(s, left, Inches(1.55), Inches(3.0), Inches(2.15), accent=True)
-        add_textbox(s, left + Inches(0.15), Inches(1.68), Inches(2.7), Inches(0.3), [
+        _box(s, left, Inches(1.45), Inches(3.0), Inches(1.95), accent=True)
+        add_textbox(s, left + Inches(0.15), Inches(1.55), Inches(2.7), Inches(0.28), [
             {"text": key, "size": 13, "color": MUTED, "bold": True}
         ])
-        add_textbox(s, left + Inches(0.15), Inches(2.05), Inches(2.7), Inches(0.55), [
-            {"text": value, "size": 28, "color": HOLD if key == "mAP50-95" else INK, "bold": True}
+        add_textbox(s, left + Inches(0.15), Inches(1.9), Inches(2.7), Inches(0.5), [
+            {"text": value, "size": 26, "color": HOLD if key == "mAP50-95" else INK, "bold": True}
         ])
-        add_textbox(s, left + Inches(0.15), Inches(2.7), Inches(2.7), Inches(0.7), [
+        add_textbox(s, left + Inches(0.15), Inches(2.5), Inches(2.7), Inches(0.7), [
             {"text": note, "size": 12, "color": MUTED}
         ])
-    _box(s, Inches(0.45), Inches(3.95), Inches(12.4), Inches(2.75), accent=True)
-    add_textbox(s, Inches(0.7), Inches(4.15), Inches(12.0), Inches(2.4), [
+    _box(s, Inches(0.45), Inches(3.55), Inches(12.4), Inches(1.05), accent=True)
+    add_textbox(s, Inches(0.7), Inches(3.65), Inches(12.0), Inches(0.85), [
+        {"text": "INFERENCE", "size": 13, "color": ACCENT, "bold": True},
+        {
+            "text": (
+                f"{rgb['inference_ms']}  ·  CPU evaluation  ·  model inference only  ·  "
+                "not factory-line throughput"
+            ),
+            "size": 18,
+            "color": INK,
+            "bold": True,
+        },
+    ])
+    _box(s, Inches(0.45), Inches(4.75), Inches(12.4), Inches(1.95), accent=True)
+    add_textbox(s, Inches(0.7), Inches(4.9), Inches(12.0), Inches(1.65), [
         {"text": "EVIDENCE IDENTITY", "size": 13, "color": ACCENT, "bold": True},
         {"text": (
             f"{rgb['n_test']} test images  ·  seed {rgb['seed']}  ·  "
             f"weights {rgb['weights_prefix']}…  ·  dataset {rgb['dataset_prefix']}…"
-        ), "size": 18, "color": INK, "bold": True, "space_after": 10},
-        {"text": "Public real optical image-disjoint split. Not roll-disjoint; not factory qualification.", "size": 15, "color": MUTED},
+        ), "size": 17, "color": INK, "bold": True, "space_after": 8},
+        {"text": "Public real optical image-disjoint split. Not roll-disjoint; not factory qualification. Timing excludes camera exposure, transport, and PLC ACK.", "size": 14, "color": MUTED},
     ])
     footer(s, 7)
 
