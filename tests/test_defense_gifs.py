@@ -14,9 +14,20 @@ from scripts import generate_defense_gifs
 class TestDefenseGifs(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        generate_defense_gifs.build_all()
         cls.rgb = ROOT / "reports/defense_gifs/rgb_hold_replay.gif"
         cls.libad = ROOT / "reports/defense_gifs/libad_gate.gif"
+        # Full regen needs development stills that the intentional ZIP omits.
+        # In a packed archive, validate the shipped looping GIFs only.
+        sources = [
+            ROOT / "reports/coatingvision_visual_evidence/image_1548_optical_raw.png",
+            ROOT / "reports/libad_demo/case_01.png",
+        ]
+        if all(path.is_file() for path in sources):
+            generate_defense_gifs.build_all()
+        elif not (cls.rgb.is_file() and cls.libad.is_file()):
+            raise FileNotFoundError(
+                "defense GIFs missing and source stills unavailable for regeneration"
+            )
 
     def test_gifs_are_looping_gif89a(self):
         for path in (self.rgb, self.libad):

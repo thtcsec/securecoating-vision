@@ -203,7 +203,7 @@ def build() -> Path:
         }
     ])
     add_textbox(s, Inches(0.45), Inches(1.05), Inches(12.4), Inches(0.45), [
-        {"text": "SecureCoating Vision", "size": 32, "color": INK, "bold": True}
+        {"text": "SecureCoating-Vision", "size": 32, "color": INK, "bold": True}
     ])
     add_textbox(s, Inches(0.45), Inches(1.55), Inches(12.4), Inches(1.35), [
         {"text": TITLE, "size": 17, "color": INK, "bold": True, "space_after": 0}

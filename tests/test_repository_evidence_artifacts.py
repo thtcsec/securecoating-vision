@@ -165,10 +165,22 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
 
     def test_public_identity_matches_single_source_of_truth(self):
         identity = yaml.safe_load((ROOT / "configs/project_identity.yaml").read_text(encoding="utf-8"))
+        docx_path = next(
+            (
+                path
+                for path in (
+                    ROOT / "Al + Materials Competition Application Form.docx",
+                    ROOT / "AI+Materials_Competition_Application_Form.docx",
+                )
+                if path.is_file()
+            ),
+            None,
+        )
+        self.assertIsNotNone(docx_path, "application form DOCX missing")
         sources = [
             (ROOT / "README.md").read_text(encoding="utf-8"),
             (ROOT / "docs/presentation_pitch.md").read_text(encoding="utf-8"),
-            _docx_text(ROOT / "Al + Materials Competition Application Form.docx"),
+            _docx_text(docx_path),
             _pptx_text(ROOT / "SecureCoating-Vision_Final_Defense_6min.pptx"),
         ]
         for source in sources:
@@ -177,7 +189,7 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
             self.assertIn(identity["tagline"], source)
             self.assertNotIn("82 passing tests", source)
             self.assertNotIn("85 passing tests", source)
-        docx = _docx_text(ROOT / "Al + Materials Competition Application Form.docx")
+        docx = _docx_text(docx_path)
         self.assertNotIn("YOLOv8-seg", docx)
         self.assertIn("YOLO26n", docx)
         self.assertIn("History", docx)
