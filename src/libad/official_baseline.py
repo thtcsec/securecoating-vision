@@ -26,7 +26,12 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 from libad.dataset import dataset_status
-from libad.official_code import OFFICIAL_CODE_RELATIVE, official_code_root, official_code_status
+from libad.official_code import (
+    OFFICIAL_CODE_RELATIVE,
+    official_code_root,
+    official_code_status,
+    submission_official_code_meta,
+)
 from libad.protocol import (
     LIBAD_CITATION,
     LIBAD_PAPER_RESULT_NOTE,
@@ -331,7 +336,7 @@ def run_card(
         )
     return {
         "generated_at": _utc_now(),
-        "official_code": code,
+        "official_code": submission_official_code_meta(code),
         "dataset_status": {
             "official_protocol_complete": status.get("official_protocol_complete"),
             "dataset_tree_sha256": status.get("dataset_tree_sha256"),
@@ -935,7 +940,7 @@ def build_report(
         ),
         "coreset_method": "density_fps",
         "coreset_attribution": LIBAD_CITATION["da_core_attribution"],
-        "official_code": code_meta,
+        "official_code": submission_official_code_meta(code_meta),
         "dataset": dataset_meta,
         "run_config": config,
         "run_id": run_id or aggregation.get("run_id"),

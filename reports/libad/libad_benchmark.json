@@ -40,11 +40,15 @@
   ],
   "official_code": {
     "present": true,
+    "present_at_run": true,
+    "present_in_submission": false,
     "path": "third_party/evenrose-libad",
+    "path_at_run": "third_party/evenrose-libad",
+    "fetch_script": "scripts/fetch_libad_official_code.py",
     "url": "https://github.com/evenrose/LIBAD.git",
     "commit": "8f98f2ebde63cd45660e58d6413f5ccd638966f4",
     "runnable_as_paper_baseline": false,
-    "note": "evenrose/LIBAD belongs to Sui et al. Presence of their source does not make this repository's numpy adapter comparable to the published table."
+    "note": "evenrose/LIBAD belongs to Sui et al. Presence of their source does not make this repository's numpy adapter comparable to the published table. The submission archive does not include third_party/evenrose-libad; re-fetch with scripts/fetch_libad_official_code.py when needed."
   },
   "experiments": {
     "unimodal_vis": {

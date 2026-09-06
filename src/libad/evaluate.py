@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Sequence
 import numpy as np
 
 from libad.dataset import LibadSample, LibadSplit, dataset_status, load_official_splits
-from libad.official_code import official_code_status
+from libad.official_code import official_code_status, submission_official_code_meta
 from libad.evidence_gate import EvidenceContracts, decide_evidence_gate
 from libad.metrics import academic_metrics, industrial_gate_metrics, summarize_splits
 from libad.protocol import (
@@ -267,7 +267,7 @@ def evaluate_official_splits(
         "comparable_to_paper": comparable,
         "official_protocol_complete": official_protocol_complete,
         "paper_comparability_blockers": paper_comparability_blockers,
-        "official_code": code_status,
+        "official_code": submission_official_code_meta(code_status),
         "experiments": summary,
         "split_records": {
             experiment: [

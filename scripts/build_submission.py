@@ -151,6 +151,7 @@ WHITELIST = [
     "scripts/evaluate_coatingvision_real.py" if os.path.exists("scripts/evaluate_coatingvision_real.py") else None,
     "scripts/build_coatingvision_test_bundle_manifest.py" if os.path.exists("scripts/build_coatingvision_test_bundle_manifest.py") else None,
     "scripts/polish_application_form_docx.py" if os.path.exists("scripts/polish_application_form_docx.py") else None,
+    "scripts/fix_application_form_claims.py" if os.path.exists("scripts/fix_application_form_claims.py") else None,
     "scripts/generate_coatingvision_evidence_views.py" if os.path.exists("scripts/generate_coatingvision_evidence_views.py") else None,
     "scripts/prepare_coatingvision_detection_dataset.py" if os.path.exists("scripts/prepare_coatingvision_detection_dataset.py") else None,
     "scripts/run_external_coatingvision_demo.py" if os.path.exists("scripts/run_external_coatingvision_demo.py") else None,

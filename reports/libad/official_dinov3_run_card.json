@@ -2,11 +2,15 @@
   "generated_at": "2026-09-06T06:10:59Z",
   "official_code": {
     "present": true,
+    "present_at_run": true,
+    "present_in_submission": false,
     "path": "third_party/evenrose-libad",
+    "path_at_run": "third_party/evenrose-libad",
+    "fetch_script": "scripts/fetch_libad_official_code.py",
     "url": "https://github.com/evenrose/LIBAD.git",
     "commit": "8f98f2ebde63cd45660e58d6413f5ccd638966f4",
     "runnable_as_paper_baseline": false,
-    "note": "evenrose/LIBAD belongs to Sui et al. Presence of their source does not make this repository's numpy adapter comparable to the published table. Textual PAPER_SPEC is DINOv3 ViT-S/16 + DA-FPS + max-NN via scripts/run_libad_official_baseline.py --paper-config. Common upstream ConvNeXt-base defaults are official-code core (ADAPTED), not PAPER_EXACT; ConvNeXt also needs HF gated-weight access and the hash-verified 4.84 GB mount."
+    "note": "evenrose/LIBAD belongs to Sui et al. Presence of their source does not make this repository's numpy adapter comparable to the published table. Textual PAPER_SPEC is DINOv3 ViT-S/16 + DA-FPS + max-NN via scripts/run_libad_official_baseline.py --paper-config. Common upstream ConvNeXt-base defaults are official-code core (ADAPTED), not PAPER_EXACT; ConvNeXt also needs HF gated-weight access and the hash-verified 4.84 GB mount. The submission archive does not include third_party/evenrose-libad; re-fetch with scripts/fetch_libad_official_code.py when needed."
   },
   "dataset_status": {
     "official_protocol_complete": true,

@@ -121,7 +121,10 @@ def build_manifest(bundle: Path = BUNDLE) -> dict:
 def write_manifest(bundle: Path = BUNDLE) -> Path:
     payload = build_manifest(bundle)
     target = bundle / "manifest.json"
-    target.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    # Ship CRLF so Windows/Linux regenerators produce the same byte-level SHA-256.
+    text = json.dumps(payload, indent=2) + "\n"
+    text = text.replace("\r\n", "\n").replace("\n", "\r\n")
+    target.write_bytes(text.encode("utf-8"))
     return target
 
 

@@ -33,7 +33,7 @@
   "evidence_class": "official_libad_local_adapter",
   "comparable_to_paper": false,
   "evidence_generation": "LEGACY_HISTORICAL_EVIDENCE",
-  "methodology_note": "Historical local-adapter result retained for continuity. Source hashes may predate the current harness; do not treat as regenerated from HEAD. PAPER_SPEC is DINOv3 ViT-S/16 (paper↔code mismatch vs ConvNeXt upstream defaults).",
+  "methodology_note": "Historical local-adapter result retained for continuity. Source hashes may predate the current harness; do not treat as regenerated from HEAD. PAPER_SPEC is DINOv3 ViT-S/16 (paper\u2194code mismatch vs ConvNeXt upstream defaults).",
   "claim_class": "ADAPTED_REPRODUCTION",
   "paper_code_consistency": "mismatch",
   "paper_spec_match": false,
@@ -45,11 +45,15 @@
   ],
   "official_code": {
     "present": true,
+    "present_at_run": true,
+    "present_in_submission": false,
     "path": "third_party/evenrose-libad",
+    "path_at_run": "third_party/evenrose-libad",
+    "fetch_script": "scripts/fetch_libad_official_code.py",
     "url": "https://github.com/evenrose/LIBAD.git",
     "commit": "8f98f2ebde63cd45660e58d6413f5ccd638966f4",
     "runnable_as_paper_baseline": false,
-    "note": "evenrose/LIBAD belongs to Sui et al. Presence of their source does not make this repository's numpy adapter comparable to the published table."
+    "note": "evenrose/LIBAD belongs to Sui et al. Presence of their source does not make this repository's numpy adapter comparable to the published table. The submission archive does not include third_party/evenrose-libad; re-fetch with scripts/fetch_libad_official_code.py when needed."
   },
   "experiments": {
     "unimodal_vis": {

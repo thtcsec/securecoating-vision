@@ -50,7 +50,17 @@ class TestCoatingVisionManifestRegenerator(unittest.TestCase):
         self.assertEqual(regenerated["splits"], before["splits"])
 
         write_manifest(bundle)
-        after_sha = hashlib.sha256((bundle / "manifest.json").read_bytes()).hexdigest()
+        raw = (bundle / "manifest.json").read_bytes()
+        self.assertIn(b"\r\n", raw)
+        # After stripping CRLF pairs, no bare LF may remain (Linux write would leave LF-only).
+        self.assertNotIn(b"\n", raw.replace(b"\r\n", b""))
+        # Explicit LF-only dump would diverge; regenerator must stay CRLF-canonical.
+        lf_only = json.dumps(regenerated, indent=2).replace("\r\n", "\n") + "\n"
+        self.assertNotEqual(
+            hashlib.sha256(lf_only.encode("utf-8")).hexdigest(),
+            before_sha,
+        )
+        after_sha = hashlib.sha256(raw).hexdigest()
         self.assertEqual(after_sha, before_sha)
         result = validate_detection_dataset_manifest(
             bundle / "manifest.json", bundle

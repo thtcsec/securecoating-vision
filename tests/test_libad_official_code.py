@@ -20,6 +20,9 @@ class TestLibadOfficialCode(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             status = official_code_status(repo_root=Path(directory))
         self.assertFalse(status["present"])
+        self.assertFalse(status["present_at_run"])
+        self.assertFalse(status["present_in_submission"])
+        self.assertEqual(status["fetch_script"], "scripts/fetch_libad_official_code.py")
         self.assertFalse(status["runnable_as_paper_baseline"])
         self.assertIn("evenrose/LIBAD", status["note"])
 

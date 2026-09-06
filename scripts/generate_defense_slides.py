@@ -71,6 +71,40 @@ def _load_rgb_metrics() -> dict:
     }
 
 
+def _picture_size_px(path: Path) -> tuple[int, int]:
+    from PIL import Image
+
+    with Image.open(path) as image:
+        return int(image.size[0]), int(image.size[1])
+
+
+def _length_inches(value) -> float:
+    inches = getattr(value, "inches", None)
+    if inches is not None:
+        return float(inches)
+    return float(value)
+
+
+def _add_picture_contain(slide, path: Path, left, top, max_width, max_height):
+    """Fit media inside a box without stretching or overflowing the CLOSE band."""
+    px_w, px_h = _picture_size_px(path)
+    aspect = px_w / float(px_h)
+    box_w = _length_inches(max_width)
+    box_h = _length_inches(max_height)
+    if box_w / box_h > aspect:
+        height = box_h
+        width = box_h * aspect
+    else:
+        width = box_w
+        height = box_w / aspect
+    # Top-align inside the media frame so CLOSE text below stays clear.
+    x = _length_inches(left) + (box_w - width) / 2.0
+    y = _length_inches(top)
+    slide.shapes.add_picture(
+        str(path), Inches(x), Inches(y), width=Inches(width), height=Inches(height)
+    )
+
+
 def _set_run(run, text, size_pt, color, bold=False):
     run.text = text
     run.font.size = Pt(size_pt)
@@ -270,7 +304,7 @@ def build() -> Path:
     add_textbox(s, Inches(0.7), Inches(4.2), Inches(12.0), Inches(2.3), [
         {"text": "SOFTWARE SAFETY SEMANTICS", "size": 12, "color": ACCENT, "bold": True},
         {"text": "Uncertainty becomes a controlled software state — not a claim of factory-qualified process safety.", "size": 18, "color": INK, "bold": True, "space_after": 10},
-        {"text": "Local LIBAD adapter gate metrics (escape ~51% / HOLD ~5%) evaluate semantics, not a plant operating point. Software E-stop latches local interlock and requests PLC channels; it is not a safety-rated hardwired stop.", "size": 14, "color": MUTED},
+        {"text": "Readiness failure → HOLD. PASS/REJECT require confirmed control evidence. No readiness gate, no automatic release. Software E-stop latches local interlock and requests PLC channels; it is not a safety-rated hardwired stop.", "size": 14, "color": MUTED},
     ])
     footer(s, 4)
 
@@ -381,14 +415,16 @@ def build() -> Path:
         {"text": "RGB LANE  ·  image_1548  ·  HOLD", "size": 12, "color": HOLD, "bold": True}
     ])
     rgb_media = RGB_GIF if RGB_GIF.is_file() else EXTERNAL_DEMO
+    # Media frame: y=1.45 → ≤5.05 so CLOSE at y=5.25 never overlaps.
+    media_top, media_h = Inches(1.45), Inches(3.55)
     if rgb_media.is_file():
-        s.shapes.add_picture(str(rgb_media), Inches(0.6), Inches(1.45), width=Inches(5.85))
+        _add_picture_contain(s, rgb_media, Inches(0.6), media_top, Inches(5.85), media_h)
     _box(s, Inches(6.75), Inches(1.05), Inches(6.15), Inches(4.05))
     add_textbox(s, Inches(6.9), Inches(1.12), Inches(5.85), Inches(0.28), [
         {"text": "LIBAD GATE  ·  fixture PASS / REJECT / REJECT / HOLD", "size": 12, "color": ACCENT, "bold": True}
     ])
     if LIBAD_GIF.is_file():
-        s.shapes.add_picture(str(LIBAD_GIF), Inches(6.9), Inches(1.45), width=Inches(5.85))
+        _add_picture_contain(s, LIBAD_GIF, Inches(6.9), media_top, Inches(5.85), media_h)
     add_textbox(s, Inches(0.45), Inches(5.25), Inches(12.4), Inches(1.65), [
         {"text": "CLOSE", "size": 12, "color": ACCENT, "bold": True},
         {"text": "The model finds defects. The evidence gate controls when software may authorize a disposition.", "size": 18, "color": INK, "bold": True, "space_after": 8},
