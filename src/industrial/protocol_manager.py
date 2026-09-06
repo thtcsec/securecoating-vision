@@ -19,7 +19,6 @@ Supports:
 """
 
 import time
-import json
 import logging
 import threading
 from typing import Optional, Dict, List, Any
@@ -532,6 +531,11 @@ class IndustrialProtocolManager:
         confirmed, delivery_metadata = self._dispatch_command(
             part_id, GateAction.HOLD, {}, command_id
         )
+        hold_state = (
+            "HOLD_CONFIRMED"
+            if (confirmed or self.mock_mode)
+            else "HOLD_REQUESTED"
+        )
         if confirmed:
             with self._lock:
                 self._apply_confirmed_state(GateAction.HOLD, {})
@@ -549,6 +553,13 @@ class IndustrialProtocolManager:
             metadata={
                 "delivery_status": "SIMULATED" if self.mock_mode else (
                     "ACKNOWLEDGED" if confirmed else "FAILED"
+                ),
+                "hold_state": hold_state,
+                "physical_hold_acked": bool(confirmed and not self.mock_mode),
+                "note": (
+                    "Local hold_register latches software intent immediately; "
+                    "HOLD_CONFIRMED requires PLC ACK (or mock). Unconfirmed control "
+                    "is not a safety-rated hardwired stop."
                 ),
                 "command_id": command_id,
                 **delivery_metadata,

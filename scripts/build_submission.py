@@ -27,6 +27,7 @@ WHITELIST = [
     "src/inference/onnx_engine.py",
     "src/inference/yolo_engine.py",
     "src/inference/predictor.py",
+    "src/inference/hardware_profile.py",
     "src/inference/postprocess.py",
     "src/inference/sensor_fusion.py",
     "src/inference/failsafe.py",
@@ -76,6 +77,7 @@ WHITELIST = [
     "tests/test_onnx_engine.py",
     "tests/test_onnx_postprocess.py",
     "tests/test_predictor.py",
+    "tests/test_hardware_profile.py",
     "tests/test_api.py",
     "tests/test_web_synchronizer.py",
     "tests/test_electrode_metrology.py",
@@ -163,13 +165,17 @@ WHITELIST = [
     "docs/presentation_pitch.md",
     "docs/libad_validation_extension.md",
     "docs/implementation_status.md",
+    "docs/hardware_profiles.md",
     "scripts/generate_defense_slides.py",
     "scripts/generate_defense_gifs.py",
     "SecureCoating-Vision_Final_Defense_6min.pptx",
     "Al + Materials Competition Application Form.docx",
     # Deployment
     "Dockerfile",
+    "Dockerfile.gpu",
     "docker-compose.yml",
+    "docker-compose.gpu.yml",
+    ".github/workflows/ci.yml",
     "requirements.txt",
     "requirements-docker.txt",
     "requirements-docker-lock.txt",
@@ -184,6 +190,7 @@ WHITELIST = [
     "reports/libad/libad_predictions.json",
     "reports/libad/official_mount_hashes.json",
     "reports/libad/official_local_adapter.json" if os.path.exists("reports/libad/official_local_adapter.json") else None,
+    "outputs/official_local_adapter_predictions.json" if os.path.exists("outputs/official_local_adapter_predictions.json") else None,
     "reports/libad/official_dinov2_dacore_interim.json" if os.path.exists("reports/libad/official_dinov2_dacore_interim.json") else None,
     "reports/libad/official_dinov3_dacore.json" if os.path.exists("reports/libad/official_dinov3_dacore.json") else None,
     "reports/libad/official_dinov3_run_card.json" if os.path.exists("reports/libad/official_dinov3_run_card.json") else None,
@@ -231,6 +238,21 @@ BLACKLIST_PATTERNS = [
     "*.zip",
 ]
 
+# Files that must exist inside the packed ZIP or the artifact is not submittable.
+ARTIFACT_REQUIRED_PATHS = [
+    "src/inference/hardware_profile.py",
+    "src/inference/predictor.py",
+    "src/inference/onnx_engine.py",
+    "src/inference/yolo_engine.py",
+    "docs/hardware_profiles.md",
+    "docker-compose.gpu.yml",
+    "Dockerfile.gpu",
+    ".github/workflows/ci.yml",
+    "reports/test_manifest.json",
+    "outputs/model.onnx",
+    "outputs/best.pt",
+]
+
 
 def is_blacklisted(path):
     # Exact / segment-aware exclusions (avoid false positives like .env.example)
@@ -247,6 +269,72 @@ def is_blacklisted(path):
     if "runs" in parts or ".ipynb_checkpoints" in parts or "node_modules" in parts:
         return True
     return False
+
+
+def verify_packed_artifact(zip_path: str) -> None:
+    """Unzip the just-built archive and prove imports/tests collect.
+
+    The working-tree pytest snapshot is not enough: judges open the ZIP.
+    """
+    import tempfile
+
+    print("  VERIFYING PACKED ARTIFACT (unzip → import → collect):")
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        names = set(zf.namelist())
+        missing = [path for path in ARTIFACT_REQUIRED_PATHS if path not in names]
+        if missing:
+            print("  [ERROR] ZIP missing required paths:")
+            for path in missing:
+                print(f"    - {path}")
+            sys.exit(1)
+        with tempfile.TemporaryDirectory(prefix="scv_zip_verify_") as tmp:
+            zf.extractall(tmp)
+            env = os.environ.copy()
+            env["PYTHONPATH"] = os.path.join(tmp, "src")
+            import_probe = subprocess.run(
+                [
+                    sys.executable,
+                    "-c",
+                    (
+                        "from inference.hardware_profile import resolve_inference_profile\n"
+                        "from inference.predictor import CoatingPredictor\n"
+                        "print('import_ok', resolve_inference_profile is not None, CoatingPredictor is not None)"
+                    ),
+                ],
+                cwd=tmp,
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+            if import_probe.returncode != 0:
+                print("  [ERROR] Packed artifact import failed:")
+                print(import_probe.stdout)
+                print(import_probe.stderr)
+                sys.exit(1)
+            collect = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    "--collect-only",
+                    "-q",
+                    "tests/test_hardware_profile.py",
+                    "tests/test_predictor.py",
+                    "tests/test_libad_evidence_gate.py",
+                    "tests/test_repository_evidence_artifacts.py",
+                ],
+                cwd=tmp,
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+            if collect.returncode != 0:
+                print("  [ERROR] Packed artifact pytest --collect-only failed:")
+                print(collect.stdout)
+                print(collect.stderr)
+                sys.exit(1)
+            print("  Packed artifact import + collect: OK")
+            print(f"  Collect summary: {collect.stdout.strip().splitlines()[-1] if collect.stdout.strip() else 'ok'}")
 
 
 def build_zip(require_live_api=False, skip_tests=False):
@@ -367,6 +455,8 @@ def build_zip(require_live_api=False, skip_tests=False):
             sys.exit(1)
         else:
             print("\n  All safety checks PASSED.")
+
+    verify_packed_artifact(OUTPUT_ZIP)
 
     if live.returncode == 0:
         print(f"\n  READY TO SUBMIT: {OUTPUT_ZIP} ({zip_size:.1f} MB)")

@@ -95,7 +95,13 @@ PyTorch and ONNX share the same two-class map. Development simulation + mock PLC
 *   **Answer:** "No. DA-Core is the LIBAD authors' memory-bank baseline. Our contribution is the evidence-gated PASS/REJECT/HOLD layer that sits on top of those modality scores."
 
 ### Q3: "Your FPR is still high. Are you hiding it?"
-*   **Answer:** "We publish FPR95. On official LIBAD the local numpy multimodal FPR95 is about 0.84; the authors' DINOv2 interim smoke is about 0.716 on one seed; the paper's DINOv3 setting is still 54.3%. The industrial claim is not that FPR vanished. It is that uncertain or disagreed evidence cannot become an automatic PASS or REJECT. HOLD is the controlled state."
+*   **Answer:** "We publish FPR95. On official LIBAD the local numpy multimodal FPR95 is about 0.84; the authors' DINOv2 interim smoke is about 0.716 on one seed; the paper's DINOv3 setting is still 54.3%. The claim is software fail-closed semantics: uncertain or disagreed evidence cannot become an automatic PASS or REJECT. That is not yet a factory-qualified safe operating point — local adapter escape remains ~51% at ~5% HOLD."
+
+*   **Likely Q:** "If HOLD is the answer, why is HOLD rate only ~5% while escape rate is ~51%?"
+*   **Answer:** "That operating point is not a proposed plant set-point. It is an experimental gate policy used to evaluate PASS/REJECT/HOLD semantics on the local numpy adapter. The escape rate shows this threshold is not deployment-acceptable — which is why the repository remains a research prototype, not factory-qualified. Next work is a locked risk–coverage calibration curve."
+
+*   **Likely Q:** "Your title says Zero-Trust Edge-Cloud — is that delivered?"
+*   **Answer:** "The registered title states the target deployment architecture. This artifact validates edge inspection, evidence, traceability, and fail-closed control contracts. mTLS, RBAC, and OT segmentation remain explicit production gates and are not claimed complete."
 
 ### Q4: "Is this just YOLO plus a few sensors?"
 *   **Answer:** "YOLO localizes known surface defects. Thermal and the laser profiler are simulated adapters in this prototype. The contribution is the fail-closed decision layer: detection cannot self-release. That is the materials-testing problem Track 4 actually grades."

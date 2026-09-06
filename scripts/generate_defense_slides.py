@@ -243,9 +243,9 @@ def build() -> Path:
         ])
     _box(s, Inches(0.45), Inches(4.05), Inches(12.4), Inches(2.65), accent=True)
     add_textbox(s, Inches(0.7), Inches(4.2), Inches(12.0), Inches(2.3), [
-        {"text": "INDUSTRIAL MEANING", "size": 12, "color": ACCENT, "bold": True},
-        {"text": "Uncertainty becomes a controlled operational state, not a hidden false-positive rate.", "size": 20, "color": INK, "bold": True, "space_after": 10},
-        {"text": "Software E-stop latches local interlock and requests PLC channels. It is not a safety-rated hardwired stop.", "size": 15, "color": MUTED},
+        {"text": "SOFTWARE SAFETY SEMANTICS", "size": 12, "color": ACCENT, "bold": True},
+        {"text": "Uncertainty becomes a controlled software state — not a claim of factory-qualified process safety.", "size": 18, "color": INK, "bold": True, "space_after": 10},
+        {"text": "Local LIBAD adapter gate metrics (escape ~51% / HOLD ~5%) evaluate semantics, not a plant operating point. Software E-stop latches local interlock and requests PLC channels; it is not a safety-rated hardwired stop.", "size": 14, "color": MUTED},
     ])
     footer(s, 4)
 
@@ -285,13 +285,13 @@ def build() -> Path:
     paint_bg(s)
     kicker(s, "06", "3:35–4:20")
     add_textbox(s, Inches(0.45), Inches(0.5), Inches(12.4), Inches(0.7), [
-        {"text": "Trace first. Command second. ACK or HOLD.", "size": 28, "color": INK, "bold": True}
+        {"text": "Intent → command → ACK. HOLD is requested, then confirmed.", "size": 24, "color": INK, "bold": True}
     ])
     steps = [
         ("1", "Inspect", "RGB path + fail-safe deadline"),
         ("2", "PENDING", "SQLite claims (batch, part)"),
         ("3", "PLC", "One command owner + ACK sequence"),
-        ("4", "Finalize", "PASS/REJECT, or HOLD if ACK fails"),
+        ("4", "Confirm", "PASS/REJECT only after ACK; HOLD_REQUESTED ≠ HOLD_CONFIRMED"),
         ("5", "Certificate", "HMAC-SHA256 over canonical payload"),
         ("6", "Audit", "Operator confirm phrase is durable"),
     ]
@@ -363,8 +363,8 @@ def build() -> Path:
         s.shapes.add_picture(str(LIBAD_GIF), Inches(6.9), Inches(1.45), width=Inches(5.85))
     add_textbox(s, Inches(0.45), Inches(5.25), Inches(12.4), Inches(1.65), [
         {"text": "CLOSE", "size": 12, "color": ACCENT, "bold": True},
-        {"text": "The model finds defects. The evidence gate controls when the line may act.", "size": 20, "color": INK, "bold": True, "space_after": 8},
-        {"text": "GIFs loop checked-in artifacts. RGB HOLD is real optical + mock PLC. LIBAD fixtures stay protocol fixtures. Authors' interim is DINOv2 1-seed, not DINOv3. Next gate: HIL, factory calibration, roll-disjoint data.", "size": 14, "color": MUTED},
+        {"text": "The model finds defects. The evidence gate controls when software may authorize a disposition.", "size": 18, "color": INK, "bold": True, "space_after": 8},
+        {"text": "Registered title states the target Zero-Trust Edge-Cloud architecture; this artifact validates inspection, evidence, and fail-closed contracts — not completed mTLS/RBAC/OT. GIFs loop checked-in artifacts. Authors' interim is DINOv2 1-seed, not DINOv3.", "size": 13, "color": MUTED},
     ])
     footer(s, 8)
 

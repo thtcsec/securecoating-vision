@@ -1,17 +1,16 @@
 """
-SecureCoating-Vision: AI Closed-Loop Root-Cause Diagnostics & Equipment Feedback
-================================================================================
-Translates defect spatial patterns, physical morphology, and severity into actionable
-closed-loop adjustments for upstream battery manufacturing equipment.
+SecureCoating-Vision: diagnostic hypothesis generator for coating defects
+=======================================================================
+Maps defect spatial patterns and morphology to *candidate* engineering causes
+for human review. This is not causal attribution from process telemetry.
 
-Equipment Mappings:
+Equipment mappings are heuristic review prompts for:
 1. Slot-Die Coater / Doctor Blade Metrology Unit
 2. High-Shear Planetary Slurry Mixer & Vacuum De-aerator
 3. Multi-Zone Hot Air Floatation Drying Oven
 4. Web Handling Unwinder & Tension Control Servo
 """
 
-import time
 import logging
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
@@ -22,7 +21,7 @@ logger = logging.getLogger("SecureCoatingVision.RootCause")
 
 @dataclass
 class EquipmentAdjustment:
-    """Actionable tuning parameter for upstream factory equipment."""
+    """Candidate tuning suggestion for upstream equipment review (not auto-applied)."""
     equipment_unit: str       # e.g., 'Slot-Die Coater Lip', 'Drying Oven Zone 1', 'Mixer Vacuum'
     parameter_name: str       # e.g., 'Zone 1 Temperature', 'Doctor Blade Index', 'Vacuum Pressure'
     current_value: str
@@ -33,7 +32,7 @@ class EquipmentAdjustment:
 
 @dataclass
 class RootCauseReport:
-    """Comprehensive diagnostic report attributing defect root causes."""
+    """Heuristic diagnostic hypothesis report — not process-validated causality."""
     primary_root_cause: str
     affected_equipment: str
     confidence_score: Optional[float]
@@ -44,12 +43,14 @@ class RootCauseReport:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
+            "role": "diagnostic_hypothesis_generator",
             "primary_root_cause": self.primary_root_cause,
             "affected_equipment": self.affected_equipment,
             "confidence_score": (
                 round(self.confidence_score, 2) if self.confidence_score is not None else None
             ),
             "evidence_level": "HEURISTIC_RULE_MATCH",
+            "causality_claim": False,
             "defect_signature": self.defect_signature,
             "severity_level": self.severity_level,
             "action_items": [
@@ -59,6 +60,7 @@ class RootCauseReport:
                     "delta": a.suggested_delta,
                     "urgency": a.urgency,
                     "rationale": a.rationale,
+                    "current_value": a.current_value,
                 }
                 for a in self.action_items
             ],
@@ -68,7 +70,10 @@ class RootCauseReport:
 
 class RootCauseDiagnosticEngine:
     """
-    Expert rule & statistical AI engine that attributes coating defects back to manufacturing causes.
+    Heuristic diagnostic hypothesis generator.
+
+    Emits candidate engineering causes for review. Does not claim measured
+    process causality (oven temperature, vacuum pressure, etc. are NOT MEASURED).
     """
 
     def diagnose_batch(

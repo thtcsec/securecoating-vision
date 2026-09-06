@@ -285,6 +285,12 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         }
         self.assertIn("reports/test_manifest.json", string_items)
         self.assertIn("configs/project_identity.yaml", string_items)
+        self.assertIn("src/inference/hardware_profile.py", string_items)
+        self.assertIn("docs/hardware_profiles.md", string_items)
+        self.assertIn("docker-compose.gpu.yml", string_items)
+        self.assertIn("Dockerfile.gpu", string_items)
+        self.assertIn(".github/workflows/ci.yml", string_items)
+        self.assertIn("tests/test_hardware_profile.py", string_items)
         self.assertIn("reports/libad/libad_benchmark.json", string_items)
         self.assertIn("reports/libad/official_mount_hashes.json", string_items)
         self.assertIn("scripts/record_libad_official_manifest.py", string_items)
