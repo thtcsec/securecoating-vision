@@ -187,9 +187,12 @@ WHITELIST = [
     "requirements-core.txt",
     ".dockerignore",
     ".env.example",
-    # Data (images ONLY, no labels)
+    # Data and ZIP-safe evaluation fixtures.
+    # Training/private labels are excluded;
+    # synthetic evaluator labels are intentionally included.
     "data/README.md",
-    "data/evaluation/README.md" if os.path.exists("data/evaluation/README.md") else None,    "reports/libad/libad_benchmark.json",
+    "data/evaluation/README.md" if os.path.exists("data/evaluation/README.md") else None,
+    "reports/libad/libad_benchmark.json",
     "reports/libad/libad_predictions.json",
     "reports/libad/official_mount_hashes.json",
     "reports/libad/official_local_adapter.json" if os.path.exists("reports/libad/official_local_adapter.json") else None,
@@ -271,6 +274,7 @@ ARTIFACT_REQUIRED_PATHS = [
     "reports/coatingvision_visual_evidence/image_1548_yolo_candidate_zoom.png",
     "scripts/generate_defense_gifs.py",
     "scripts/build_synthetic_evaluation_manifest.py",
+    "tests/test_evaluation_integrity.py",
     "tests/test_defense_gifs.py",
 ]
 
@@ -507,6 +511,7 @@ def verify_packed_artifact(zip_path: str) -> None:
                     "tests/test_hardware_profile.py",
                     "tests/test_predictor.py",
                     "tests/test_libad_evidence_gate.py",
+                    "tests/test_evaluation_integrity.py",
                     "tests/test_repository_evidence_artifacts.py",
                     "tests/test_defense_gifs.py",
                 ],

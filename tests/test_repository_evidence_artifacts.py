@@ -295,6 +295,7 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn("TREE_DIRS", source)
         self.assertIn("verify_packed_artifact", source)
         self.assertIn("executed contract tests", source)
+        self.assertGreaterEqual(source.count("tests/test_evaluation_integrity.py"), 2)
         self.assertIn("assert_test_snapshot_certifies_head", source)
         self.assertIn("test snapshot does not certify current HEAD", source)
         self.assertIn("CLAIM_HASH_PREFIXES", source)

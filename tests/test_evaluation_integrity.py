@@ -298,16 +298,17 @@ class TestEvaluationIntegrity(unittest.TestCase):
         self.assertIn("used_for_defense_rgb_metrics=false", status)
 
     def test_legacy_dataset_manifest_is_superseded_and_not_packed(self):
-        payload = json.loads(
-            (ROOT / "reports" / "dataset_manifest.json").read_text(encoding="utf-8")
-        )
-        self.assertEqual(payload["status"], "SUPERSEDED")
-        self.assertEqual(
-            payload["authoritative_manifest"],
-            "reports/synthetic_evaluation_manifest.json",
-        )
-        self.assertEqual(payload["evidence_class"], "SYNTHETIC_EVALUATOR_FIXTURE")
-        self.assertFalse(payload["used_for_defense_rgb_metrics"])
+        # Source checkout keeps a SUPERSEDED stub; packed ZIP must omit it.
+        legacy = ROOT / "reports" / "dataset_manifest.json"
+        if legacy.exists():
+            payload = json.loads(legacy.read_text(encoding="utf-8"))
+            self.assertEqual(payload["status"], "SUPERSEDED")
+            self.assertEqual(
+                payload["authoritative_manifest"],
+                "reports/synthetic_evaluation_manifest.json",
+            )
+            self.assertEqual(payload["evidence_class"], "SYNTHETIC_EVALUATOR_FIXTURE")
+            self.assertFalse(payload["used_for_defense_rgb_metrics"])
         builder = (ROOT / "scripts" / "build_submission.py").read_text(encoding="utf-8")
         self.assertNotIn('"reports/dataset_manifest.json"', builder)
 
