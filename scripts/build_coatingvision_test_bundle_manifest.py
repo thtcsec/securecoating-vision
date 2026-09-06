@@ -16,6 +16,14 @@ BUNDLE = ROOT / "data" / "coatingvision_real_test"
 STUB_TRAIN = "_zip_stub_train.jpg"
 STUB_VAL = "_zip_stub_val.jpg"
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png"}
+# Byte-level SHA-256 of the CRLF-canonical shipped manifest.json.
+CANONICAL_MANIFEST_SHA256 = (
+    "99329ef3363891951fd95b57c24ae591755137f372675d040dc07d7aacda8d75"
+)
+# Same JSON with LF-only newlines (Linux-naive write_text drift).
+LF_DRIFT_MANIFEST_SHA256 = (
+    "148ae0902287ded20acec25daeb65be2c07e68442c6f2727f1a8a54214b79935"
+)
 
 
 def sha256_file(path: Path) -> str:

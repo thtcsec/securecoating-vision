@@ -1,0 +1,4 @@
+# Force byte-stable CRLF for the authoritative CoatingVision ZIP-safe manifest.
+# Git stores LF in the object DB; checkout always materializes CRLF on every OS
+# so Linux/Windows SHA-256 of this file stays 99329ef3… (see metrics provenance).
+data/coatingvision_real_test/manifest.json text eol=crlf

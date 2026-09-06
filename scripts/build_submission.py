@@ -163,6 +163,7 @@ WHITELIST = [
     "README_CN.md",
     "LICENSE",
     "NOTICE.md",
+    ".gitattributes" if os.path.exists(".gitattributes") else None,
     "reports/analysis_report.md",
     "docs/system_architecture.md",
     "docs/inspection_workflow.md",
