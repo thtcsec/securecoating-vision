@@ -22,7 +22,7 @@ SecureCoating-Vision 是一个面向卷对卷涂布场景的**证据感知、失
 “零漏检”、ppm、六西格玛、安全等级急停或工厂节拍达标。
 
 <!-- TEST_MANIFEST:START -->
-当前软件验证快照为 267 项测试通过、0 项跳过、0 项失败（提交 `a86b003fe0bb`，工作树干净，源码差异 `none`，Python 3.11.9，耗时 86.37 秒）。权威记录为 [reports/test_manifest.json](reports/test_manifest.json)。该记录仅证明当前软件测试结果，不代表工厂性能、真实 PLC 行为、安全等级急停认证或生产资质。
+当前软件验证快照为 269 项测试通过、0 项跳过、0 项失败（提交 `5140e79ce1a4`，工作树干净，源码差异 `none`，Python 3.11.9，耗时 197.81 秒）。权威记录为 [reports/test_manifest.json](reports/test_manifest.json)。该记录仅证明当前软件测试结果，不代表工厂性能、真实 PLC 行为、安全等级急停认证或生产资质。
 <!-- TEST_MANIFEST:END -->
 
 ## 评委可复现的本地演示
