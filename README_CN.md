@@ -10,7 +10,8 @@
 **队伍 71** · 2026 全球 AI+材料创新应用大赛  
 **赛道四** · AI + 材料检测与表征  
 **队长 Trinh Hoang Tu** · 胡志明市外语信息科技大学（HUFLIT）  
-**学术顾问：** Kris Singh 教授 · 清华大学客座教授 · SRII Founder & CEO
+**学术顾问：** Kris Singh 教授 — 清华大学客座教授；SRII Founder & CEO  
+（顾问范围：创新、产业化与决赛答辩指导；非 detector 共作者）
 
 注册英文名称、版本和口号以 [README.md](README.md) 与
 [`configs/project_identity.yaml`](configs/project_identity.yaml) 为唯一来源。

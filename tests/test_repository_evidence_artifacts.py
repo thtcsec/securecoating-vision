@@ -387,14 +387,8 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn("speed_ms_per_image", source)
         self.assertNotIn("logo.png", source)
         self.assertNotIn("MSE Lab", source)
+        self.assertFalse((ROOT / "logo.png").is_file())
         self.assertTrue((ROOT / "reports/defense_gifs/coating_surface_heldout.png").is_file())
-        with zipfile.ZipFile(ROOT / "SecureCoating-Vision_Final_Defense_6min.pptx") as archive:
-            media_names = [name for name in archive.namelist() if name.startswith("ppt/media/")]
-            # Title slide is typography-only; logo.png must not appear as product branding.
-            if (ROOT / "logo.png").is_file():
-                logo_bytes = (ROOT / "logo.png").read_bytes()
-                media = [archive.read(name) for name in media_names]
-                self.assertNotIn(logo_bytes, media)
         leftover_decks = (
             "SecureCoating-Vision_Final_Defense_6min_Evidence_Aware.pptx",
             "SecureCoating-Vision_Final_Defense_6min_Coating_Surface_Evidence.pptx",

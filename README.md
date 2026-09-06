@@ -10,7 +10,8 @@
 **Team 71** · Global AI + Materials Innovation Application Competition 2026  
 **Track 4** · AI + Materials Testing & Characterization  
 **Trinh Hoang Tu** · HUFLIT  
-**Advisor:** Prof. Kris Singh · Visiting Professor, Tsinghua University · Founder & CEO, SRII
+**Advisor:** Prof. Kris Singh — Visiting Professor, Tsinghua University; Founder & CEO, SRII  
+(Advisory scope: innovation, industrialization, and final-defense guidance; not a detector co-author)
 
 **Registered title:** SecureCoating Vision: A High-Throughput and Zero-Trust Edge-Cloud Pipeline for Inline Battery Electrode Defect Inspection and Traceable Quality Decisions
 
