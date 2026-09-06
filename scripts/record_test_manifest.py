@@ -152,6 +152,17 @@ def record_test_manifest(pytest_args: list[str] | None = None) -> dict:
         "```"
     )
     _replace_marked_block(PROJECT_ROOT / "README.md", readme_body)
+    readme_cn_body = (
+        f"当前软件验证快照为 {passed} 项测试通过、{skipped} 项跳过、{failed} 项失败"
+        f"（提交 `{manifest['commit_sha'][:12]}`，工作树"
+        f"{'脏' if manifest['working_tree_dirty'] else '干净'}，"
+        f"源码差异 `{(manifest['source_diff_sha256'] or 'none')[:12]}`，"
+        f"Python {manifest['python_version']}，耗时 {manifest['duration_seconds']} 秒）。"
+        f"权威记录为 [reports/test_manifest.json](reports/test_manifest.json)。"
+        "该记录仅证明当前软件测试结果，不代表工厂性能、真实 PLC 行为、"
+        "安全等级急停认证或生产资质。"
+    )
+    _replace_marked_block(PROJECT_ROOT / "README_CN.md", readme_cn_body)
     _replace_marked_block(PROJECT_ROOT / "docs" / "implementation_status.md", status_body)
     print(json.dumps(manifest, indent=2))
     if completed.returncode != 0:

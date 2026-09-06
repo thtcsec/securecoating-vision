@@ -61,8 +61,14 @@ def parse_args():
                         help="Optional explicit .pt artifact for official Ultralytics metrics")
     parser.add_argument("--ultralytics-data-config", default=None,
                         help="Dataset YAML matching --dataset-dir; required with --ultralytics-model-path")
-    parser.add_argument("--reference-dataset-dir", default="data/coating_defects",
-                        help="Training dataset root used for mandatory hash-overlap audit")
+    parser.add_argument(
+        "--reference-dataset-dir",
+        default="data/evaluation/reference",
+        help=(
+            "Train/val tree used for hash-overlap audit. Synthetic fixture default is the "
+            "ZIP-safe stubs under data/evaluation/reference (not coating_defects)."
+        ),
+    )
     parser.add_argument("--dataset-manifest", required=True,
                         help="Immutable JSON manifest with train/val/test roll IDs and SHA-256 files")
     return parser.parse_args()
@@ -76,8 +82,16 @@ def _file_sha256(path: str) -> str:
     return digest.hexdigest()
 
 
-def assert_no_dataset_overlap(evaluation_images_dir: str, reference_dataset_dir: str) -> None:
-    """Reject evaluation data that overlaps train or validation artifacts by content hash."""
+def _load_manifest_payload(dataset_manifest: str) -> dict:
+    with open(dataset_manifest, "r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    if not isinstance(payload, dict):
+        raise ValueError("dataset manifest must be a JSON object")
+    return payload
+
+
+def count_hash_overlaps(evaluation_images_dir: str, reference_dataset_dir: str) -> list:
+    """Return (eval_path, reference_path) pairs that share SHA-256 content."""
     reference_hashes = {}
     for split in ("train", "val"):
         split_dir = os.path.join(reference_dataset_dir, "images", split)
@@ -98,11 +112,21 @@ def assert_no_dataset_overlap(evaluation_images_dir: str, reference_dataset_dir:
             matching = reference_hashes.get(_file_sha256(path))
             if matching:
                 overlaps.append((path, matching))
+    return overlaps
+
+
+def assert_no_dataset_overlap(evaluation_images_dir: str, reference_dataset_dir: str) -> None:
+    """Reject evaluation data that overlaps train or validation artifacts by content hash."""
+    overlaps = count_hash_overlaps(evaluation_images_dir, reference_dataset_dir)
     if overlaps:
         examples = "; ".join(f"{a} == {b}" for a, b in overlaps[:5])
         raise RuntimeError(
             f"Evaluation leakage detected: {len(overlaps)} image(s) overlap train/val by SHA-256. {examples}"
         )
+
+
+def _posix_relpath(path: str) -> str:
+    return os.path.relpath(path, PROJECT_ROOT).replace("\\", "/")
 
 
 def _dataset_sha256(dataset_dir: str) -> str:
@@ -328,7 +352,7 @@ def run_evaluation(
     seed: int = 42,
     ultralytics_model_path: str = None,
     ultralytics_data_config: str = None,
-    reference_dataset_dir: str = "data/coating_defects",
+    reference_dataset_dir: str = "data/evaluation/reference",
     dataset_manifest: str = None,
 ):
     """
@@ -349,10 +373,25 @@ def run_evaluation(
     if not dataset_manifest:
         raise ValueError("dataset_manifest is required for evaluation provenance")
     from evaluation.dataset_manifest import validate_roll_disjoint_manifest
+
+    manifest_payload = _load_manifest_payload(dataset_manifest)
+    evidence_class = str(manifest_payload.get("evidence_class") or "UNSPECIFIED")
+    synthetic_fixture = evidence_class == "SYNTHETIC_EVALUATOR_FIXTURE"
+    development_image_reuse = bool(manifest_payload.get("development_image_reuse", False))
+    cross_taxonomy_run = bool(manifest_payload.get("cross_taxonomy_run", False))
+
     manifest_summary = validate_roll_disjoint_manifest(
         dataset_manifest, PROJECT_ROOT, evaluation_dataset_dir=dataset_dir
     )
+    # Always audit against the declared reference tree. Synthetic fixture uses
+    # ZIP-safe unique stubs under data/evaluation/reference (must not overlap).
     assert_no_dataset_overlap(images_dir, reference_dataset_dir)
+    if synthetic_fixture:
+        print(
+            "  NOTE: SYNTHETIC_EVALUATOR_FIXTURE — not CoatingVision RGB defense evidence; "
+            f"development_image_reuse={development_image_reuse}; "
+            f"cross_taxonomy_run={cross_taxonomy_run}"
+        )
 
     # Initialize ONNX inference engine
     from inference.onnx_engine import InferenceEngine
@@ -525,7 +564,26 @@ def run_evaluation(
     export_data = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "provider": engine.active_provider,
-        "dataset_path": dataset_dir,
+        "dataset_path": dataset_dir.replace("\\", "/"),
+        "evidence_class": evidence_class,
+        "used_for_defense_rgb_metrics": False,
+        "development_image_reuse": bool(development_image_reuse or synthetic_fixture),
+        "cross_taxonomy_run": bool(cross_taxonomy_run or synthetic_fixture),
+        "evaluation_scope": (
+            "Synthetic four-class evaluator fixture for reproducing the local "
+            "evaluation pipeline; not the CoatingVision real-image RGB detector report."
+            if synthetic_fixture
+            else "Evaluation report. Confirm evidence_class before citing metrics."
+        ),
+        "fixture_taxonomy": manifest_payload.get("fixture_taxonomy")
+        or {str(k): v for k, v in CLASS_NAMES.items()},
+        "model_taxonomy_note": manifest_payload.get("model_taxonomy_note")
+        or (
+            "Runtime CoatingVision ONNX detector is 2-class "
+            "(surface_crack / delamination_crack)."
+            if synthetic_fixture
+            else None
+        ),
         "total_images": len(latencies),
         "total_gt_instances": total_gt_count,
         "total_detections": total_det_count,
@@ -533,9 +591,11 @@ def run_evaluation(
         "confidence_threshold": conf_threshold,
         "seed": seed,
         "provenance": {
-            "model_path": os.path.relpath(model_path, PROJECT_ROOT),
+            "model_path": _posix_relpath(model_path),
             "model_sha256": _file_sha256(model_path),
             "dataset_sha256": _dataset_sha256(dataset_dir),
+            "dataset_manifest": _posix_relpath(dataset_manifest),
+            "reference_dataset_dir": _posix_relpath(reference_dataset_dir),
             "roll_disjoint_manifest": manifest_summary,
             "source_commit": _git_commit(),
             "matching_policy": (
@@ -550,6 +610,10 @@ def run_evaluation(
             "box_f1_score": round(box_f1, 4),
         },
         "segmentation_metrics": {
+            "metric_semantics": (
+                "bbox-derived proxy masks for detection-only outputs; NOT semantic "
+                "or instance segmentation evidence"
+            ),
             "mask_precision": round(mask_prec, 4),
             "mask_recall": round(mask_rec, 4),
             "mask_f1_score": round(mask_f1, 4),
@@ -576,12 +640,22 @@ def run_evaluation(
             } for cid in CLASS_NAMES
         }
     }
+    if synthetic_fixture:
+        export_data["used_for_defense_rgb_metrics"] = False
 
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(export_data, f, indent=2)
 
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
+        writer.writerow([
+            "#META",
+            f"evidence_class={export_data['evidence_class']}",
+            f"used_for_defense_rgb_metrics={export_data['used_for_defense_rgb_metrics']}",
+            f"development_image_reuse={export_data['development_image_reuse']}",
+            f"cross_taxonomy_run={export_data['cross_taxonomy_run']}",
+            "mask_semantics=bbox-derived-proxy-not-segmentation",
+        ])
         writer.writerow(["Class", "Box_TP", "Box_FP", "Box_FN", "Box_Precision", "Box_Recall", "Mask_TP", "Mask_FP", "Mask_FN", "Mean_Mask_IoU"])
         for cid in sorted(CLASS_NAMES.keys()):
             r = aggregated_results[cid]

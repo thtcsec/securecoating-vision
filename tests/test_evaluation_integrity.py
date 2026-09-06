@@ -245,6 +245,58 @@ class TestEvaluationIntegrity(unittest.TestCase):
                     str(manifest), str(root), str(root / "evaluation")
                 )
 
+    def test_checked_in_synthetic_evaluation_report_is_honest(self):
+        report_path = ROOT / "reports" / "evaluation_results.json"
+        self.assertTrue(report_path.is_file())
+        payload = json.loads(report_path.read_text(encoding="utf-8"))
+        self.assertEqual(payload["evidence_class"], "SYNTHETIC_EVALUATOR_FIXTURE")
+        self.assertFalse(payload["used_for_defense_rgb_metrics"])
+        self.assertTrue(payload["development_image_reuse"])
+        self.assertTrue(payload["cross_taxonomy_run"])
+        self.assertIn("bbox-derived", payload["segmentation_metrics"]["metric_semantics"])
+        self.assertNotIn("coating_defects", payload["provenance"].get("reference_dataset_dir", ""))
+        self.assertTrue(
+            str(payload["provenance"].get("reference_dataset_dir", "")).replace("\\", "/").startswith(
+                "data/evaluation/reference"
+            )
+        )
+        command = (ROOT / "reports" / "evaluation_command.txt").read_text(encoding="utf-8")
+        self.assertIn("build_synthetic_evaluation_manifest.py", command)
+        self.assertIn("data/evaluation/reference", command)
+        self.assertNotIn("coating_defects", command)
+        self.assertNotIn("coatingvision_real_detect", command)
+        manifest = json.loads(
+            (ROOT / "reports" / "synthetic_evaluation_manifest.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(manifest["evidence_class"], "SYNTHETIC_EVALUATOR_FIXTURE")
+        for split in ("train", "val"):
+            for entry in manifest["splits"][split]:
+                self.assertTrue(entry["path"].startswith("data/evaluation/reference/"))
+                self.assertFalse(entry["path"].startswith("data/coating_defects/"))
+        csv_text = (ROOT / "reports" / "evaluation_results.csv").read_text(encoding="utf-8")
+        self.assertIn("evidence_class=SYNTHETIC_EVALUATOR_FIXTURE", csv_text)
+        self.assertIn("used_for_defense_rgb_metrics=False", csv_text)
+
+    def test_synthetic_manifest_builder_is_self_contained(self):
+        from scripts.build_synthetic_evaluation_manifest import build_manifest
+
+        payload = build_manifest()
+        self.assertEqual(payload["evidence_class"], "SYNTHETIC_EVALUATOR_FIXTURE")
+        self.assertTrue(payload["development_image_reuse"])
+        train_path = ROOT / payload["splits"]["train"][0]["path"]
+        val_path = ROOT / payload["splits"]["val"][0]["path"]
+        self.assertTrue(train_path.is_file())
+        self.assertTrue(val_path.is_file())
+        self.assertNotEqual(
+            hashlib.sha256(train_path.read_bytes()).hexdigest(),
+            hashlib.sha256(val_path.read_bytes()).hexdigest(),
+        )
+        # ZIP-safe reference stubs must not overlap fixture test imagery.
+        assert_no_dataset_overlap(
+            str(ROOT / "data/evaluation/images"),
+            str(ROOT / "data/evaluation/reference"),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

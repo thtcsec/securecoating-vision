@@ -121,6 +121,7 @@ WHITELIST = [
     "configs/calibration.yaml",
     # Scripts
     "scripts/run_evaluation.py",
+    "scripts/build_synthetic_evaluation_manifest.py",
     "scripts/run_ultralytics_validation.py",
     "scripts/generate_synthetic_coating_defects.py",
     "scripts/prepare_synthetic_dataset.py",
@@ -186,7 +187,7 @@ WHITELIST = [
     ".env.example",
     # Data (images ONLY, no labels)
     "data/README.md",
-    "reports/libad/libad_benchmark.json",
+    "data/evaluation/README.md" if os.path.exists("data/evaluation/README.md") else None,    "reports/libad/libad_benchmark.json",
     "reports/libad/libad_predictions.json",
     "reports/libad/official_mount_hashes.json",
     "reports/libad/official_local_adapter.json" if os.path.exists("reports/libad/official_local_adapter.json") else None,
@@ -204,6 +205,7 @@ WHITELIST = [
     "reports/evaluation_results.csv" if os.path.exists("reports/evaluation_results.csv") else None,
     "reports/ultralytics_validation_results.json" if os.path.exists("reports/ultralytics_validation_results.json") else None,
     "reports/dataset_manifest.json" if os.path.exists("reports/dataset_manifest.json") else None,
+    "reports/synthetic_evaluation_manifest.json" if os.path.exists("reports/synthetic_evaluation_manifest.json") else None,
     "reports/model_sha256.txt" if os.path.exists("reports/model_sha256.txt") else None,
     "reports/test_manifest.json",
     "reports/environment.txt" if os.path.exists("reports/environment.txt") else None,
@@ -218,6 +220,7 @@ TREE_DIRS = [
     ("data/demo_real", "data/demo_real"),
     ("data/evaluation/images", "data/evaluation/images"),
     ("data/evaluation/labels", "data/evaluation/labels"),
+    ("data/evaluation/reference", "data/evaluation/reference"),
     ("reports/libad_demo", "reports/libad_demo"),
     ("reports/coatingvision_gallery", "reports/coatingvision_gallery"),
     ("reports/coatingvision_real_demo", "reports/coatingvision_real_demo"),
@@ -261,10 +264,12 @@ ARTIFACT_REQUIRED_PATHS = [
     "outputs/model.onnx",
     "outputs/best.pt",
     "data/demo_real/manifest.json",
+    "data/evaluation/README.md",
     "reports/coatingvision_visual_evidence/image_1548_optical_raw.png",
     "reports/coatingvision_visual_evidence/image_1548_contrast_clahe.png",
     "reports/coatingvision_visual_evidence/image_1548_yolo_candidate_zoom.png",
     "scripts/generate_defense_gifs.py",
+    "scripts/build_synthetic_evaluation_manifest.py",
     "tests/test_defense_gifs.py",
 ]
 

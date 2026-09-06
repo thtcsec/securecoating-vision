@@ -1,0 +1,383 @@
+{
+  "schema_version": "synthetic-evaluator-manifest/v1",
+  "evidence_class": "SYNTHETIC_EVALUATOR_FIXTURE",
+  "used_for_defense_rgb_metrics": false,
+  "development_image_reuse": true,
+  "cross_taxonomy_run": true,
+  "fixture_taxonomy": {
+    "0": "scratch",
+    "1": "void",
+    "2": "blister",
+    "3": "delamination"
+  },
+  "model_taxonomy_note": "Runtime CoatingVision ONNX detector is 2-class (surface_crack / delamination_crack). Numbers from this fixture are cross-taxonomy pipeline smoke only.",
+  "note": "Self-contained ZIP-safe fixture. Train/val are unique stubs under data/evaluation/reference. Test images intentionally reuse development imagery; not an independent benchmark and not RGB defense evidence.",
+  "splits": {
+    "train": [
+      {
+        "path": "data/evaluation/reference/images/train/synthetic_ref_train.jpg",
+        "roll_id": "synthetic-reference-train",
+        "sha256": "c0eded44757451e0743a170faecd5314cbeefa5cf34d250b0dfac5096d76088a"
+      }
+    ],
+    "val": [
+      {
+        "path": "data/evaluation/reference/images/val/synthetic_ref_val.jpg",
+        "roll_id": "synthetic-reference-val",
+        "sha256": "e013e2d678ccef2791e9d1091bb982166a004c548730b075d4f5ec792eaa79cc"
+      }
+    ],
+    "test": [
+      {
+        "path": "data/evaluation/images/defect_val_00000.jpg",
+        "roll_id": "synthetic-test-defect_val_00000",
+        "sha256": "c8620e69619b474c4c11d13e8a36c5f2a60bd224b60f75f517fd026fb1b6077c",
+        "label_path": "data/evaluation/labels/defect_val_00000.txt",
+        "label_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00001.jpg",
+        "roll_id": "synthetic-test-defect_val_00001",
+        "sha256": "36ebf4f12d88a7ceb516185ce8b929befaa07ad56b295766f42c3ff2a6c070b3",
+        "label_path": "data/evaluation/labels/defect_val_00001.txt",
+        "label_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00002.jpg",
+        "roll_id": "synthetic-test-defect_val_00002",
+        "sha256": "82dd90a17c85647566c0813a3270f474fff7c03dc89c8a20774d94dfd1fa8d74",
+        "label_path": "data/evaluation/labels/defect_val_00002.txt",
+        "label_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00003.jpg",
+        "roll_id": "synthetic-test-defect_val_00003",
+        "sha256": "9286d251c8a9fbd9a0c51975e5acd2e28fd9159dd2c4be2ee08fbdd8ccab65eb",
+        "label_path": "data/evaluation/labels/defect_val_00003.txt",
+        "label_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00004.jpg",
+        "roll_id": "synthetic-test-defect_val_00004",
+        "sha256": "d991c8b0f5798d4423a1d3ef37d840759c234b09dce841fc986da1253dac235b",
+        "label_path": "data/evaluation/labels/defect_val_00004.txt",
+        "label_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00005.jpg",
+        "roll_id": "synthetic-test-defect_val_00005",
+        "sha256": "006995e6b4f43682b3a59ae51501302bfdc38a43c4612a1f98d74026957d9bd3",
+        "label_path": "data/evaluation/labels/defect_val_00005.txt",
+        "label_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00006.jpg",
+        "roll_id": "synthetic-test-defect_val_00006",
+        "sha256": "5931436d21b7c96e5fd072ba9bdf4d070a86db134c9055485ca2b9f57a84c530",
+        "label_path": "data/evaluation/labels/defect_val_00006.txt",
+        "label_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00007.jpg",
+        "roll_id": "synthetic-test-defect_val_00007",
+        "sha256": "b784b4c4aea31d4950fa770cc92cb919b105948db6b9ce5bf9643f5bf49526cc",
+        "label_path": "data/evaluation/labels/defect_val_00007.txt",
+        "label_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00008.jpg",
+        "roll_id": "synthetic-test-defect_val_00008",
+        "sha256": "5f7e58210ac5ed75f759b7c260268465f490d8f3acb9df9a32f23b1c9f2124a6",
+        "label_path": "data/evaluation/labels/defect_val_00008.txt",
+        "label_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00009.jpg",
+        "roll_id": "synthetic-test-defect_val_00009",
+        "sha256": "f73b17a550bc3140d2295b375e602ce7e73c73f40df7d9503916bbf0b47da6c7",
+        "label_path": "data/evaluation/labels/defect_val_00009.txt",
+        "label_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00010.jpg",
+        "roll_id": "synthetic-test-defect_val_00010",
+        "sha256": "3a318c9522fed6f2ee7b6fde4f0aa109b931e4193d16b02384083a4b0d61904b",
+        "label_path": "data/evaluation/labels/defect_val_00010.txt",
+        "label_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00011.jpg",
+        "roll_id": "synthetic-test-defect_val_00011",
+        "sha256": "e09192e9d768fdd4c43ddf014f0b2f5128c936622dd0419d83edfbd6df68a458",
+        "label_path": "data/evaluation/labels/defect_val_00011.txt",
+        "label_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00012.jpg",
+        "roll_id": "synthetic-test-defect_val_00012",
+        "sha256": "01aaa297dc42f1696442c8ad7743914ea14c20759bad6995699c2bbac467c41a",
+        "label_path": "data/evaluation/labels/defect_val_00012.txt",
+        "label_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00013.jpg",
+        "roll_id": "synthetic-test-defect_val_00013",
+        "sha256": "5a64cfb6af4528d625f98f2dc224e976cf53926c5e9bcff772dc8c78447c0bd2",
+        "label_path": "data/evaluation/labels/defect_val_00013.txt",
+        "label_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00014.jpg",
+        "roll_id": "synthetic-test-defect_val_00014",
+        "sha256": "6c8417fe7e854aebd4eaa57f7f1b4f931f0efce398d4ab48b2ae9b78f8709359",
+        "label_path": "data/evaluation/labels/defect_val_00014.txt",
+        "label_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00015.jpg",
+        "roll_id": "synthetic-test-defect_val_00015",
+        "sha256": "5062200708f29ee8b8e05217583b344eb35599747eb313cac7136ab28301317a",
+        "label_path": "data/evaluation/labels/defect_val_00015.txt",
+        "label_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00016.jpg",
+        "roll_id": "synthetic-test-defect_val_00016",
+        "sha256": "0aea52c97dd6f8ad0b427c28ae438ca4c482f99badb43a569b639d54bc056d0c",
+        "label_path": "data/evaluation/labels/defect_val_00016.txt",
+        "label_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00017.jpg",
+        "roll_id": "synthetic-test-defect_val_00017",
+        "sha256": "dd7be349f7ef7c794c6edc85147234ba780b6ff2481554fa87ad98d5cda7ba57",
+        "label_path": "data/evaluation/labels/defect_val_00017.txt",
+        "label_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00018.jpg",
+        "roll_id": "synthetic-test-defect_val_00018",
+        "sha256": "8e467160df45ac397cfb4d452597104511e7003634b143411d0a509385285825",
+        "label_path": "data/evaluation/labels/defect_val_00018.txt",
+        "label_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00019.jpg",
+        "roll_id": "synthetic-test-defect_val_00019",
+        "sha256": "5e76d6684cac0274f979a86470cbb6579cd0f75a4ebb4536b946a586ce9eb898",
+        "label_path": "data/evaluation/labels/defect_val_00019.txt",
+        "label_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00020.jpg",
+        "roll_id": "synthetic-test-defect_val_00020",
+        "sha256": "333e75050cc831175a63fb46e8758de4b661278787e0171e235138020e12971d",
+        "label_path": "data/evaluation/labels/defect_val_00020.txt",
+        "label_sha256": "4182a25d3201fa2a4eac88e39dfcac5de3d4868ffa0d0fda27d824166fb815e7"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00021.jpg",
+        "roll_id": "synthetic-test-defect_val_00021",
+        "sha256": "fd5ab3b8a0b94b9d55cf7ab8e343a2df149e0f409ca8bcdf8588cfbf47cc023a",
+        "label_path": "data/evaluation/labels/defect_val_00021.txt",
+        "label_sha256": "112f302e775004e78345726fb12230ba5e2306cbf7deef9dc8fa7d4c0277368d"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00022.jpg",
+        "roll_id": "synthetic-test-defect_val_00022",
+        "sha256": "d584b9537340ac3892ea86ecd28bc0ea556ee712cc2709770d536468481d3120",
+        "label_path": "data/evaluation/labels/defect_val_00022.txt",
+        "label_sha256": "e3dfd4ffb828a1d0871898fd5d4f4b794e88e2fd331dd0b2946330e5755fb346"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00023.jpg",
+        "roll_id": "synthetic-test-defect_val_00023",
+        "sha256": "75e59bdc86850a0292b38356da8727615104f85673fce095f2dfe78a494b3591",
+        "label_path": "data/evaluation/labels/defect_val_00023.txt",
+        "label_sha256": "f829196619ea3001660925224a62846554fcecba0dfe874fd7e5a849bc5b87e9"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00024.jpg",
+        "roll_id": "synthetic-test-defect_val_00024",
+        "sha256": "9bac02bb589ec091bee7860ce41bbde8c8c80e6b1721af592919e131b018a100",
+        "label_path": "data/evaluation/labels/defect_val_00024.txt",
+        "label_sha256": "77113e0278b92193549cbf519eb5d1e901685fe354d14fca5a443cb860c88bee"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00025.jpg",
+        "roll_id": "synthetic-test-defect_val_00025",
+        "sha256": "873a9bb1ab71dfdd9766eb04f92e778ff8c929b58ff3a33ee34139a4f36def2d",
+        "label_path": "data/evaluation/labels/defect_val_00025.txt",
+        "label_sha256": "724cf8b63eaa8dde33ce255fff0fe3d9f7a2d21e89fbc6099717995366bad89d"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00026.jpg",
+        "roll_id": "synthetic-test-defect_val_00026",
+        "sha256": "c1f4a05e33cc2612f8efe0d8a5ab425e4aa36f7231fbca206bd592be9eae6f90",
+        "label_path": "data/evaluation/labels/defect_val_00026.txt",
+        "label_sha256": "85562b464a0fa208416aa05cda8f56662fa2191fc8f23ba3e9b120b79268a873"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00027.jpg",
+        "roll_id": "synthetic-test-defect_val_00027",
+        "sha256": "1e642014721888e7368bea9eef9a48d8654d14196f5d38f7ab5230410aab4ffd",
+        "label_path": "data/evaluation/labels/defect_val_00027.txt",
+        "label_sha256": "4024a2c845c4a2a474a0eeccc8dc81f37cb3c5e6fb93ab97c0f256ba88d70506"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00028.jpg",
+        "roll_id": "synthetic-test-defect_val_00028",
+        "sha256": "08110748818517d2d8fa47d8b2236db4ee6438fca329aecfd937c1898663efac",
+        "label_path": "data/evaluation/labels/defect_val_00028.txt",
+        "label_sha256": "03835dcb1fed76da822aba89d5ee4cbe8dd94a7f014f05d4f69f6e70ef0baa01"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00029.jpg",
+        "roll_id": "synthetic-test-defect_val_00029",
+        "sha256": "9f0ac50d3c6cae9545657f732a87a7d2c1b33e57847478181a460166691f7b61",
+        "label_path": "data/evaluation/labels/defect_val_00029.txt",
+        "label_sha256": "e1a08ca9992f06963c1254b5fcf2777f951371360c99ddc8ebd0a783e6876d7b"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00030.jpg",
+        "roll_id": "synthetic-test-defect_val_00030",
+        "sha256": "c40abdf8761c18918455b73013399566a27bda01cca9518a2bd12c189ad03f10",
+        "label_path": "data/evaluation/labels/defect_val_00030.txt",
+        "label_sha256": "952baba0992d130cc1d0e2fa70a8f6cf1eb85df837b7b003343a159af1903e22"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00031.jpg",
+        "roll_id": "synthetic-test-defect_val_00031",
+        "sha256": "8b1de1a9748dbc53ed3f22675c54648c2461b9943f25df25af776b77078e7372",
+        "label_path": "data/evaluation/labels/defect_val_00031.txt",
+        "label_sha256": "aeb8d4d35a5cccf4e91e0e7d5f30e116229a6a890c4d98d6c4f0cf598622f1a8"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00032.jpg",
+        "roll_id": "synthetic-test-defect_val_00032",
+        "sha256": "57edc6107e5c3b794b9af803c3018dddac7e90156ec7e3ccbfe097b121253475",
+        "label_path": "data/evaluation/labels/defect_val_00032.txt",
+        "label_sha256": "bcb1968f1fd019267ca7270ea41c1cf6180e50b32a96efe051b56d778f5728b4"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00033.jpg",
+        "roll_id": "synthetic-test-defect_val_00033",
+        "sha256": "69c346b5ff43b8bd44d586c8ed47e18870f9231b1cef7c336e58dc6d15061f99",
+        "label_path": "data/evaluation/labels/defect_val_00033.txt",
+        "label_sha256": "b0de5aa0ea98908e46414a109c9fc73742564485fa4448c41d17abf246ceb4b2"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00034.jpg",
+        "roll_id": "synthetic-test-defect_val_00034",
+        "sha256": "85d97c7114ccff3419532ddad691b272dbdc8cb6524cdf4917b74a5eb30f41ff",
+        "label_path": "data/evaluation/labels/defect_val_00034.txt",
+        "label_sha256": "a9b6d86a17dde299fdb140fe37fb47846d38e551ca51de834a370b05cbdc0660"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00035.jpg",
+        "roll_id": "synthetic-test-defect_val_00035",
+        "sha256": "75183a7bb1c6a5f06ca057abfabf805061bd5d5d11cad3e353db47bd9dea9619",
+        "label_path": "data/evaluation/labels/defect_val_00035.txt",
+        "label_sha256": "2665933d513a956ae67cb608d4e1259108583bdbf08745b34eba52ad0f33e481"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00036.jpg",
+        "roll_id": "synthetic-test-defect_val_00036",
+        "sha256": "0f5efe7b9c59b2e300ffdc57d4f076e33475e2fba3d5a6e02236f37762e2ab22",
+        "label_path": "data/evaluation/labels/defect_val_00036.txt",
+        "label_sha256": "43955ae4f82abea1713d570f13f5a131936f4c9b78ede4eba97933fe77b18cc6"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00037.jpg",
+        "roll_id": "synthetic-test-defect_val_00037",
+        "sha256": "deb19ca586ba616c82c9053ca4eed03d0eac58801be7b4db4a12c09196f67600",
+        "label_path": "data/evaluation/labels/defect_val_00037.txt",
+        "label_sha256": "9460220fb53ef8b96aa8115996858df9351e53b78478cddf935c6e620119af65"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00038.jpg",
+        "roll_id": "synthetic-test-defect_val_00038",
+        "sha256": "debc08ed6f7be27ec756fc17f19b6a48d540f973da13ccbb3bbfd0d522626451",
+        "label_path": "data/evaluation/labels/defect_val_00038.txt",
+        "label_sha256": "84cbcdccedd8ccbebba5520ea9e249b9961f62f6a76e46e741aa4d4d1b7b24c2"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00039.jpg",
+        "roll_id": "synthetic-test-defect_val_00039",
+        "sha256": "30e72473eae21b13b3c5a3441fbfba84f90bff446034e5da1c48c76b7097a4b5",
+        "label_path": "data/evaluation/labels/defect_val_00039.txt",
+        "label_sha256": "6aa96e7f18e42dfd87945363a01f1c53ff3dd6941094f0b07d8c9ad6df36a6cb"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00040.jpg",
+        "roll_id": "synthetic-test-defect_val_00040",
+        "sha256": "23515ce904cd4146eef869fc292bda320c08e89c2c3a1cac07c311802a44e5ec",
+        "label_path": "data/evaluation/labels/defect_val_00040.txt",
+        "label_sha256": "db61611a9a4e137f13805f4a7b3d2077fbcb7451d74e5ee4732c2c21590b2436"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00041.jpg",
+        "roll_id": "synthetic-test-defect_val_00041",
+        "sha256": "235a72c25a6b2627c4cf147f60c349ef2226edbea3d8f1a2b1984ca566ef8bd1",
+        "label_path": "data/evaluation/labels/defect_val_00041.txt",
+        "label_sha256": "e3f1395160a43c42c13ea436e1a09d55120daffa32e168c64d6f7a068fa88a37"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00042.jpg",
+        "roll_id": "synthetic-test-defect_val_00042",
+        "sha256": "de0617452c828aae608cfaf2a663aa8ba702914e04c6057ee2dd21dafc2e8d6a",
+        "label_path": "data/evaluation/labels/defect_val_00042.txt",
+        "label_sha256": "8458c14cf6cddf4af81c02761a1b69cfe19e0de36ef936a4c2fc1ed39a88c734"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00043.jpg",
+        "roll_id": "synthetic-test-defect_val_00043",
+        "sha256": "73213d159574217e2ee22b2e9ad4cdfe24b4777f5f55b9d49cb389de4f129b6a",
+        "label_path": "data/evaluation/labels/defect_val_00043.txt",
+        "label_sha256": "0912eef0168ad4b08fa4d55fab96dc034f7602d7a39c786eec9761159d47fba6"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00044.jpg",
+        "roll_id": "synthetic-test-defect_val_00044",
+        "sha256": "02d2e6ee3db5d57ad8635721ad07ed804f2e240f1e9949bb7ca42141f403a8b1",
+        "label_path": "data/evaluation/labels/defect_val_00044.txt",
+        "label_sha256": "30d2f382d6921696e0866885926a6346c34e5bb75c969482793d78103da6f466"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00045.jpg",
+        "roll_id": "synthetic-test-defect_val_00045",
+        "sha256": "46680f916ba13a4e092d0afe764e32f77f3d695972c3b8d6f5328acab8eaea92",
+        "label_path": "data/evaluation/labels/defect_val_00045.txt",
+        "label_sha256": "09e97e0c00fb4db8193772b6667253bff2c054fc6f7954d975caf44a00afd26c"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00046.jpg",
+        "roll_id": "synthetic-test-defect_val_00046",
+        "sha256": "f0e0f4326b1cf4fdd06f19d3fa5bd737d3811bbdd203ebde4aafda4a4f97f746",
+        "label_path": "data/evaluation/labels/defect_val_00046.txt",
+        "label_sha256": "3d479138e733433aa528321da487a5103ef0b9f290acade2132bc77f8cedf928"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00047.jpg",
+        "roll_id": "synthetic-test-defect_val_00047",
+        "sha256": "3740fef38717f2b6cb6754f5abb576d208cf4670673b7353d5975fff4a48b480",
+        "label_path": "data/evaluation/labels/defect_val_00047.txt",
+        "label_sha256": "fb56d1984cd6ab53dcd841094a3161db6707331c6a343cfc188256a1cc097d23"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00048.jpg",
+        "roll_id": "synthetic-test-defect_val_00048",
+        "sha256": "ba53e69fa3b19d8a48cfb7df4dce808deac5e2557f3d8af38bd3fc56932d5aa1",
+        "label_path": "data/evaluation/labels/defect_val_00048.txt",
+        "label_sha256": "a1d75a06192fee79c0ae5ab3eecc7f1150a0791eb9ca2bfe207a1b676e6059ba"
+      },
+      {
+        "path": "data/evaluation/images/defect_val_00049.jpg",
+        "roll_id": "synthetic-test-defect_val_00049",
+        "sha256": "5d5467d9efca016383096e3133fde7f501b9b11f560be57db71ce33ba388977a",
+        "label_path": "data/evaluation/labels/defect_val_00049.txt",
+        "label_sha256": "d9433490e974eba80fc413e9c7d583d7781c1676a70a3296a013ee7fe289786e"
+      }
+    ]
+  }
+}

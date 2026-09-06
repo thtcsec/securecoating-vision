@@ -1,1 +1,2 @@
-python scripts/run_evaluation.py
+python scripts/build_synthetic_evaluation_manifest.py --output reports/synthetic_evaluation_manifest.json
+python scripts/run_evaluation.py --dataset-dir data/evaluation --model-path outputs/model.onnx --reference-dataset-dir data/evaluation/reference --dataset-manifest reports/synthetic_evaluation_manifest.json --iou 0.50 --conf 0.25 --seed 42

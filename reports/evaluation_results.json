@@ -1,78 +1,107 @@
 {
-  "timestamp": "2026-08-17T14:15:14.468237+00:00",
+  "timestamp": "2026-09-06T08:27:05.620299+00:00",
   "provider": "CPUExecutionProvider",
   "dataset_path": "data/evaluation",
+  "evidence_class": "SYNTHETIC_EVALUATOR_FIXTURE",
+  "used_for_defense_rgb_metrics": false,
+  "development_image_reuse": true,
+  "cross_taxonomy_run": true,
+  "evaluation_scope": "Synthetic four-class evaluator fixture for reproducing the local evaluation pipeline; not the CoatingVision real-image RGB detector report.",
+  "fixture_taxonomy": {
+    "0": "scratch",
+    "1": "void",
+    "2": "blister",
+    "3": "delamination"
+  },
+  "model_taxonomy_note": "Runtime CoatingVision ONNX detector is 2-class (surface_crack / delamination_crack). Numbers from this fixture are cross-taxonomy pipeline smoke only.",
   "total_images": 50,
   "total_gt_instances": 30,
-  "total_detections": 40,
+  "total_detections": 107,
   "iou_threshold": 0.5,
   "confidence_threshold": 0.25,
   "seed": 42,
+  "provenance": {
+    "model_path": "outputs/model.onnx",
+    "model_sha256": "fa1c467a5857bb68d226eb0b76c7ca4eeee1f94e0f710559401a5f223f8a1a14",
+    "dataset_sha256": "76b06966cebb8edf965d2e61c28522031b3595080b6789d8898b4e2c6f61b54e",
+    "dataset_manifest": "reports/synthetic_evaluation_manifest.json",
+    "reference_dataset_dir": "data/evaluation/reference",
+    "roll_disjoint_manifest": {
+      "manifest_sha256": "e3f9d904eef572c9e0da5d584415643a8622b944293aab8c4e6f48eec352f12f",
+      "dataset_root": "D:\\tu_projects\\securecoating-vision",
+      "splits": {
+        "train": 1,
+        "val": 1,
+        "test": 50
+      },
+      "roll_count": 52,
+      "file_count": 52
+    },
+    "source_commit": "cd3b5d4f20ea08fa8e54652d6c1ca592f5be6ba4",
+    "matching_policy": "class-aware, confidence-descending, one-to-one greedy bbox matching; mask metrics evaluated on the same matched instance pair",
+    "box_format": "xyxy"
+  },
   "detection_metrics": {
-    "box_precision": 0.5,
-    "box_recall": 0.6667,
-    "box_f1_score": 0.5714
+    "box_precision": 0.0467,
+    "box_recall": 0.1667,
+    "box_f1_score": 0.073
   },
   "segmentation_metrics": {
-    "mask_precision": 0.0,
-    "mask_recall": 0.0,
-    "mask_f1_score": 0.0,
-    "overall_mean_mask_iou": 0.0562
+    "metric_semantics": "bbox-derived proxy masks for detection-only outputs; NOT semantic or instance segmentation evidence",
+    "mask_precision": 0.028,
+    "mask_recall": 0.1,
+    "mask_f1_score": 0.0438,
+    "overall_mean_mask_iou": 0.5004
   },
-  "ultralytics_map_metrics": {
-    "box_map50": 0.4901,
-    "box_map50_95": 0.4318,
-    "mask_map50": 0.4421,
-    "mask_map50_95": 0.3591
-  },
+  "ultralytics_map_metrics": {},
   "latency_ms": {
-    "mean": 100.9,
-    "median": 104.44,
-    "p95": 112.66,
-    "throughput_fps": 9.9
+    "mean": 65.64,
+    "median": 59.41,
+    "p95": 106.63,
+    "throughput_fps": 15.2
   },
   "per_class": {
     "scratch": {
-      "box_tp": 2,
-      "box_fp": 1,
-      "box_fn": 4,
-      "box_precision": 0.6667,
-      "box_recall": 0.3333,
-      "mask_tp": 0,
-      "mask_fp": 3,
-      "mask_fn": 6,
-      "mean_mask_iou": 0.3568
-    },
-    "void": {
-      "box_tp": 10,
-      "box_fp": 6,
-      "box_fn": 0,
-      "box_precision": 0.625,
-      "box_recall": 1.0,
-      "mask_tp": 0,
-      "mask_fp": 16,
-      "mask_fn": 10,
-      "mean_mask_iou": 0.0057
-    },
-    "blister": {
-      "box_tp": 8,
-      "box_fp": 4,
-      "box_fn": 0,
-      "box_precision": 0.6667,
-      "box_recall": 1.0,
-      "mask_tp": 0,
-      "mask_fp": 12,
-      "mask_fn": 8,
-      "mean_mask_iou": 0.0119
-    },
-    "delamination": {
       "box_tp": 0,
-      "box_fp": 9,
+      "box_fp": 71,
       "box_fn": 6,
       "box_precision": 0.0,
       "box_recall": 0.0,
       "mask_tp": 0,
-      "mask_fp": 9,
+      "mask_fp": 71,
+      "mask_fn": 6,
+      "mean_mask_iou": 0.0
+    },
+    "void": {
+      "box_tp": 5,
+      "box_fp": 31,
+      "box_fn": 5,
+      "box_precision": 0.1389,
+      "box_recall": 0.5,
+      "mask_tp": 3,
+      "mask_fp": 33,
+      "mask_fn": 7,
+      "mean_mask_iou": 0.5004
+    },
+    "blister": {
+      "box_tp": 0,
+      "box_fp": 0,
+      "box_fn": 8,
+      "box_precision": 0.0,
+      "box_recall": 0.0,
+      "mask_tp": 0,
+      "mask_fp": 0,
+      "mask_fn": 8,
+      "mean_mask_iou": 0.0
+    },
+    "delamination": {
+      "box_tp": 0,
+      "box_fp": 0,
+      "box_fn": 6,
+      "box_precision": 0.0,
+      "box_recall": 0.0,
+      "mask_tp": 0,
+      "mask_fp": 0,
       "mask_fn": 6,
       "mean_mask_iou": 0.0
     }

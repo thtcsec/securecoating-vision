@@ -69,6 +69,22 @@ Dataset pages and reports preserve these evidence classes rather than combining
 public labels, synthetic artifacts and model predictions into one unsupported
 metric.
 
+The checked-in `data/evaluation` set is a **synthetic evaluator fixture**. Its
+ground-truth labels are included solely to reproduce evaluator behavior; they
+are not training labels and are not the source of the reported CoatingVision
+RGB performance metrics. The corresponding `reports/evaluation_results.json`
+is explicitly marked `SYNTHETIC_EVALUATOR_FIXTURE` and must not be presented as
+the real two-class RGB detector result. Its mask values are bbox-derived proxy
+masks for detection-only output, not semantic or instance-segmentation
+evidence. Reproduce it with the complete command in
+`reports/evaluation_command.txt`.
+
+This synthetic fixture reuses development images by design, so it is not an
+independent benchmark. Its ZIP-safe reference stubs live under
+`data/evaluation/reference/` (not `coating_defects`). Its manifest and labels
+exist to exercise the evaluator contract, not to support a leakage-safe model
+claim.
+
 ## Current safety contract
 
 - Only an `OPTIMAL` inference result from a loaded trained model may produce an automatic PASS/REJECT decision.

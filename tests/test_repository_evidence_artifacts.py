@@ -302,6 +302,10 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn("tests/test_defense_gifs.py", source)
         # Packed contract gate must execute defense GIF regeneration, not only ship the GIFs.
         self.assertGreaterEqual(source.count("tests/test_defense_gifs.py"), 2)
+        self.assertIn("scripts/build_synthetic_evaluation_manifest.py", string_items)
+        self.assertIn("data/evaluation/README.md", source)
+        self.assertIn("data/evaluation/reference", source)
+        self.assertIn("reports/synthetic_evaluation_manifest.json", source)
         self.assertIn("reports/libad/libad_benchmark.json", string_items)
         self.assertIn("reports/libad/official_mount_hashes.json", string_items)
         self.assertIn("scripts/record_libad_official_manifest.py", string_items)
@@ -411,6 +415,9 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
             self.assertEqual(text.count("<!-- TEST_MANIFEST:START -->"), 1, name)
             self.assertEqual(text.count("<!-- TEST_MANIFEST:END -->"), 1, name)
             self.assertIn("reports/test_manifest.json", text, name)
+        recorder = (ROOT / "scripts/record_test_manifest.py").read_text(encoding="utf-8")
+        self.assertIn('README_CN.md', recorder)
+        self.assertIn("当前软件验证快照", recorder)
 
     def test_ci_and_compose_keep_security_gates_enabled(self):
         workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
