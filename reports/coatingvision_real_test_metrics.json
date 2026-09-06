@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-06T09:51:38.738017+00:00",
+  "timestamp": "2026-09-06T09:53:46.073720+00:00",
   "dataset": "CoatingVision detection subset, Figshare DOI 10.6084/m9.figshare.29260121.v1, CC BY 4.0",
   "evidence_class": "public_real_optical_image_split",
   "factory_roll_disjoint": false,
@@ -27,7 +27,7 @@
     "image_count": 90,
     "label_object_count": 104
   },
-  "source_commit": "cb9bda4e7aa7e7efce6eb2eb502702a82806cbc4",
+  "source_commit": "1cba123007a37254118afba0ebaf2cb82cae74fa",
   "final_artifact_provenance": "reports/submission_manifest.json",
   "zip_safe_dataset": "data/coatingvision_real_test",
   "zip_safe_dataset_used": true,
@@ -40,9 +40,9 @@
     "fitness": 0.35430734599105984
   },
   "speed_ms_per_image": {
-    "preprocess": 1.6577625000619183,
-    "inference": 97.82627613640216,
-    "loss": 0.00025227266384966,
-    "postprocess": 0.26027386361833615
+    "preprocess": 1.3427909092239463,
+    "inference": 88.05704204546187,
+    "loss": 0.00016250007981646127,
+    "postprocess": 0.2484409092589472
   }
 }
