@@ -293,34 +293,7 @@ def _iter_tree_files(src_dir: str):
             yield fpath, rel
 
 
-def write_submission_manifest(added_files):
-    """Record artifact-level hashes judges can verify without .git."""
-    import hashlib
-    from datetime import datetime, timezone
-
-    files = {}
-    for rel in sorted(set(added_files)):
-        if not rel.startswith(("src/", "configs/", "scripts/", "dashboard/", "tests/", "docs/")):
-            if rel not in {
-                "docker-compose.yml",
-                "docker-compose.gpu.yml",
-                "Dockerfile",
-                "Dockerfile.gpu",
-                ".github/workflows/ci.yml",
-                "reports/test_manifest.json",
-            }:
-                continue
-        full = os.path.join(PROJECT_ROOT, rel)
-        if not os.path.isfile(full):
-            continue
-        digest = hashlib.sha256()
-        with open(full, "rb") as handle:
-            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-                digest.update(chunk)
-        files[rel.replace("\\", "/")] = digest.hexdigest()
-
-    # Prefer git HEAD when available; otherwise unknown.
-    commit = "unknown"
+def _git_head_sha() -> str:
     try:
         commit_run = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -330,26 +303,130 @@ def write_submission_manifest(added_files):
             check=False,
         )
         if commit_run.returncode == 0 and commit_run.stdout.strip():
-            commit = commit_run.stdout.strip()
+            return commit_run.stdout.strip()
     except OSError:
         pass
+    return "unknown"
+
+
+def assert_test_snapshot_certifies_head() -> dict:
+    """Abort unless reports/test_manifest.json certifies the current git HEAD.
+
+    Release rule: the packed ZIP must not claim '265 tests validate submitted source'
+    unless the recorded snapshot commit equals HEAD and was taken on a clean tree.
+    """
+    import json
+
+    path = os.path.join(PROJECT_ROOT, "reports", "test_manifest.json")
+    if not os.path.isfile(path):
+        print("  [ERROR] ABORT BUILD: reports/test_manifest.json missing.")
+        sys.exit(1)
+    with open(path, encoding="utf-8") as handle:
+        manifest = json.load(handle)
+    head = _git_head_sha()
+    snap = str(manifest.get("commit_sha") or "")
+    if not snap or snap == "unknown" or head == "unknown" or snap != head:
+        print(
+            "  [ERROR] ABORT BUILD: test snapshot does not certify current HEAD\n"
+            f"    test_manifest.commit_sha = {snap!r}\n"
+            f"    git HEAD                 = {head!r}"
+        )
+        sys.exit(1)
+    if bool(manifest.get("working_tree_dirty")):
+        print(
+            "  [ERROR] ABORT BUILD: test snapshot was recorded on a dirty working tree.\n"
+            "    Re-run on a clean tree: scripts/record_test_manifest.py then rebuild."
+        )
+        sys.exit(1)
+    print(f"  Provenance lock OK: test_manifest.commit_sha == HEAD ({head[:12]}…)")
+    return manifest
+
+
+# Paths hashed into submission_manifest for judge verification (exclude the manifest itself).
+CLAIM_HASH_PREFIXES = (
+    "src/",
+    "configs/",
+    "scripts/",
+    "dashboard/",
+    "tests/",
+    "docs/",
+    "reports/",
+    "outputs/",
+)
+CLAIM_HASH_EXACT = {
+    "docker-compose.yml",
+    "docker-compose.gpu.yml",
+    "Dockerfile",
+    "Dockerfile.gpu",
+    ".github/workflows/ci.yml",
+    "README.md",
+    "README_CN.md",
+    "LICENSE",
+    "requirements.txt",
+    "requirements-core.txt",
+    "requirements-lock.txt",
+    "requirements-docker.txt",
+    "requirements-docker-lock.txt",
+    "requirements-gpu.txt",
+    ".env.example",
+    "SecureCoating-Vision_Final_Defense_6min.pptx",
+    "Al + Materials Competition Application Form.docx",
+    "data/demo_real/manifest.json",
+}
+
+
+def write_submission_manifest(added_files):
+    """Record artifact-level hashes judges can verify without .git."""
+    import hashlib
+    import json
+    from datetime import datetime, timezone
+
+    test_manifest = assert_test_snapshot_certifies_head()
+    certified = str(test_manifest.get("commit_sha") or "")
+
+    files = {}
+    for rel in sorted(set(added_files)):
+        rel_n = rel.replace("\\", "/")
+        if rel_n == "reports/submission_manifest.json":
+            continue  # avoid self-reference
+        if not rel_n.startswith(CLAIM_HASH_PREFIXES) and rel_n not in CLAIM_HASH_EXACT:
+            continue
+        full = os.path.join(PROJECT_ROOT, rel_n)
+        if not os.path.isfile(full):
+            continue
+        digest = hashlib.sha256()
+        with open(full, "rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        files[rel_n] = digest.hexdigest()
+
+    head = _git_head_sha()
+    if certified != head:
+        print(
+            "  [ERROR] ABORT BUILD: certified test commit drifted from HEAD during packaging\n"
+            f"    certified={certified!r} head={head!r}"
+        )
+        sys.exit(1)
 
     payload = {
         "schema_version": "securecoating-submission-manifest/v1",
         "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
-        "source_commit": commit,
+        "source_commit": certified,
+        "test_manifest_commit": certified,
+        "test_manifest_working_tree_dirty": False,
+        "certified_by_test_manifest": True,
         "file_count": len(files),
         "files": files,
         "note": (
-            "Artifact provenance for the packed ZIP. Judges should hash files in the "
-            "unzipped archive against this map. Do not require a .git directory."
+            "Artifact provenance for the packed ZIP. Judges should hash claim-bearing "
+            "files in the unzipped archive against this map (source, configs, models, "
+            "reports, predictions, deck). source_commit equals test_manifest.commit_sha. "
+            "Do not require a .git directory. This file is excluded from its own hash map."
         ),
     }
     out = os.path.join(PROJECT_ROOT, "reports", "submission_manifest.json")
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, "w", encoding="utf-8") as handle:
-        import json
-
         json.dump(payload, handle, indent=2)
         handle.write("\n")
     return out
@@ -457,7 +534,10 @@ def build_zip(require_live_api=False, skip_tests=False):
     print("  Required artifacts present: outputs/model.onnx, outputs/best.pt, test_set images")
 
     if skip_tests:
-        print("  SKIPPING UNIT TESTS (--skip-tests). Using the current reports/test_manifest.json.\n")
+        print(
+            "  SKIPPING UNIT TESTS (--skip-tests). Using the current reports/test_manifest.json.\n"
+            "  Final release builds should NOT use --skip-tests.\n"
+        )
     else:
         print("  RUNNING UNIT TESTS:")
         manifest_run = subprocess.run(
@@ -468,6 +548,8 @@ def build_zip(require_live_api=False, skip_tests=False):
             print("\n  [ERROR] Unit tests failed! Submission build aborted.")
             sys.exit(1)
         print("  All unit tests PASSED. Test manifest written to reports/test_manifest.json\n")
+
+    assert_test_snapshot_certifies_head()
 
     print("  RUNNING LIVE INJECT CHECK (optional if API offline):")
     live = subprocess.run(
@@ -588,7 +670,10 @@ def main(argv=None):
     parser.add_argument(
         "--skip-tests",
         action="store_true",
-        help="Pack the current tree without re-running pytest. Use after a clean test snapshot.",
+        help=(
+            "Pack without re-running pytest. Still requires test_manifest.commit_sha "
+            "== HEAD and working_tree_dirty=false. Prefer omitting this flag for final release."
+        ),
     )
     args = parser.parse_args(argv)
     return build_zip(require_live_api=args.require_live_api, skip_tests=args.skip_tests)

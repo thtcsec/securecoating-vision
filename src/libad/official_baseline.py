@@ -265,8 +265,11 @@ def paper_config_match(config: Dict[str, Any]) -> bool:
 def run_card(
     *,
     backbone_variant: str = DEFAULT_VRAM_BACKBONE_VARIANT,
+    backbone_family: str = "convnext",
+    dino_version: str = "v3",
     batch_size: int = 1,
     precision: str = "fp16",
+    image_score_method: str = PAPER_SPEC_IMAGE_SCORE_METHOD,
     probe: bool = False,
 ) -> Dict[str, Any]:
     cfg = load_libad_config()
@@ -276,13 +279,14 @@ def run_card(
     laptop = laptop_runner_defaults()
     config = {
         "profile": laptop["profile"],
-        "backbone_family": "convnext",
-        "dino_version": "v3",
+        "backbone_family": backbone_family,
+        "dino_version": dino_version,
         "backbone_variant": backbone_variant,
         "extractor_precision": precision,
         "coreset_selection_method": "density_fps",
         "coreset_density_weight": 0.7,
         "f_coreset": 0.05,
+        "image_score_method": image_score_method,
         "batch_size": batch_size,
         "test_batch_size": batch_size,
         "num_workers": 0,
@@ -302,23 +306,24 @@ def run_card(
         blockers.append("authors' evenrose/LIBAD checkout missing under third_party/evenrose-libad")
     if not status.get("official_protocol_complete"):
         blockers.append("official LIBAD mount incomplete or hashes not trusted")
-    if not access.get("hf_auth_present"):
-        blockers.append("Hugging Face auth missing for gated DINOv3 ConvNeXt weights")
-    elif not access.get("model_access_ok"):
-        if access.get("probes"):
-            blockers.append("DINOv3 ConvNeXt gated access not authorized (403)")
-        else:
-            blockers.append("DINOv3 ConvNeXt gated access not verified (probe skipped)")
+    if str(backbone_family).lower() == "convnext" and str(dino_version).lower() == "v3":
+        if not access.get("hf_auth_present"):
+            blockers.append("Hugging Face auth missing for gated DINOv3 ConvNeXt weights")
+        elif not access.get("model_access_ok"):
+            if access.get("probes"):
+                blockers.append("DINOv3 ConvNeXt gated access not authorized (403)")
+            else:
+                blockers.append("DINOv3 ConvNeXt gated access not verified (probe skipped)")
     if not paper_spec_match(config):
         blockers.append(
-            "config is not textual PAPER_SPEC (DINOv3 ViT-S/16); "
+            "config is not textual PAPER_SPEC (DINOv3 ViT-S/16 + max-NN); "
             f"got {config.get('backbone_family')}/{config.get('dino_version')}/"
-            f"{config.get('backbone_variant')}"
+            f"{config.get('backbone_variant')}/score={config.get('image_score_method')}"
         )
     if not official_code_core_match(config):
         blockers.append(
-            f"backbone_variant={backbone_variant!r} is not official-code core "
-            f"{OFFICIAL_CODE_BACKBONE_VARIANT!r} (VRAM-adapted / adapted reproduction)"
+            f"config is not official-code core (ConvNeXt-{OFFICIAL_CODE_BACKBONE_VARIANT}); "
+            "core match alone is ADAPTED, not an exact upstream reproduction"
         )
     return {
         "generated_at": _utc_now(),
@@ -864,8 +869,9 @@ def build_report(
         claim_class = "PAPER_EXACT"
         evidence_class = "official_libad_paper_spec_dinov3_vit_s"
     elif official_repro:
-        claim_class = "OFFICIAL_CODE_REPRODUCTION"
-        evidence_class = "official_libad_official_code_reproduction"
+        # Core knobs only — not a full resolved-arg exact reproduction.
+        claim_class = "OFFICIAL_CODE_CORE_ADAPTED"
+        evidence_class = "official_libad_official_code_core_adapted"
     elif not processes_ok or not coverage_ok:
         claim_class = "INVALID"
         evidence_class = "official_libad_authors_runner_partial_or_adapted"
@@ -897,7 +903,8 @@ def build_report(
         "paper_code_consistency": PAPER_CODE_CONSISTENCY,
         "paper_spec_match": paper_exact_cfg,
         "official_code_core_match": official_core_cfg,
-        "official_code_reproduction": bool(official_repro),
+        "official_code_reproduction": False,
+        "official_code_core_adapted": bool(official_repro),
         "evidence_class": evidence_class,
         "comparable_to_paper": bool(comparable),
         "paper_comparability_blockers": blockers,

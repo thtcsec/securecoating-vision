@@ -423,6 +423,90 @@ class TestLibadOfficialBaseline(unittest.TestCase):
         self.assertEqual(card["paper_code_consistency"], "mismatch")
         self.assertFalse(access["model_access_ok"])
         self.assertEqual(access["probes"], [])
+        self.assertEqual(card["planned_config"]["backbone_family"], "convnext")
+        self.assertEqual(card["planned_config"]["backbone_variant"], "tiny")
+
+    def test_run_card_honors_paper_spec_resolved_config(self):
+        card = run_card(
+            backbone_family="vit",
+            dino_version="v3",
+            backbone_variant="small",
+            image_score_method="max",
+            probe=False,
+        )
+        planned = card["planned_config"]
+        self.assertEqual(planned["backbone_family"], "vit")
+        self.assertEqual(planned["dino_version"], "v3")
+        self.assertEqual(planned["backbone_variant"], "small")
+        self.assertEqual(planned["image_score_method"], "max")
+        self.assertTrue(card["paper_spec_match"])
+        self.assertFalse(card["official_code_core_match"])
+
+    def test_official_code_core_match_is_adapted_not_reproduction(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger = Path(tmp) / "ledger.csv"
+            run_id = "core_adapted"
+            seeds = (347, 725)
+            rows = []
+            for seed in seeds:
+                rows.append(
+                    {
+                        "schema_version": "securecoating-harness-ledger/v1",
+                        "run_id": run_id,
+                        "config_sha256": "x",
+                        "started_at_utc": "2026-09-06T00:00:00Z",
+                        "finished_at_utc": "2026-09-06T00:01:00Z",
+                        "seed": seed,
+                        "modality": "vis_xray_l",
+                        "dino_version": "v3",
+                        "backbone_family": "convnext",
+                        "backbone_variant": "base",
+                        "extractor_precision": "fp16",
+                        "coreset_selection_method": "density_fps",
+                        "coreset_density_weight": "0.7",
+                        "f_coreset": "0.05",
+                        "returncode": 0,
+                        "image_auroc": "0.80",
+                        "image_aupr": "0.90",
+                        "image_best_f1": "0.85",
+                        "image_fpr95": "0.55",
+                    }
+                )
+            _write_ledger(ledger, rows)
+            accepted = [(s, "vis_xray_l") for s in seeds]
+            agg = aggregate_experiment_log(
+                ledger,
+                seeds=seeds,
+                modalities=("vis_xray_l",),
+                backbone_variant="base",
+                dino_version="v3",
+                backbone_family="convnext",
+                run_id=run_id,
+                accepted_cells=accepted,
+            )
+            report = build_report(
+                config={
+                    "backbone_family": "convnext",
+                    "dino_version": "v3",
+                    "backbone_variant": "base",
+                    "coreset_selection_method": "density_fps",
+                    "f_coreset": 0.05,
+                    "coreset_density_weight": 0.7,
+                    "image_score_method": "max",
+                    "modalities": ["vis_xray_l"],
+                    "seeds": list(seeds),
+                },
+                aggregation=agg,
+                dataset_meta={"official_protocol_complete": True},
+                code_meta={"present": True, "commit": "abc"},
+                run_records=[{"seed": s, "modality": "vis_xray_l", "returncode": 0} for s in seeds],
+                run_id=run_id,
+            )
+            self.assertTrue(report["official_code_core_match"])
+            self.assertFalse(report["official_code_reproduction"])
+            self.assertTrue(report["official_code_core_adapted"])
+            self.assertEqual(report["claim_class"], "OFFICIAL_CODE_CORE_ADAPTED")
+            self.assertFalse(report["comparable_to_paper"])
 
     def test_build_run_command_supports_dinov2_interim(self):
         cmd = build_run_command(

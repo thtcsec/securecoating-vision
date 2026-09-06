@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-09-05T21:22:33Z",
+  "generated_at": "2026-09-06T06:01:31Z",
   "official_code": {
     "present": true,
     "path": "third_party/evenrose-libad",
     "url": "https://github.com/evenrose/LIBAD.git",
     "commit": "8f98f2ebde63cd45660e58d6413f5ccd638966f4",
     "runnable_as_paper_baseline": false,
-    "note": "evenrose/LIBAD belongs to Sui et al. Presence of their source does not make this repository's numpy adapter comparable to the published table. Paper-comparable DINOv3+DA-Core numbers require scripts/run_libad_official_baseline.py with HF auth for gated ConvNeXt weights, the hash-verified 4.84 GB mount, and paper-default backbone_variant=base."
+    "note": "evenrose/LIBAD belongs to Sui et al. Presence of their source does not make this repository's numpy adapter comparable to the published table. Textual PAPER_SPEC is DINOv3 ViT-S/16 + DA-FPS + max-NN via scripts/run_libad_official_baseline.py --paper-config. Common upstream ConvNeXt-base defaults are official-code core (ADAPTED), not PAPER_EXACT; ConvNeXt also needs HF gated-weight access and the hash-verified 4.84 GB mount."
   },
   "dataset_status": {
     "official_protocol_complete": true,
@@ -30,13 +30,14 @@
   },
   "planned_config": {
     "profile": "laptop",
-    "backbone_family": "convnext",
+    "backbone_family": "vit",
     "dino_version": "v3",
     "backbone_variant": "small",
     "extractor_precision": "fp16",
     "coreset_selection_method": "density_fps",
     "coreset_density_weight": 0.7,
     "f_coreset": 0.05,
+    "image_score_method": "max",
     "batch_size": 1,
     "test_batch_size": 1,
     "num_workers": 0,
@@ -64,11 +65,13 @@
     "pause_seconds": 8,
     "save_bank": false
   },
+  "paper_code_consistency": "mismatch",
+  "paper_spec_match": true,
+  "official_code_core_match": false,
   "paper_config_match": false,
   "comparable_to_paper_eligible": false,
   "paper_comparability_blockers": [
-    "DINOv3 ConvNeXt gated access not verified (probe skipped)",
-    "backbone_variant='small' is not paper default 'base' (VRAM-adapted run on constrained GPUs)"
+    "config is not official-code core (ConvNeXt-base); core match alone is ADAPTED, not an exact upstream reproduction"
   ],
   "attribution": "DA-Core is the density-aware coreset baseline published by the LIBAD authors. SecureCoating-Vision does not claim DA-Core as an original algorithm.",
   "paper_result_note": "Sui et al. report that the best LIBAD setting still has FPR95 of 54.3% at AUROC 86.7%, AUPR 95.7%, and F1-max 90.6%. The authors conclude that this false-positive rate is too high for direct deployment and call out modality disagreement and closed-loop process control as open problems. LIBAD addresses how to detect; SecureCoating-Vision addresses when a detection is safe enough to act on.",

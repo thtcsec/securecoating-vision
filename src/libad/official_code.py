@@ -36,8 +36,9 @@ def official_code_status(repo_root: Optional[Path] = None) -> Dict[str, Any]:
         "note": (
             "evenrose/LIBAD belongs to Sui et al. Presence of their source does not "
             "make this repository's numpy adapter comparable to the published table. "
-            "Paper-comparable DINOv3+DA-Core numbers require scripts/run_libad_official_baseline.py "
-            "with HF auth for gated ConvNeXt weights, the hash-verified 4.84 GB mount, and "
-            "paper-default backbone_variant=base."
+            "Textual PAPER_SPEC is DINOv3 ViT-S/16 + DA-FPS + max-NN via "
+            "scripts/run_libad_official_baseline.py --paper-config. Common upstream "
+            "ConvNeXt-base defaults are official-code core (ADAPTED), not PAPER_EXACT; "
+            "ConvNeXt also needs HF gated-weight access and the hash-verified 4.84 GB mount."
         ),
     }

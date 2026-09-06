@@ -125,6 +125,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             f"image_score={PAPER_SPEC_IMAGE_SCORE_METHOD}). Requires --allow-heavy."
         ),
     )
+    parser.add_argument(
+        "--image-score-method",
+        default=PAPER_SPEC_IMAGE_SCORE_METHOD,
+        choices=["max", "topk"],
+        help="Upstream image scoring. PAPER_SPEC uses max-NN; topk is adapted.",
+    )
     parser.add_argument("--batch-size", type=int, default=int(laptop["batch_size"]))
     parser.add_argument("--precision", default=str(laptop["extractor_precision"]), choices=["fp16", "bf16", "fp32"])
     parser.add_argument(
@@ -178,6 +184,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.paper_config:
         args.backbone_family = PAPER_SPEC_BACKBONE_FAMILY
         args.dino_version = PAPER_SPEC_DINO_VERSION
+        args.image_score_method = PAPER_SPEC_IMAGE_SCORE_METHOD
         backbone = PAPER_SPEC_BACKBONE_VARIANT
     else:
         backbone = args.backbone_variant
@@ -186,18 +193,26 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         str(args.dino_version).lower() == PAPER_SPEC_DINO_VERSION
         and str(args.backbone_family).lower() == PAPER_SPEC_BACKBONE_FAMILY
         and str(backbone).lower() == PAPER_SPEC_BACKBONE_VARIANT
+        and str(args.image_score_method).lower() == PAPER_SPEC_IMAGE_SCORE_METHOD
     )
     needs_dinov3_convnext = (
         str(args.dino_version).lower() == "v3" and str(args.backbone_family).lower() == "convnext"
     )
-    if args.run_card:
-        guards = apply_laptop_process_guards()
-        card = run_card(
+
+    def _resolved_run_card(*, probe: bool):
+        return run_card(
+            backbone_family=str(args.backbone_family),
+            dino_version=str(args.dino_version),
             backbone_variant=backbone,
             batch_size=args.batch_size,
             precision=args.precision,
-            probe=False,
+            image_score_method=str(args.image_score_method),
+            probe=probe,
         )
+
+    if args.run_card:
+        guards = apply_laptop_process_guards()
+        card = _resolved_run_card(probe=False)
         card["laptop_guards"] = guards
         card["laptop_defaults"] = laptop
         print(json.dumps(card, indent=2))
@@ -258,7 +273,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             )
             write_json(
                 PROJECT_ROOT / "reports/libad/official_dinov3_run_card.json",
-                run_card(backbone_variant=backbone, probe=True),
+                _resolved_run_card(probe=True),
             )
             return 3
 
@@ -296,7 +311,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "coreset_selection_method": "density_fps",
         "coreset_density_weight": 0.7,
         "f_coreset": 0.05,
-        "image_score_method": PAPER_SPEC_IMAGE_SCORE_METHOD if paper_path or args.paper_config else PAPER_SPEC_IMAGE_SCORE_METHOD,
+        "image_score_method": str(args.image_score_method),
         "batch_size": args.batch_size,
         "test_batch_size": args.batch_size,
         "num_workers": 0,
@@ -476,7 +491,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     )
     write_json(
         PROJECT_ROOT / "reports/libad/official_dinov3_run_card.json",
-        run_card(backbone_variant=backbone, probe=False),
+        _resolved_run_card(probe=False),
     )
     print(json.dumps({
         "wrote": str(out_path.as_posix()),

@@ -52,7 +52,7 @@ Do **not** say 99.4% mAP, ≤35 ms TensorRT, real thermal/laser plant instrument
 
 ### Minute 2: Two Evidence Lanes, One Safety Contract
 *   **Lane A, already built:** two-class YOLO26n detector/ONNX on real CoatingVision RGB images, FastAPI, production operations dashboard, PASS/REJECT/HOLD, OPC UA/Modbus, HMAC certificates. Thermal and profilometry are **simulated interface adapters**.
-*   **Lane B, validation extension:** LIBAD defines aligned VIS and inline-compatible X-rayL inputs plus 10 official splits. This repository ran the **hash-verified official 10-seed protocol** with the local CPU numpy descriptor (`reports/libad/official_local_adapter.json`) and an **authors' runner interim** DINOv2 ViT-small smoke on seed 347 (`reports/libad/official_dinov2_dacore_interim.json`). Both stay **not** paper-comparable. DINOv3 ConvNeXt/DA-Core remains the paper table and is still gated/unfinished here. Checked-in demo cases stay protocol fixtures for CI.
+*   **Lane B, validation extension:** LIBAD defines aligned VIS and inline-compatible X-rayL inputs plus 10 official splits. This repository ran the **hash-verified official 10-seed protocol** with the local CPU numpy descriptor (`reports/libad/official_local_adapter.json`) and an **authors' runner interim** DINOv2 ViT-small smoke on seed 347 (`reports/libad/official_dinov2_dacore_interim.json`). Both stay **not** paper-comparable. The textual paper table is **DINOv3 ViT-S/16 + DA-Core + max-NN** (`PAPER_SPEC`); common upstream ConvNeXt-base is only official-code core (adapted), still gated/unfinished here. Checked-in demo cases stay protocol fixtures for CI.
 *   **One sentence of progress:** "The initial prototype validated the software and safety contract on RGB. We mounted official LIBAD, hashed the trees, ran all 10 splits on numpy, then an authors' DINOv2 interim smoke. Numpy multimodal AUROC is about 0.70 with FPR95 about 0.84; interim DINOv2 is about 0.856 AUROC with FPR95 about 0.716 — still too high to auto-release, which is why HOLD exists."
 *   **Not a topic change.** YOLO stays. DA-Core stays attributed to Sui et al.
 
@@ -89,7 +89,7 @@ PyTorch and ONNX share the same two-class map. Development simulation + mock PLC
 ## 2. Anticipated 2-Minute Q&A Defense Script
 
 ### Q1: "Are thermal and 3D sensors real?"
-*   **Answer:** "No. Thermal and profilometry are simulated or injected adapters used to validate registration and fail-closed behavior. The real multimodal inputs are official LIBAD VIS plus inline-compatible X-rayL. We mounted that release, hashed the trees, ran all 10 official splits with a CPU numpy descriptor, and an authors' DINOv2 interim smoke. That is still not the authors' DINOv3 ConvNeXt table. The 90-second demo cases remain protocol fixtures so CI stays deterministic."
+*   **Answer:** "No. Thermal and profilometry are simulated or injected adapters used to validate registration and fail-closed behavior. The real multimodal inputs are official LIBAD VIS plus inline-compatible X-rayL. We mounted that release, hashed the trees, ran all 10 official splits with a CPU numpy descriptor, and an authors' DINOv2 interim smoke. That is still not the textual PAPER_SPEC DINOv3 ViT-S/16 table. The 90-second demo cases remain protocol fixtures so CI stays deterministic."
 
 ### Q2: "Did you invent DA-Core?"
 *   **Answer:** "No. DA-Core is the LIBAD authors' memory-bank baseline. Our contribution is the evidence-gated PASS/REJECT/HOLD layer that sits on top of those modality scores."
