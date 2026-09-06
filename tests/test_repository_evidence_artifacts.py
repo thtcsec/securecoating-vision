@@ -307,6 +307,9 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn("data/evaluation/README.md", source)
         self.assertIn("data/evaluation/reference", source)
         self.assertIn("reports/synthetic_evaluation_manifest.json", source)
+        self.assertIn("data/coatingvision_real_test", source)
+        self.assertIn("NOTICE.md", source)
+        self.assertIn("official_dinov2_dacore_interim_results.csv", source)
         self.assertNotIn('"reports/dataset_manifest.json"', source)
         self.assertNotIn("Ensures NO ground-truth labels", source)
         self.assertNotIn("NO ground truth labels", source)
@@ -424,6 +427,25 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         recorder = (ROOT / "scripts/record_test_manifest.py").read_text(encoding="utf-8")
         self.assertIn('README_CN.md', recorder)
         self.assertIn("当前软件验证快照", recorder)
+
+    def test_agpl_license_notice_and_readme_identity(self):
+        license_text = (ROOT / "LICENSE").read_text(encoding="utf-8")
+        self.assertTrue(
+            ("GNU AFFERO GENERAL PUBLIC LICENSE" in license_text)
+            or ("AGPL" in license_text),
+            "LICENSE must contain AGPL / GNU Affero text",
+        )
+        notice = (ROOT / "NOTICE.md").read_text(encoding="utf-8")
+        self.assertIn("Ultralytics", notice)
+        for name in ("README.md", "README_CN.md"):
+            text = (ROOT / name).read_text(encoding="utf-8")
+            self.assertNotRegex(
+                text,
+                r"(?i)\bMIT\b.*\b(license|许可)",
+                f"{name} must not claim MIT for project source",
+            )
+            self.assertNotIn("License: MIT", text, name)
+            self.assertNotIn("[MIT License]", text, name)
 
     def test_ci_and_compose_keep_security_gates_enabled(self):
         workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")

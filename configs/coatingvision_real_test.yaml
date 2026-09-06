@@ -1,0 +1,10 @@
+# ZIP-safe held-out CoatingVision test split for reproducing
+# reports/coatingvision_real_test_metrics.json. Train/val are Ultralytics stubs only.
+path: data/coatingvision_real_test
+train: images/train
+val: images/val
+test: images/test
+nc: 2
+names:
+  0: surface_crack
+  1: delamination_crack

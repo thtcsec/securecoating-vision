@@ -49,6 +49,7 @@ This document is the project status ledger. A feature is marked **verified** onl
 - [x] SQLite connections close deterministically; indexes cover batch/timestamp and run ID queries.
 - [x] Duplicate `(batch_id, part_id)` identities are transactionally claimed before PLC signaling.
 - [x] Trace rows remain `PENDING` until PLC outcome finalization and cannot retain a planned PASS after a finalization failure.
+- [ ] **Research-prototype limitation (not a redesign):** physical PLC actuation and the SQLite final-state write are not atomic. If ACK succeeds but DB finalization fails, software latches HOLD / leaves the row `PENDING`, but a plant deployment still needs HIL/factory recovery for that race.
 - [x] SQLite online backup uses the backup API, atomic replace, and integrity check.
 - [x] Confidence matching uses class-aware bounding-box IoU rather than a default origin point.
 - [x] Coordinate mapping uses the actual input frame dimensions.

@@ -5,7 +5,7 @@
 </p>
 
 [![Track 4 Finalist](https://img.shields.io/badge/清华大学材料学院2026-赛道四全国总决赛入围-C8102E.svg)](README_CN.md)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
 
 [English README](README.md)
 
@@ -18,7 +18,8 @@
 
 SecureCoating-Vision 是一个面向卷对卷涂布场景的**证据感知、失效闭锁工业视觉原型**。
 它把真实光学图像、公开标签、独立 AI 检测、可选多模态输入、卷材追溯和 PLC
-安全门控连接为一条可审计流程。当前仓库不是经产线认证的生产系统，也不宣称
+安全门控连接为一条可审计流程。注册英文名称中的 Zero-Trust 指**目标架构**（Zero-Trust-ready）；
+mTLS / RBAC / OT 分区尚未宣称完成。当前仓库不是经产线认证的生产系统，也不宣称
 “零漏检”、ppm、六西格玛、安全等级急停或工厂节拍达标。
 
 <!-- TEST_MANIFEST:START -->
@@ -148,4 +149,4 @@ LIBAD 官方挂载验证：
 不要说：已经通过产线认证、软件 E-stop 是安全等级急停、模拟 PLC 是真实 PLC、合成数据代表真实
 精度，或本地 LIBAD 适配结果等价于论文方法。
 
-分阶段实现、证据与发布门槛见 [实施状态](docs/implementation_status.md)。许可协议见 [MIT License](LICENSE)。
+分阶段实现、证据与发布门槛见 [实施状态](docs/implementation_status.md)。项目源码许可为 [GNU AGPL-3.0](LICENSE)（因分发的 Ultralytics YOLO26 权重在未购买 Ultralytics Enterprise 时继承 AGPL-3.0）。第三方归属见 [NOTICE.md](NOTICE.md)。

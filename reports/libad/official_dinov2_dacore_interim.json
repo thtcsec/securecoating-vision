@@ -79,7 +79,7 @@
     "seeds": [
       347
     ],
-    "interim_note": "DINOv2/ViT interim stronger baseline only. Not PAPER_EXACT; textual PAPER_SPEC is DINOv3 ViT-S/16 (paper↔code mismatch vs common ConvNeXt upstream defaults)."
+    "interim_note": "DINOv2/ViT interim stronger baseline only. Not PAPER_EXACT; textual PAPER_SPEC is DINOv3 ViT-S/16 (paper\u2194code mismatch vs common ConvNeXt upstream defaults)."
   },
   "official_split_seeds": [
     347
@@ -121,12 +121,12 @@
       "modality": "vis_xray_l",
       "returncode": 0,
       "command": [
-        "D:\\tu_projects\\securecoating-vision\\.venv\\Scripts\\python.exe",
+        "python",
         "run.py",
         "--root_path",
-        "D:\\tu_projects\\securecoating-vision\\data\\libad\\LIBAD",
+        "data/libad/LIBAD",
         "--split_dir",
-        "D:\\tu_projects\\securecoating-vision\\data\\libad\\splits",
+        "data/libad/splits",
         "--modality",
         "vis_xray_l",
         "--coreset_selection_method",
@@ -160,16 +160,16 @@
         "--density_chunk_size",
         "512",
         "--results_csv",
-        "D:\\tu_projects\\securecoating-vision\\third_party\\evenrose-libad\\results\\securecoating_experiment_log.csv",
+        "reports/libad/official_dinov2_dacore_interim_results.csv",
         "--results_md",
-        "D:\\tu_projects\\securecoating-vision\\third_party\\evenrose-libad\\results\\securecoating_experiment_log.md",
+        "third_party/evenrose-libad/results/securecoating_experiment_log.md",
         "--notes",
         "securecoating_official_baseline seed=347 modality=vis_xray_l dino=v2 family=vit profile=laptop_safe"
       ]
     }
   ],
   "recorded_at": "2026-09-05T21:22:32Z",
-  "source_csv": "D:/tu_projects/securecoating-vision/third_party/evenrose-libad/results/securecoating_experiment_log.csv",
+  "source_csv": "reports/libad/official_dinov2_dacore_interim_results.csv",
   "status": "PARTIAL",
   "status_note": "Interim 1-seed DINOv2 ViT-S smoke; not DINOv3 and not paper-comparable."
 }

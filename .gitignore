@@ -57,3 +57,7 @@ reports/submission_sha256.txt
 
 # Docker volumes
 docker-data/
+
+# Ultralytics label caches
+*.cache
+

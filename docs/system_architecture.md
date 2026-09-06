@@ -27,6 +27,7 @@ The production dashboard consumes one `/api/operations/snapshot` response for li
 - The tracked calibration artifact is explicitly unverified and simulation-only.
 - TensorRT execution is not established by the current repository evidence.
 - PLC execution semantics, physical gate timing, E-stop safety integrity, and reset behavior are not HIL-qualified.
+- Physical PLC actuation and the SQLite final-state write are not atomic. ACK success with a failed DB finalization latches HOLD / leaves the row `PENDING`, but plant recovery for that race remains a HIL/factory concern (research-prototype limitation).
 - Active-roll state and PLC interlock state are not durable across process restart.
 - SQLite backup, restore, retention, and disk-full recovery remain release gates.
 - Multi-worker/multi-instance API deployment is unsafe until state and command ownership are externalized.

@@ -65,6 +65,7 @@ class DigitalRollCertificate:
     # Cryptographic Tamper-Evident Verification
     issued_at: str = field(default_factory=lambda: datetime.now().astimezone().isoformat())
     payload_hash_sha256: str = ""
+    # API field name kept for compatibility; value is an HMAC-SHA256 tag, not a public-key digital signature.
     hmac_digital_signature: str = ""
     signature_algorithm: str = "HMAC-SHA256"
 
@@ -102,7 +103,7 @@ class DigitalRollCertificate:
         ).encode("utf-8")
         self.payload_hash_sha256 = hashlib.sha256(raw_bytes).hexdigest()
         
-        # Cryptographic HMAC Digital Signature
+        # Tamper-evident HMAC-SHA256 authentication tag (stored in hmac_digital_signature for API compatibility).
         self.hmac_digital_signature = hmac.new(secret_key, raw_bytes, hashlib.sha256).hexdigest()
         return self.hmac_digital_signature
 
@@ -143,7 +144,7 @@ class DigitalRollCertificate:
 **Certificate ID:** `{self.certificate_id}`  
 **Issue Timestamp:** {self.issued_at}  
 **Payload SHA-256 Digest:** `{self.payload_hash_sha256}`  
-**Factory HMAC Authenticated Signature:** `{self.hmac_digital_signature}` (`{self.signature_algorithm}`)  
+**HMAC-SHA256 authentication tag:** `{self.hmac_digital_signature}` (`{self.signature_algorithm}`)  
 
 ---
 

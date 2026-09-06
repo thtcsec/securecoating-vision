@@ -24,7 +24,7 @@ Say this, then stop talking until they look at the first defect image:
 | Novelty | 0:35–2:00 | Gate on top of YOLO + attributed LIBAD/DA-Core; HOLD is the contribution |
 | Quantitative evidence | 2:45–4:20 | CoatingVision 88-image test split: mAP50 0.633 / P 0.645 / R 0.642 / mAP50-95 0.354; weights and dataset-tree hashes shown |
 | Materials relevance | throughout | Roll/batch identity, coating-surface frames, SPC on the coating process — not generic object detection |
-| Industrial impact | 2:00–3:35 | Fail-closed, false-accept blocked by HOLD, confirm-audit control, HMAC certificate; **no factory yield claim** |
+| Industrial impact | 2:00–3:35 | Fail-closed, false-accept blocked by HOLD, confirm-audit control, HMAC-SHA256 tag; **no factory yield claim** |
 | Demo storytelling | 5:10–6:00 | Looping GIFs: RGB HOLD replay + LIBAD fixture PASS/REJECT/REJECT/HOLD |
 | Reproducibility / limits | last 20 s + Q&A | DOI + model/dataset hashes + current test manifest; thermal/profiler simulated; roll-disjoint/HIL evidence pending |
 
@@ -68,7 +68,8 @@ Do **not** say 99.4% mAP, ≤35 ms TensorRT, real thermal/laser plant instrument
 *   Recipe sliders, defect injection, 7-stage demo, LIBAD evidence cases, and “send to PLC” live only in the explicit sandbox.
 *   Operator E-stop, reset, and inference reset require API authentication, an exact confirmation phrase, and a durable control-audit row. Mock PLC remains labelled `SIMULATED`.
 *   Every decision carries roll, batch, and part identity. Trace rows stay PENDING until PLC finalization.
-*   Certificates HMAC-sign the canonical payload.
+*   Physical PLC actuation and the SQLite final-state write are **not atomic**; if ACK succeeds but DB finalization fails, plant deployments need HIL/factory recovery (research-prototype limitation).
+*   Certificates attach a tamper-evident HMAC-SHA256 authentication tag to the canonical payload (API field `hmac_digital_signature` for compatibility).
 
 ### Minute 5: Why LIBAD Does Not End the Story
 *   **Our RGB lane (research, not factory qualification):** CoatingVision fixed 88-image test split, seed 71, DOI 10.6084/m9.figshare.29260121.v1 — mAP50 0.633, precision 0.645, recall 0.642, mAP50-95 0.354.
@@ -101,7 +102,13 @@ PyTorch and ONNX share the same two-class map. Development simulation + mock PLC
 *   **Answer:** "That operating point is not a proposed plant set-point. It is an experimental gate policy used to evaluate PASS/REJECT/HOLD semantics on the local numpy adapter. The escape rate shows this threshold is not deployment-acceptable — which is why the repository remains a research prototype, not factory-qualified. Next work is a locked risk–coverage calibration curve."
 
 *   **Likely Q:** "Your title says Zero-Trust Edge-Cloud — is that delivered?"
-*   **Answer:** "The registered title states the target deployment architecture. This artifact validates edge inspection, evidence, traceability, and fail-closed control contracts. mTLS, RBAC, and OT segmentation remain explicit production gates and are not claimed complete."
+*   **Answer:** "Zero-Trust-ready target architecture; mTLS/RBAC/OT segmentation not claimed complete. The registered title names that target. This artifact validates edge inspection, evidence, traceability, and fail-closed control contracts."
+
+*   **Likely Q:** "Is the certificate HMAC a digital signature?"
+*   **Answer:** "No. It is an HMAC-SHA256 authentication tag (shared-secret integrity), not a public-key digital signature. The JSON field remains `hmac_digital_signature` for API compatibility."
+
+*   **Likely Q:** "What if the PLC ACK succeeds but the database write fails?"
+*   **Answer:** "Physical actuation and SQLite finalization are not atomic in this prototype. Software latches HOLD and leaves the row PENDING so it cannot look like PASS, but a plant deployment still needs HIL/factory recovery for that race."
 
 ### Q4: "Is this just YOLO plus a few sensors?"
 *   **Answer:** "YOLO localizes known surface defects. Thermal and the laser profiler are simulated adapters in this prototype. The contribution is the fail-closed decision layer: detection cannot self-release. That is the materials-testing problem Track 4 actually grades."

@@ -5,7 +5,7 @@
 </p>
 
 [![Track 4 Finalist](https://img.shields.io/badge/Tsinghua%20MSE%202026-Track%204%20Finalist-C8102E.svg)](README.md)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
 
 [中文说明](README_CN.md)
 
@@ -17,7 +17,7 @@
 
 **Tagline:** Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing
 
-SecureCoating-Vision is an **industrial computer-vision research prototype** for real-image coating-defect detection, fail-closed inspection decisions, simulated roll synchronization, PLC protocol integration, and traceability experiments.
+SecureCoating-Vision is an **industrial computer-vision research prototype** for real-image coating-defect detection, fail-closed inspection decisions, simulated roll synchronization, PLC protocol integration, and traceability experiments. Zero-Trust-ready target architecture; mTLS/RBAC/OT segmentation not claimed complete.
 
 It is **not production-qualified**. The repository does not contain a factory calibration certificate, PLC hardware-in-the-loop evidence, an independent roll-disjoint test set, or plant safety approval. Do not connect it directly to a production gate or treat the software E-stop as a safety-rated E-stop.
 
@@ -226,4 +226,4 @@ SBOM review, vulnerability scanning, backups, or factory HIL validation.
 
 ## License
 
-Source code is provided under the [MIT License](LICENSE). Dataset licenses and factory safety approvals remain the deployer's responsibility.
+Project source is provided under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE) because shipped Ultralytics YOLO26 weights inherit Ultralytics AGPL-3.0 terms when redistributed without Ultralytics Enterprise. Third-party attributions (Ultralytics, CoatingVision, LIBAD/DA-Core) are in [NOTICE.md](NOTICE.md). Dataset licenses and factory safety approvals remain the deployer's responsibility.

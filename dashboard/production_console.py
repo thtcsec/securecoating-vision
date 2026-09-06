@@ -1117,7 +1117,7 @@ The left identity rail is not the view switcher. Collapsing it hides roll/batch 
 <div class="scada-panel" style="border-left:4px solid #00E676;">
     <p><b>Certificate ID:</b> <code>{html.escape(str(certificate.get('certificate_id')))}</code></p>
     <p><b>Payload digest:</b> <code>{html.escape(str(certificate.get('payload_hash_sha256')))}</code></p>
-    <p><b>HMAC:</b> <code>{html.escape(str(certificate.get('hmac_digital_signature')))}</code></p>
+    <p><b>HMAC-SHA256 tag:</b> <code>{html.escape(str(certificate.get('hmac_digital_signature')))}</code></p>
     <p><b>Quality grade:</b> {html.escape(str(certificate.get('overall_quality_grade')))} · <b>Pass rate field:</b> {html.escape(str(pass_rate_field))}</p>
     <p><b>Metric provenance:</b> {html.escape(str(certificate.get('metric_provenance')))}</p>
 </div>

@@ -110,6 +110,7 @@ WHITELIST = [
     "tests/test_libad_protocol.py",
     "tests/test_defense_gifs.py",
     "tests/test_repository_evidence_artifacts.py",
+    "tests/test_zip_safe_coatingvision_real_test.py",
     "tests/test_production_startup.py",
     "tests/test_ci_junit.py",
     # Configs
@@ -118,6 +119,7 @@ WHITELIST = [
     "configs/dataset.yaml",
     "configs/evaluation.yaml",
     "configs/coatingvision_real_detect.yaml" if os.path.exists("configs/coatingvision_real_detect.yaml") else None,
+    "configs/coatingvision_real_test.yaml" if os.path.exists("configs/coatingvision_real_test.yaml") else None,
     "configs/project_identity.yaml",
     "configs/libad.yaml",
     "configs/calibration.yaml",
@@ -146,6 +148,7 @@ WHITELIST = [
     "scripts/record_test_manifest.py",
     "scripts/check_ci_junit.py",
     "scripts/evaluate_coatingvision_real.py" if os.path.exists("scripts/evaluate_coatingvision_real.py") else None,
+    "scripts/build_coatingvision_test_bundle_manifest.py" if os.path.exists("scripts/build_coatingvision_test_bundle_manifest.py") else None,
     "scripts/generate_coatingvision_evidence_views.py" if os.path.exists("scripts/generate_coatingvision_evidence_views.py") else None,
     "scripts/prepare_coatingvision_detection_dataset.py" if os.path.exists("scripts/prepare_coatingvision_detection_dataset.py") else None,
     "scripts/run_external_coatingvision_demo.py" if os.path.exists("scripts/run_external_coatingvision_demo.py") else None,
@@ -158,6 +161,7 @@ WHITELIST = [
     "README.md",
     "README_CN.md",
     "LICENSE",
+    "NOTICE.md",
     "logo.png",
     "reports/analysis_report.md",
     "reports/analysis_report_template.md",
@@ -198,6 +202,7 @@ WHITELIST = [
     "reports/libad/official_local_adapter.json" if os.path.exists("reports/libad/official_local_adapter.json") else None,
     "outputs/official_local_adapter_predictions.json" if os.path.exists("outputs/official_local_adapter_predictions.json") else None,
     "reports/libad/official_dinov2_dacore_interim.json" if os.path.exists("reports/libad/official_dinov2_dacore_interim.json") else None,
+    "reports/libad/official_dinov2_dacore_interim_results.csv" if os.path.exists("reports/libad/official_dinov2_dacore_interim_results.csv") else None,
     "reports/libad/official_dinov3_dacore.json" if os.path.exists("reports/libad/official_dinov3_dacore.json") else None,
     "reports/libad/official_dinov3_run_card.json" if os.path.exists("reports/libad/official_dinov3_run_card.json") else None,
     "reports/submission_manifest.json",
@@ -222,6 +227,7 @@ WHITELIST = [
 TREE_DIRS = [
     ("data/test_set/images", "data/test_set/images"),
     ("data/demo_real", "data/demo_real"),
+    ("data/coatingvision_real_test", "data/coatingvision_real_test"),
     ("data/evaluation/images", "data/evaluation/images"),
     ("data/evaluation/labels", "data/evaluation/labels"),
     ("data/evaluation/reference", "data/evaluation/reference"),
@@ -243,8 +249,9 @@ BLACKLIST_PATTERNS = [
     ".env",
     ".git",
     ".venv",
-    "labels",  # Training/private labels forbidden; synthetic evaluation labels allowed
+    "labels",  # Training/private labels forbidden; synthetic evaluation + ZIP-safe CoatingVision test labels allowed
     "coating_defects",  # full training data stays local
+    "coatingvision_real_detect",  # full local detect tree stays local; ZIP uses data/coatingvision_real_test
     "runs/",
     "yolo_training",
     ".ipynb_checkpoints",
@@ -268,12 +275,18 @@ ARTIFACT_REQUIRED_PATHS = [
     "outputs/model.onnx",
     "outputs/best.pt",
     "data/demo_real/manifest.json",
+    "data/coatingvision_real_test/README.md",
+    "data/coatingvision_real_test/manifest.json",
+    "configs/coatingvision_real_test.yaml",
+    "NOTICE.md",
+    "reports/libad/official_dinov2_dacore_interim_results.csv",
     "data/evaluation/README.md",
     "reports/coatingvision_visual_evidence/image_1548_optical_raw.png",
     "reports/coatingvision_visual_evidence/image_1548_contrast_clahe.png",
     "reports/coatingvision_visual_evidence/image_1548_yolo_candidate_zoom.png",
     "scripts/generate_defense_gifs.py",
     "scripts/build_synthetic_evaluation_manifest.py",
+    "scripts/evaluate_coatingvision_real.py",
     "tests/test_evaluation_integrity.py",
     "tests/test_defense_gifs.py",
 ]
@@ -289,7 +302,12 @@ def is_blacklisted(path):
         return True
     if name.endswith(".db") or name.endswith(".zip"):
         return True
-    if ("labels" in parts and "evaluation" not in parts) or "coating_defects" in parts or "yolo_training" in parts:
+    if (
+        ("labels" in parts and "evaluation" not in parts and "coatingvision_real_test" not in parts)
+        or "coating_defects" in parts
+        or "coatingvision_real_detect" in parts
+        or "yolo_training" in parts
+    ):
         return True
     if "runs" in parts or ".ipynb_checkpoints" in parts or "node_modules" in parts:
         return True
@@ -368,6 +386,7 @@ CLAIM_HASH_PREFIXES = (
     "docs/",
     "reports/",
     "outputs/",
+    "data/coatingvision_real_test/",
 )
 CLAIM_HASH_EXACT = {
     "docker-compose.yml",
@@ -378,6 +397,7 @@ CLAIM_HASH_EXACT = {
     "README.md",
     "README_CN.md",
     "LICENSE",
+    "NOTICE.md",
     "requirements.txt",
     "requirements-core.txt",
     "requirements-lock.txt",
