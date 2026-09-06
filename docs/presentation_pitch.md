@@ -73,7 +73,7 @@ Do **not** say 99.4% mAP, ≤35 ms TensorRT, real thermal/laser plant instrument
 
 ### Minute 5: Why LIBAD Does Not End the Story
 *   **Our RGB lane (research, not factory qualification):** CoatingVision fixed 88-image test split, seed 71, DOI 10.6084/m9.figshare.29260121.v1 — mAP50 0.633, precision 0.645, recall 0.642, mAP50-95 0.354.
-*   Show the checkpoint SHA-256 prefix `f72a8f2b…` and dataset-tree SHA-256 prefix `3c3f2773…`. State that the split is image-disjoint, not factory roll-disjoint.
+*   Show the checkpoint SHA-256 prefix and dataset-tree SHA-256 prefix from `reports/coatingvision_real_test_metrics.json` (currently weights `f72a8f2b…`, dataset-tree `d1db7823…`). State that the split is image-disjoint, not factory roll-disjoint.
 *   **Official LIBAD:** numpy 10-seed multimodal AUROC about 0.70 / FPR95 about 0.84; authors' runner interim DINOv2 (1 seed) AUROC about 0.856 / FPR95 about 0.716 — both `comparable_to_paper: false`. Paper table is AUROC 86.7% / FPR95 54.3% on DINOv3/DA-Core — do not mix the three. All FPR numbers are too high for unsupervised auto-PASS; that is the Track 4 point.
 *   Local throughput evidence is presented only as measured inference timing. Camera exposure, transport, PLC ACK, and target-hardware HIL remain outside that number.
 

@@ -63,6 +63,7 @@ def _replace_marked_block(path: Path, body: str) -> None:
 
 def record_test_manifest(pytest_args: list[str] | None = None) -> dict:
     junit_path = PROJECT_ROOT / "reports" / "pytest_junit.xml"
+    output_path = PROJECT_ROOT / "reports" / "pytest_output.txt"
     junit_path.parent.mkdir(parents=True, exist_ok=True)
     source_provenance = git_source_provenance(PROJECT_ROOT)
     # Tests verify that the checked-in evidence refers to the exact source tree
@@ -85,6 +86,7 @@ def record_test_manifest(pytest_args: list[str] | None = None) -> dict:
         command.extend(pytest_args)
     completed = subprocess.run(command, cwd=PROJECT_ROOT, capture_output=True, text=True)
     log = (completed.stdout or "") + (completed.stderr or "")
+    output_path.write_text(log, encoding="utf-8", errors="replace")
     root = ET.parse(junit_path).getroot() if junit_path.is_file() else None
     # pytest may emit testsuites or testsuite as the root.
     suite = root
@@ -107,6 +109,13 @@ def record_test_manifest(pytest_args: list[str] | None = None) -> dict:
     failed = failures + errors
     passed = max(collected - failed - skipped, 0)
     identity = _load_identity()
+    log_sha = _sha256_bytes(log.encode("utf-8", errors="replace"))
+    junit_sha = (
+        _sha256_bytes(junit_path.read_bytes()) if junit_path.is_file() else None
+    )
+    output_sha = _sha256_bytes(output_path.read_bytes()) if output_path.is_file() else None
+    if output_sha != log_sha:
+        raise RuntimeError("pytest_output.txt hash drifted from captured log_sha256")
     manifest = {
         "release_version": identity.get("release_version", "2.0.0"),
         "release_label": identity.get("release_label", ""),
@@ -119,7 +128,11 @@ def record_test_manifest(pytest_args: list[str] | None = None) -> dict:
         "skipped": skipped,
         "failed": failed,
         "duration_seconds": round(duration, 2),
-        "log_sha256": _sha256_bytes(log.encode("utf-8", errors="replace")),
+        "log_sha256": log_sha,
+        "pytest_output_path": "reports/pytest_output.txt",
+        "pytest_output_sha256": output_sha,
+        "pytest_junit_path": "reports/pytest_junit.xml",
+        "pytest_junit_sha256": junit_sha,
         "recorded_at": datetime.now(timezone.utc).isoformat(),
         "pytest_returncode": completed.returncode,
         "command": command,
@@ -149,6 +162,8 @@ def record_test_manifest(pytest_args: list[str] | None = None) -> dict:
         f"working_tree_dirty {manifest['working_tree_dirty']}\n"
         f"source_diff_sha256 {manifest['source_diff_sha256']}\n"
         f"log_sha256 {manifest['log_sha256']}\n"
+        f"pytest_output_sha256 {manifest['pytest_output_sha256']}\n"
+        f"pytest_junit_sha256 {manifest['pytest_junit_sha256']}\n"
         "```"
     )
     _replace_marked_block(PROJECT_ROOT / "README.md", readme_body)

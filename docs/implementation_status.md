@@ -99,7 +99,7 @@ This document is the project status ledger. A feature is marked **verified** onl
 - [x] GitHub Actions compiles sources, checks dependencies, and runs pytest; artifact-gated ONNX skips are allowed, unexplained skips are not.
 - [ ] Add CI Docker image build and release artifact checks.
 - [x] Manual browser/Compose smoke verified the API-backed dashboard and a real CoatingVision image through the built API image.
-- [ ] Docker Scout still reports 2 Critical and 2 High findings in Debian's essential `perl-base` 5.40.1-6, with no fixed version reported; production release remains blocked pending a fixed/minimal base or documented security acceptance.
+- [ ] Docker Scout still reports 2 Critical and 2 High findings in Debian's essential `perl-base` 5.40.1-6, with no fixed version reported; this remains a **production-deployment security acceptance gate** (not a research/demo submission blocker) pending a fixed/minimal base or documented security acceptance.
 - [x] API inspection endpoints have bounded in-flight concurrency and reject excess work instead of building an unbounded queue.
 - [ ] Add target-hardware operational metrics and alerting.
 
@@ -121,7 +121,7 @@ log_sha256 b39238433651136bd1adce1d06842edcf539dcb487e305dd1e8ff726a95a0d14
 
 The local live Uvicorn smoke run on port 8011 verified API liveness/readiness, clean PASS, real-image REJECT, degraded-sensor HOLD, duplicate-part HOLD, E-stop latch, simulated reset, and upload inspection. PLC statuses were `SIMULATED`, never physical ACK. The observed timings are smoke diagnostics, not benchmarks.
 
-The Docker production-mode smoke used an isolated temporary database and real CoatingVision test image. It verified authenticated readiness returned 503 while sensors/PLC/calibration were unavailable, inference completed on CPU, the final action stayed `HOLD`, and PLC signal history recorded `acknowledged=false`. Docker Scout reduced from 5 Critical/43 High on the old base to 2 Critical/2 High on the current image; the remaining no-fix `perl-base` findings are an open release blocker, not a clean security result.
+The Docker production-mode smoke used an isolated temporary database and real CoatingVision test image. It verified authenticated readiness returned 503 while sensors/PLC/calibration were unavailable, inference completed on CPU, the final action stayed `HOLD`, and PLC signal history recorded `acknowledged=false`. Docker Scout reduced from 5 Critical/43 High on the old base to 2 Critical/2 High on the current image; the remaining no-fix `perl-base` findings are a **production-deployment security acceptance gate**, not a research/demo submission blocker and not a clean production-security result.
 
 The synthetic evaluator fixture is documented in `reports/evaluation_results.json` (`SYNTHETIC_EVALUATOR_FIXTURE`, `used_for_defense_rgb_metrics=false`). It reuses development images by design and is ZIP-safe via `data/evaluation/reference/` stubs. Authoritative real RGB defense metrics remain in `reports/coatingvision_real_test_metrics.json`; do not compare the two.
 

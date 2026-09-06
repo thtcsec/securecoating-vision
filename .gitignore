@@ -21,7 +21,6 @@ third_party/
 outputs/
 runs/
 logs/
-reports/pytest_junit.xml
 .codex-presentation-build/
 SecureCoating-Vision_Final_Defense_6min_Real_Evidence/
 *.pptx.inspect.ndjson

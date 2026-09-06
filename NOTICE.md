@@ -32,12 +32,14 @@ project source is released under AGPL-3.0 for license compliance.
 
 ## LIBAD / DA-Core
 
-- Dataset / method: LIBAD (aligned visible-light and inline-compatible
-  X-ray validation inputs) and DA-Core memory-bank baseline
-- License: Creative Commons Attribution 4.0 International (CC BY 4.0)
-  for the official LIBAD release materials
-- Attribution: Sui, Lichau, Phelippeau, and Liu (LIBAD / DA-Core; see
-  [arXiv:2608.07958](https://arxiv.org/abs/2608.07958))
+- Dataset: LIBAD (aligned visible-light and inline-compatible X-ray
+  validation inputs) — Creative Commons Attribution 4.0 International
+  (CC BY 4.0) for the official Hugging Face / release **dataset** materials
+- Code: [`evenrose/LIBAD`](https://github.com/evenrose/LIBAD) — BSD 3-Clause
+  (authors' runner / DA-Core reference implementation)
+- Method attribution: DA-Core memory-bank baseline belongs to Sui, Lichau,
+  Phelippeau, and Liu (see [arXiv:2608.07958](https://arxiv.org/abs/2608.07958))
 - Notes: SecureCoating-Vision does not claim DA-Core as an original
   algorithm. The local contribution is the evidence-gated industrial
-  decision layer on top of modality scores.
+  decision layer on top of modality scores. Do not conflate the dataset
+  CC BY 4.0 terms with the authors' BSD 3-Clause source license.

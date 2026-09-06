@@ -111,6 +111,7 @@ WHITELIST = [
     "tests/test_defense_gifs.py",
     "tests/test_repository_evidence_artifacts.py",
     "tests/test_zip_safe_coatingvision_real_test.py",
+    "tests/test_coatingvision_manifest_regenerator.py",
     "tests/test_production_startup.py",
     "tests/test_ci_junit.py",
     # Configs
@@ -149,6 +150,7 @@ WHITELIST = [
     "scripts/check_ci_junit.py",
     "scripts/evaluate_coatingvision_real.py" if os.path.exists("scripts/evaluate_coatingvision_real.py") else None,
     "scripts/build_coatingvision_test_bundle_manifest.py" if os.path.exists("scripts/build_coatingvision_test_bundle_manifest.py") else None,
+    "scripts/polish_application_form_docx.py" if os.path.exists("scripts/polish_application_form_docx.py") else None,
     "scripts/generate_coatingvision_evidence_views.py" if os.path.exists("scripts/generate_coatingvision_evidence_views.py") else None,
     "scripts/prepare_coatingvision_detection_dataset.py" if os.path.exists("scripts/prepare_coatingvision_detection_dataset.py") else None,
     "scripts/run_external_coatingvision_demo.py" if os.path.exists("scripts/run_external_coatingvision_demo.py") else None,
@@ -217,6 +219,8 @@ WHITELIST = [
     "reports/synthetic_evaluation_manifest.json" if os.path.exists("reports/synthetic_evaluation_manifest.json") else None,
     "reports/model_sha256.txt" if os.path.exists("reports/model_sha256.txt") else None,
     "reports/test_manifest.json",
+    "reports/pytest_junit.xml" if os.path.exists("reports/pytest_junit.xml") else None,
+    "reports/pytest_output.txt" if os.path.exists("reports/pytest_output.txt") else None,
     "reports/environment.txt" if os.path.exists("reports/environment.txt") else None,
     "reports/evaluation_command.txt" if os.path.exists("reports/evaluation_command.txt") else None,
     # Model artifacts (REQUIRED)
@@ -271,6 +275,8 @@ ARTIFACT_REQUIRED_PATHS = [
     "Dockerfile.gpu",
     ".github/workflows/ci.yml",
     "reports/test_manifest.json",
+    "reports/pytest_junit.xml",
+    "reports/pytest_output.txt",
     "reports/submission_manifest.json",
     "outputs/model.onnx",
     "outputs/best.pt",

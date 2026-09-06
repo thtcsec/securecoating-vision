@@ -25,6 +25,7 @@ EXTERNAL_DEMO = ROOT / "reports/external_coatingvision_demo/coatingvision_model_
 RGB_GIF = ROOT / "reports/defense_gifs/rgb_hold_replay.gif"
 LIBAD_GIF = ROOT / "reports/defense_gifs/libad_gate.gif"
 HELD_OUT_SURFACE = ROOT / "reports/defense_gifs/coating_surface_heldout.png"
+RGB_METRICS = ROOT / "reports/coatingvision_real_test_metrics.json"
 
 BG = RGBColor(0xFF, 0xFF, 0xFF)
 CARD = RGBColor(0xF4, 0xF7, 0xFB)
@@ -45,6 +46,29 @@ TITLE = (
     "Quality Decisions"
 )
 TAGLINE = "Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing"
+
+
+def _load_rgb_metrics() -> dict:
+    import json
+
+    payload = json.loads(RGB_METRICS.read_text(encoding="utf-8"))
+    metrics = payload["metrics"]
+    provenance = payload.get("dataset_provenance") or {}
+    weights = str(payload.get("weights_sha256") or "")
+    dataset = str(provenance.get("dataset_tree_sha256") or "")
+    if len(weights) < 8 or len(dataset) < 8:
+        raise ValueError("coatingvision_real_test_metrics.json missing weight/dataset hashes")
+    return {
+        "precision_pct": f"{float(metrics['metrics/precision(B)']) * 100:.1f}%",
+        "recall_pct": f"{float(metrics['metrics/recall(B)']) * 100:.1f}%",
+        "map50_pct": f"{float(metrics['metrics/mAP50(B)']) * 100:.1f}%",
+        "map50_95_pct": f"{float(metrics['metrics/mAP50-95(B)']) * 100:.1f}%",
+        "map50_short": f"{float(metrics['metrics/mAP50(B)']):.3f}",
+        "n_test": int((provenance.get("splits") or {}).get("test") or 88),
+        "seed": provenance.get("seed", 71),
+        "weights_prefix": weights[:8],
+        "dataset_prefix": dataset[:8],
+    }
 
 
 def _set_run(run, text, size_pt, color, bold=False):
@@ -130,6 +154,7 @@ def kicker(slide, code, timing):
 
 
 def build() -> Path:
+    rgb = _load_rgb_metrics()
     prs = Presentation()
     prs.slide_width = SLIDE_W
     prs.slide_height = SLIDE_H
@@ -189,8 +214,8 @@ def build() -> Path:
     _box(s, Inches(0.45), Inches(4.3), Inches(7.4), Inches(2.4), accent=True)
     add_textbox(s, Inches(0.65), Inches(4.45), Inches(7.0), Inches(2.1), [
         {"text": "MEASURED ON REAL OPTICAL DATA", "size": 12, "color": RED, "bold": True},
-        {"text": "88 held-out images · mAP50 0.633", "size": 18, "color": INK, "bold": True, "space_after": 8},
-        {"text": "Public CoatingVision image-disjoint split, seed 71. Not factory roll-disjoint; HIL and calibration remain pilot gates.", "size": 14, "color": MUTED},
+        {"text": f"{rgb['n_test']} held-out images · mAP50 {rgb['map50_short']}", "size": 18, "color": INK, "bold": True, "space_after": 8},
+        {"text": f"Public CoatingVision image-disjoint split, seed {rgb['seed']}. Not factory roll-disjoint; HIL and calibration remain pilot gates.", "size": 14, "color": MUTED},
     ])
     if HELD_OUT_SURFACE.is_file():
         _box(s, Inches(8.15), Inches(0.55), Inches(4.7), Inches(6.2))
@@ -317,10 +342,10 @@ def build() -> Path:
         {"text": "Real optical evidence is reproducible — and bounded.", "size": 24, "color": INK, "bold": True}
     ])
     metrics = (
-        ("PRECISION", "64.5%", "88-image real optical test split"),
-        ("RECALL", "64.2%", "measured on configured checkpoint"),
-        ("mAP50", "63.3%", "measured on configured checkpoint"),
-        ("mAP50-95", "35.4%", "IoU 0.50:0.95"),
+        ("PRECISION", rgb["precision_pct"], f"{rgb['n_test']}-image real optical test split"),
+        ("RECALL", rgb["recall_pct"], "measured on configured checkpoint"),
+        ("mAP50", rgb["map50_pct"], "measured on configured checkpoint"),
+        ("mAP50-95", rgb["map50_95_pct"], "IoU 0.50:0.95"),
     )
     for i, (key, value, note) in enumerate(metrics):
         left = Inches(0.45 + i * 3.15)
@@ -337,7 +362,10 @@ def build() -> Path:
     _box(s, Inches(0.45), Inches(3.95), Inches(12.4), Inches(2.75), accent=True)
     add_textbox(s, Inches(0.7), Inches(4.15), Inches(12.0), Inches(2.4), [
         {"text": "EVIDENCE IDENTITY", "size": 13, "color": ACCENT, "bold": True},
-        {"text": "88 test images  ·  seed 71  ·  weights f72a8f2b…  ·  dataset 3c3f2773…", "size": 18, "color": INK, "bold": True, "space_after": 10},
+        {"text": (
+            f"{rgb['n_test']} test images  ·  seed {rgb['seed']}  ·  "
+            f"weights {rgb['weights_prefix']}…  ·  dataset {rgb['dataset_prefix']}…"
+        ), "size": 18, "color": INK, "bold": True, "space_after": 10},
         {"text": "Public real optical image-disjoint split. Not roll-disjoint; not factory qualification.", "size": 15, "color": MUTED},
     ])
     footer(s, 7)
