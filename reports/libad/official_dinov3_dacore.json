@@ -21,6 +21,8 @@
   "evidence_class": "official_libad_authors_runner_partial_or_adapted",
   "comparable_to_paper": false,
   "claim_class": "INVALID",
+  "evidence_generation": "LEGACY_HISTORICAL_EVIDENCE",
+  "methodology_note": "Failed ConvNeXt-tiny smoke retained for transparency. Not PAPER_SPEC (ViT-S/16). Generated before run_id ledger; do not treat as current harness output.",
   "paper_code_consistency": "mismatch",
   "paper_spec_match": false,
   "official_code_core_match": false,
@@ -28,7 +30,7 @@
   "dataset_protocol_complete": true,
   "experiment_coverage_complete": false,
   "paper_comparability_blockers": [
-    "run config differs from paper defaults (backbone_variant='tiny'; paper uses 'base')",
+    "run config differs from textual PAPER_SPEC (DINOv3 ViT-S/16); this run used ConvNeXt-tiny",
     "incomplete vis_xray_l coverage: 0/1 seeds"
   ],
   "official_protocol_complete": false,
@@ -41,7 +43,7 @@
     "url": "https://github.com/evenrose/LIBAD.git",
     "commit": "8f98f2ebde63cd45660e58d6413f5ccd638966f4",
     "runnable_as_paper_baseline": false,
-    "note": "evenrose/LIBAD belongs to Sui et al. Presence of their source does not make this repository's numpy adapter comparable to the published table. Paper-comparable DINOv3+DA-Core numbers require scripts/run_libad_official_baseline.py with HF auth for gated ConvNeXt weights, the hash-verified 4.84 GB mount, and paper-default backbone_variant=base."
+    "note": "evenrose/LIBAD belongs to Sui et al. PAPER_SPEC is DINOv3 ViT-S/16; ConvNeXt-base is official-code core, not auto paper-exact."
   },
   "dataset": {
     "official_protocol_complete": true,

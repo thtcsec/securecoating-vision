@@ -37,7 +37,12 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 from libad.dataset import dataset_status  # noqa: E402
 from libad.official_baseline import (  # noqa: E402
     DEFAULT_VRAM_BACKBONE_VARIANT,
+    OFFICIAL_CODE_BACKBONE_VARIANT,
     PAPER_BACKBONE_VARIANT,
+    PAPER_SPEC_BACKBONE_FAMILY,
+    PAPER_SPEC_BACKBONE_VARIANT,
+    PAPER_SPEC_DINO_VERSION,
+    PAPER_SPEC_IMAGE_SCORE_METHOD,
     aggregate_experiment_log,
     append_harness_ledger_row,
     apply_laptop_process_guards,
@@ -50,6 +55,7 @@ from libad.official_baseline import (  # noqa: E402
     launch_official_run,
     load_project_env,
     new_run_id,
+    paper_spec_match,
     run_card,
     write_json,
 )
@@ -102,18 +108,22 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "--backbone-family",
         default="convnext",
         choices=["convnext", "vit"],
-        help="Upstream backbone_family. Paper path uses convnext; DINOv2 interim uses vit.",
+        help="Upstream backbone_family. PAPER_SPEC uses vit; official-code core often uses convnext.",
     )
     parser.add_argument(
         "--dino-version",
         default="v3",
         choices=["v1", "v2", "v3"],
-        help="Upstream dino_version. Paper-comparable path requires v3.",
+        help="Upstream dino_version. PAPER_EXACT requires v3 + ViT-S/16.",
     )
     parser.add_argument(
         "--paper-config",
         action="store_true",
-        help=f"Force paper-default backbone_variant={PAPER_BACKBONE_VARIANT} (requires --allow-heavy)",
+        help=(
+            f"Force textual PAPER_SPEC "
+            f"({PAPER_SPEC_DINO_VERSION}/{PAPER_SPEC_BACKBONE_FAMILY}/{PAPER_SPEC_BACKBONE_VARIANT}, "
+            f"image_score={PAPER_SPEC_IMAGE_SCORE_METHOD}). Requires --allow-heavy."
+        ),
     )
     parser.add_argument("--batch-size", type=int, default=int(laptop["batch_size"]))
     parser.add_argument("--precision", default=str(laptop["extractor_precision"]), choices=["fp16", "bf16", "fp32"])
@@ -159,12 +169,27 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument(
         "--aggregate-only",
         action="store_true",
-        help="Rebuild report from existing experiment_log.csv without launching runs",
+        help="Rebuild report from an existing harness ledger (requires --run-id or --ledger)",
     )
+    parser.add_argument("--run-id", default="", help="Existing harness run_id for --aggregate-only")
+    parser.add_argument("--ledger", default="", help="Path to harness_ledger_<run_id>.csv for --aggregate-only")
     args = parser.parse_args(argv)
 
-    backbone = PAPER_BACKBONE_VARIANT if args.paper_config else args.backbone_variant
-    paper_path = args.dino_version == "v3" and args.backbone_family == "convnext"
+    if args.paper_config:
+        args.backbone_family = PAPER_SPEC_BACKBONE_FAMILY
+        args.dino_version = PAPER_SPEC_DINO_VERSION
+        backbone = PAPER_SPEC_BACKBONE_VARIANT
+    else:
+        backbone = args.backbone_variant
+
+    paper_path = (
+        str(args.dino_version).lower() == PAPER_SPEC_DINO_VERSION
+        and str(args.backbone_family).lower() == PAPER_SPEC_BACKBONE_FAMILY
+        and str(backbone).lower() == PAPER_SPEC_BACKBONE_VARIANT
+    )
+    needs_dinov3_convnext = (
+        str(args.dino_version).lower() == "v3" and str(args.backbone_family).lower() == "convnext"
+    )
     if args.run_card:
         guards = apply_laptop_process_guards()
         card = run_card(
@@ -186,11 +211,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         args.paper_config
         or cell_count > 1
         or len(modalities) > 1
-        or backbone == PAPER_BACKBONE_VARIANT
+        or backbone in {PAPER_SPEC_BACKBONE_VARIANT, OFFICIAL_CODE_BACKBONE_VARIANT, PAPER_BACKBONE_VARIANT}
     )
     if heavy and not args.allow_heavy and not args.aggregate_only and not args.smoke:
         print(
-            "REFUSED: laptop-safe profile blocks multi-cell / paper-base runs without --allow-heavy.\n"
+            "REFUSED: laptop-safe profile blocks multi-cell / paper-spec runs without --allow-heavy.\n"
             "Use --smoke first (1 cell). Example full multimodal 10-seed:\n"
             "  .venv\\Scripts\\python.exe scripts/run_libad_official_baseline.py "
             "--allow-heavy --modalities vis_xray_l\n"
@@ -214,14 +239,17 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print("ERROR: official LIBAD mount is not protocol-complete/hash-verified.", file=sys.stderr)
         print(json.dumps(ds.get("comparability_blockers"), indent=2), file=sys.stderr)
         return 2
-    if not args.aggregate_only and paper_path:
-        # Probe only when about to run v3/convnext — one metadata call, not a dataset scan.
+    if not args.aggregate_only and needs_dinov3_convnext:
+        # Probe only when about to run v3/convnext — not for PAPER_SPEC ViT path.
         access = dinov3_access_status(probe=True)
         if not access.get("ready"):
             print("ERROR: Hugging Face gated DINOv3 ConvNeXt access is required for the v3/convnext path.", file=sys.stderr)
             print(access["note"], file=sys.stderr)
             print(
                 "Token may be in .env but DINOv3 model access still needs Accept on HF model page.\n"
+                "PAPER_SPEC path (textual paper):\n"
+                "  .venv\\Scripts\\python.exe scripts/run_libad_official_baseline.py --smoke "
+                "--paper-config --allow-heavy\n"
                 "Fallback interim (not paper-comparable):\n"
                 "  .venv\\Scripts\\python.exe scripts/run_libad_official_baseline.py --smoke "
                 "--dino-version v2 --backbone-family vit --backbone-variant small "
@@ -234,12 +262,30 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             )
             return 3
 
-    results_csv = code_root / "results" / "securecoating_experiment_log.csv"
-    results_md = code_root / "results" / "securecoating_experiment_log.md"
-    root_path = (PROJECT_ROOT / cfg["paths"]["dataset_root"]).resolve()
-    split_dir = (PROJECT_ROOT / cfg["paths"]["splits_root"]).resolve()
     pred_dir = PROJECT_ROOT / "outputs" / "libad_official_baseline"
     pred_dir.mkdir(parents=True, exist_ok=True)
+    root_path = (PROJECT_ROOT / cfg["paths"]["dataset_root"]).resolve()
+    split_dir = (PROJECT_ROOT / cfg["paths"]["splits_root"]).resolve()
+
+    if args.aggregate_only:
+        if args.ledger:
+            ledger_path = Path(args.ledger)
+            run_id = args.run_id or ledger_path.stem.replace("harness_ledger_", "")
+        elif args.run_id:
+            run_id = args.run_id
+            ledger_path = pred_dir / f"harness_ledger_{run_id}.csv"
+        else:
+            print("ERROR: --aggregate-only requires --run-id or --ledger", file=sys.stderr)
+            return 2
+        if not ledger_path.is_file():
+            print(f"ERROR: ledger not found: {ledger_path}", file=sys.stderr)
+            return 2
+    else:
+        run_id = new_run_id()
+        ledger_path = pred_dir / f"harness_ledger_{run_id}.csv"
+
+    results_dir = code_root / "results" / f"securecoating_{run_id}"
+    results_dir.mkdir(parents=True, exist_ok=True)
 
     config = {
         "profile": "laptop",
@@ -250,6 +296,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "coreset_selection_method": "density_fps",
         "coreset_density_weight": 0.7,
         "f_coreset": 0.05,
+        "image_score_method": PAPER_SPEC_IMAGE_SCORE_METHOD if paper_path or args.paper_config else PAPER_SPEC_IMAGE_SCORE_METHOD,
         "batch_size": args.batch_size,
         "test_batch_size": args.batch_size,
         "num_workers": 0,
@@ -266,33 +313,48 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "modalities": modalities,
         "seeds": seeds,
     }
-    if not paper_path:
+    if not paper_spec_match(config):
         config["interim_note"] = (
             "Adapted / interim authors' runner only. Not PAPER_EXACT "
-            "(textual paper DA-Core uses DINOv3 ViT-S/16). "
+            "(textual paper DA-Core uses DINOv3 ViT-S/16 + max-NN). "
             "paper_code_consistency=mismatch with common ConvNeXt upstream defaults."
         )
 
-    run_id = new_run_id()
     config_sha = config_fingerprint(config)
     config["run_id"] = run_id
     config["config_sha256"] = config_sha
-    ledger_path = pred_dir / f"harness_ledger_{run_id}.csv"
 
     run_records = []
+    if args.aggregate_only:
+        import csv as _csv
+
+        with ledger_path.open("r", encoding="utf-8", newline="") as handle:
+            for row in _csv.DictReader(handle):
+                if str(row.get("run_id") or "").strip() != run_id:
+                    continue
+                run_records.append(
+                    {
+                        "seed": int(float(row.get("seed") or -1)),
+                        "modality": str(row.get("modality") or "").strip(),
+                        "returncode": int(float(row.get("returncode") or 1)),
+                        "run_id": run_id,
+                    }
+                )
     if not args.aggregate_only:
         guards = apply_laptop_process_guards()
         print(
             f"Laptop-safe official runner: run_id={run_id} cells={cell_count} seeds={seeds} "
             f"modalities={modalities} backbone={args.backbone_family}/{backbone} "
-            f"dino={args.dino_version} coreset={args.coreset_device} "
-            f"distance={args.distance_device} pause={args.pause_seconds}s "
-            f"guards={guards}",
+            f"dino={args.dino_version} paper_spec={paper_spec_match(config)} "
+            f"coreset={args.coreset_device} distance={args.distance_device} "
+            f"pause={args.pause_seconds}s guards={guards}",
             flush=True,
         )
         for index, seed in enumerate(seeds):
             for modality in modalities:
                 started = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                cell_csv = results_dir / f"seed_{seed}_{modality}.csv"
+                cell_md = results_dir / f"seed_{seed}_{modality}.md"
                 cmd = build_run_command(
                     seed=seed,
                     modality=modality,
@@ -301,8 +363,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     precision=args.precision,
                     root_path=root_path,
                     split_dir=split_dir,
-                    results_csv=results_csv,
-                    results_md=results_md,
+                    results_csv=cell_csv,
+                    results_md=cell_md,
                     coreset_device=args.coreset_device,
                     distance_device=args.distance_device,
                     backbone_family=args.backbone_family,
@@ -311,6 +373,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     density_chunk_size=args.density_chunk_size,
                     run_id=run_id,
                     config_sha256=config_sha,
+                    image_score_method=str(config.get("image_score_method", PAPER_SPEC_IMAGE_SCORE_METHOD)),
                 )
                 print(f"\n=== seed={seed} modality={modality} ===", flush=True)
                 print(" ".join(cmd), flush=True)
@@ -319,7 +382,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 metrics = {}
                 if completed.returncode == 0:
                     metrics = harvest_upstream_metrics(
-                        results_csv,
+                        cell_csv,
                         seed=seed,
                         modality=modality,
                         dino_version=args.dino_version,
@@ -356,6 +419,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     "returncode": completed.returncode,
                     "command": cmd,
                     "run_id": run_id,
+                    "results_csv": str(cell_csv),
                 }
                 run_records.append(record)
                 if completed.returncode != 0:
@@ -374,9 +438,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         for r in run_records
         if int(r.get("returncode") or 0) == 0
     ]
-    aggregate_path = ledger_path if ledger_path.is_file() else results_csv
+    if args.aggregate_only:
+        # Trust ledger rows for this run_id (all successful cells present in ledger).
+        accepted = None
     aggregation = aggregate_experiment_log(
-        aggregate_path,
+        ledger_path,
         seeds=seeds,
         modalities=modalities,
         backbone_variant=backbone,

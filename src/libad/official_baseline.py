@@ -42,6 +42,7 @@ PAPER_BACKBONE_VARIANT = OFFICIAL_CODE_BACKBONE_VARIANT  # legacy alias; not PAP
 PAPER_SPEC_BACKBONE_FAMILY = "vit"
 PAPER_SPEC_DINO_VERSION = "v3"
 PAPER_SPEC_BACKBONE_VARIANT = "small"
+PAPER_SPEC_IMAGE_SCORE_METHOD = "max"
 PAPER_CODE_CONSISTENCY = "mismatch"
 DEFAULT_VRAM_BACKBONE_VARIANT = "tiny"
 LEDGER_FIELDNAMES = [
@@ -219,6 +220,7 @@ def config_fingerprint(config: Dict[str, Any]) -> str:
         "coreset_selection_method": str(config.get("coreset_selection_method", "")).lower(),
         "coreset_density_weight": float(config.get("coreset_density_weight", 0.0)),
         "f_coreset": float(config.get("f_coreset", 0.0)),
+        "image_score_method": str(config.get("image_score_method", PAPER_SPEC_IMAGE_SCORE_METHOD)).lower(),
         "resize_h": int(config.get("resize_h") or 0),
         "resize_w": int(config.get("resize_w") or 0),
         "batch_size": int(config.get("batch_size") or 0),
@@ -230,7 +232,7 @@ def config_fingerprint(config: Dict[str, Any]) -> str:
 
 
 def paper_spec_match(config: Dict[str, Any]) -> bool:
-    """True only for the textual paper DA-Core backbone (DINOv3 ViT-S/16) + DA-FPS knobs."""
+    """True only for the textual paper DA-Core backbone (DINOv3 ViT-S/16) + DA-FPS + max-NN."""
     return (
         str(config.get("backbone_family", "")).lower() == PAPER_SPEC_BACKBONE_FAMILY
         and str(config.get("dino_version", "")).lower() == PAPER_SPEC_DINO_VERSION
@@ -238,6 +240,8 @@ def paper_spec_match(config: Dict[str, Any]) -> bool:
         and str(config.get("coreset_selection_method", "")).lower() == "density_fps"
         and abs(float(config.get("f_coreset", 0.0)) - 0.05) < 1e-9
         and abs(float(config.get("coreset_density_weight", 0.0)) - 0.7) < 1e-9
+        and str(config.get("image_score_method", PAPER_SPEC_IMAGE_SCORE_METHOD)).lower()
+        == PAPER_SPEC_IMAGE_SCORE_METHOD
     )
 
 
@@ -683,6 +687,7 @@ def build_run_command(
     density_chunk_size: int = 512,
     run_id: str = "",
     config_sha256: str = "",
+    image_score_method: str = PAPER_SPEC_IMAGE_SCORE_METHOD,
 ) -> List[str]:
     py = sys.executable
     note = (
@@ -693,7 +698,7 @@ def build_run_command(
         note += f" run_id={run_id}"
     if config_sha256:
         note += f" config_sha256={config_sha256[:16]}"
-    return [
+    cmd = [
         py,
         "run.py",
         "--root_path",
@@ -736,11 +741,13 @@ def build_run_command(
         str(results_csv),
         "--results_md",
         str(results_md),
-        # Explicitly omit --save_bank / --save_raw_scores / --save_pixel_maps
-        # to avoid multi-GB disk dumps on laptops.
         "--notes",
         note,
     ]
+    # Prefer paper max-NN scoring when upstream exposes the flag.
+    if image_score_method:
+        cmd.extend(["--image_score_method", str(image_score_method)])
+    return cmd
 
 
 def launch_official_run(

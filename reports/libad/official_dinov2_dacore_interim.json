@@ -21,6 +21,8 @@
   "evidence_class": "official_libad_authors_runner_partial_or_adapted",
   "comparable_to_paper": false,
   "claim_class": "ADAPTED_REPRODUCTION",
+  "evidence_generation": "LEGACY_HISTORICAL_EVIDENCE",
+  "methodology_note": "Generated before harness ledger/run_id and before PAPER_SPEC=ViT-S/16 clarification. Metrics remain informative; not an output of the current runner. Do not claim PAPER_EXACT.",
   "paper_code_consistency": "mismatch",
   "paper_spec_match": false,
   "official_code_core_match": false,
@@ -28,7 +30,7 @@
   "dataset_protocol_complete": true,
   "experiment_coverage_complete": true,
   "paper_comparability_blockers": [
-    "run config differs from paper defaults (backbone_variant='small'; paper uses 'base')"
+    "run config differs from textual PAPER_SPEC (DINOv3 ViT-S/16 + max-NN); this interim is DINOv2 ViT-S"
   ],
   "official_protocol_complete": true,
   "feature_backbone": "dinov2_vit_small",
@@ -40,7 +42,7 @@
     "url": "https://github.com/evenrose/LIBAD.git",
     "commit": "8f98f2ebde63cd45660e58d6413f5ccd638966f4",
     "runnable_as_paper_baseline": false,
-    "note": "evenrose/LIBAD belongs to Sui et al. Presence of their source does not make this repository's numpy adapter comparable to the published table. Paper-comparable DINOv3+DA-Core numbers require scripts/run_libad_official_baseline.py with HF auth for gated ConvNeXt weights, the hash-verified 4.84 GB mount, and paper-default backbone_variant=base."
+    "note": "evenrose/LIBAD belongs to Sui et al. Presence of their source does not make this repository's numpy adapter comparable to the published table. Paper-comparable PAPER_SPEC numbers require DINOv3 ViT-S/16 + DA-Core with harness run_id provenance."
   },
   "dataset": {
     "official_protocol_complete": true,
@@ -77,7 +79,7 @@
     "seeds": [
       347
     ],
-    "interim_note": "DINOv2/ViT interim stronger baseline only. Not paper-comparable; paper table uses DINOv3 ConvNeXt + DA-Core."
+    "interim_note": "DINOv2/ViT interim stronger baseline only. Not PAPER_EXACT; textual PAPER_SPEC is DINOv3 ViT-S/16 (paper↔code mismatch vs common ConvNeXt upstream defaults)."
   },
   "official_split_seeds": [
     347

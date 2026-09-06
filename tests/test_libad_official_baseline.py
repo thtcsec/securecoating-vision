@@ -70,6 +70,20 @@ class TestLibadOfficialBaseline(unittest.TestCase):
                     "coreset_selection_method": "density_fps",
                     "f_coreset": 0.05,
                     "coreset_density_weight": 0.7,
+                    "image_score_method": "max",
+                }
+            )
+        )
+        self.assertFalse(
+            paper_spec_match(
+                {
+                    "backbone_family": "vit",
+                    "dino_version": "v3",
+                    "backbone_variant": "small",
+                    "coreset_selection_method": "density_fps",
+                    "f_coreset": 0.05,
+                    "coreset_density_weight": 0.7,
+                    "image_score_method": "topk",
                 }
             )
         )
@@ -82,6 +96,7 @@ class TestLibadOfficialBaseline(unittest.TestCase):
                     "coreset_selection_method": "density_fps",
                     "f_coreset": 0.05,
                     "coreset_density_weight": 0.7,
+                    "image_score_method": "max",
                 }
             )
         )

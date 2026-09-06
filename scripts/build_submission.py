@@ -194,6 +194,7 @@ WHITELIST = [
     "reports/libad/official_dinov2_dacore_interim.json" if os.path.exists("reports/libad/official_dinov2_dacore_interim.json") else None,
     "reports/libad/official_dinov3_dacore.json" if os.path.exists("reports/libad/official_dinov3_dacore.json") else None,
     "reports/libad/official_dinov3_run_card.json" if os.path.exists("reports/libad/official_dinov3_run_card.json") else None,
+    "reports/submission_manifest.json",
     "reports/libad_demo/demo_manifest.json",
     "reports/libad_demo/final_screen.json",
     "reports/defense_gifs/rgb_hold_replay.gif" if os.path.exists("reports/defense_gifs/rgb_hold_replay.gif") else None,
@@ -211,14 +212,20 @@ WHITELIST = [
     "outputs/model.onnx",
     "outputs/best.pt",
 ]
-# Directories to include (test_set and evaluation dataset with labels)
-IMAGE_DIRS = [
+# Directories to include recursively (images, manifests, evidence JSON/PNG)
+TREE_DIRS = [
     ("data/test_set/images", "data/test_set/images"),
     ("data/demo_real", "data/demo_real"),
     ("data/evaluation/images", "data/evaluation/images"),
     ("data/evaluation/labels", "data/evaluation/labels"),
     ("reports/libad_demo", "reports/libad_demo"),
+    ("reports/coatingvision_gallery", "reports/coatingvision_gallery"),
+    ("reports/coatingvision_real_demo", "reports/coatingvision_real_demo"),
+    ("reports/external_coatingvision_demo", "reports/external_coatingvision_demo"),
 ]
+TREE_ALLOWED_SUFFIXES = (".jpg", ".jpeg", ".png", ".txt", ".json", ".md", ".gif")
+# Legacy flat IMAGE_DIRS name kept for tests that may reference the idea.
+IMAGE_DIRS = TREE_DIRS
 
 # Explicitly EXCLUDED (safety check)
 BLACKLIST_PATTERNS = [
@@ -249,8 +256,10 @@ ARTIFACT_REQUIRED_PATHS = [
     "Dockerfile.gpu",
     ".github/workflows/ci.yml",
     "reports/test_manifest.json",
+    "reports/submission_manifest.json",
     "outputs/model.onnx",
     "outputs/best.pt",
+    "data/demo_real/manifest.json",
 ]
 
 
@@ -271,14 +280,86 @@ def is_blacklisted(path):
     return False
 
 
-def verify_packed_artifact(zip_path: str) -> None:
-    """Unzip the just-built archive and prove imports/tests collect.
+def _iter_tree_files(src_dir: str):
+    full_dir = os.path.join(PROJECT_ROOT, src_dir)
+    if not os.path.isdir(full_dir):
+        return
+    for root, _dirs, files in os.walk(full_dir):
+        for fname in sorted(files):
+            if not fname.lower().endswith(TREE_ALLOWED_SUFFIXES):
+                continue
+            fpath = os.path.join(root, fname)
+            rel = os.path.relpath(fpath, PROJECT_ROOT).replace("\\", "/")
+            yield fpath, rel
 
-    The working-tree pytest snapshot is not enough: judges open the ZIP.
-    """
+
+def write_submission_manifest(added_files):
+    """Record artifact-level hashes judges can verify without .git."""
+    import hashlib
+    from datetime import datetime, timezone
+
+    files = {}
+    for rel in sorted(set(added_files)):
+        if not rel.startswith(("src/", "configs/", "scripts/", "dashboard/", "tests/", "docs/")):
+            if rel not in {
+                "docker-compose.yml",
+                "docker-compose.gpu.yml",
+                "Dockerfile",
+                "Dockerfile.gpu",
+                ".github/workflows/ci.yml",
+                "reports/test_manifest.json",
+            }:
+                continue
+        full = os.path.join(PROJECT_ROOT, rel)
+        if not os.path.isfile(full):
+            continue
+        digest = hashlib.sha256()
+        with open(full, "rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        files[rel.replace("\\", "/")] = digest.hexdigest()
+
+    # Prefer git HEAD when available; otherwise unknown.
+    commit = "unknown"
+    try:
+        commit_run = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if commit_run.returncode == 0 and commit_run.stdout.strip():
+            commit = commit_run.stdout.strip()
+    except OSError:
+        pass
+
+    payload = {
+        "schema_version": "securecoating-submission-manifest/v1",
+        "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        "source_commit": commit,
+        "file_count": len(files),
+        "files": files,
+        "note": (
+            "Artifact provenance for the packed ZIP. Judges should hash files in the "
+            "unzipped archive against this map. Do not require a .git directory."
+        ),
+    }
+    out = os.path.join(PROJECT_ROOT, "reports", "submission_manifest.json")
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    with open(out, "w", encoding="utf-8") as handle:
+        import json
+
+        json.dump(payload, handle, indent=2)
+        handle.write("\n")
+    return out
+
+
+def verify_packed_artifact(zip_path: str) -> None:
+    """Unzip the just-built archive and execute the release contract tests."""
     import tempfile
 
-    print("  VERIFYING PACKED ARTIFACT (unzip → import → collect):")
+    print("  VERIFYING PACKED ARTIFACT (unzip → import → execute contract tests):")
     with zipfile.ZipFile(zip_path, "r") as zf:
         names = set(zf.namelist())
         missing = [path for path in ARTIFACT_REQUIRED_PATHS if path not in names]
@@ -286,6 +367,22 @@ def verify_packed_artifact(zip_path: str) -> None:
             print("  [ERROR] ZIP missing required paths:")
             for path in missing:
                 print(f"    - {path}")
+            sys.exit(1)
+        demo_imgs = [n for n in names if n.startswith("data/demo_real/images/") and n.lower().endswith((".jpg", ".jpeg", ".png"))]
+        if len(demo_imgs) < 1:
+            print("  [ERROR] ZIP missing data/demo_real/images/*")
+            sys.exit(1)
+        evidence_json = [
+            n for n in names
+            if n.endswith("coatingvision_model_output.json")
+            and (
+                n.startswith("reports/coatingvision_gallery/")
+                or n.startswith("reports/coatingvision_real_demo/")
+                or n.startswith("reports/external_coatingvision_demo/")
+            )
+        ]
+        if len(evidence_json) < 3:
+            print(f"  [ERROR] ZIP needs >=3 coatingvision evidence JSON files, found {len(evidence_json)}")
             sys.exit(1)
         with tempfile.TemporaryDirectory(prefix="scv_zip_verify_") as tmp:
             zf.extractall(tmp)
@@ -311,13 +408,13 @@ def verify_packed_artifact(zip_path: str) -> None:
                 print(import_probe.stdout)
                 print(import_probe.stderr)
                 sys.exit(1)
-            collect = subprocess.run(
+            executed = subprocess.run(
                 [
                     sys.executable,
                     "-m",
                     "pytest",
-                    "--collect-only",
                     "-q",
+                    "--tb=line",
                     "tests/test_hardware_profile.py",
                     "tests/test_predictor.py",
                     "tests/test_libad_evidence_gate.py",
@@ -328,13 +425,12 @@ def verify_packed_artifact(zip_path: str) -> None:
                 capture_output=True,
                 text=True,
             )
-            if collect.returncode != 0:
-                print("  [ERROR] Packed artifact pytest --collect-only failed:")
-                print(collect.stdout)
-                print(collect.stderr)
+            print(executed.stdout)
+            if executed.returncode != 0:
+                print("  [ERROR] Packed artifact contract tests failed:")
+                print(executed.stderr)
                 sys.exit(1)
-            print("  Packed artifact import + collect: OK")
-            print(f"  Collect summary: {collect.stdout.strip().splitlines()[-1] if collect.stdout.strip() else 'ok'}")
+            print("  Packed artifact import + executed contract tests: OK")
 
 
 def build_zip(require_live_api=False, skip_tests=False):
@@ -391,33 +487,45 @@ def build_zip(require_live_api=False, skip_tests=False):
 
     added_files = []
     skipped_files = []
+    planned = []
 
-    with zipfile.ZipFile(OUTPUT_ZIP, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
-        # Add whitelisted individual files
-        for filepath in WHITELIST:
-            if filepath is None:
+    for filepath in WHITELIST:
+        if filepath is None:
+            continue
+        full_path = os.path.join(PROJECT_ROOT, filepath)
+        if os.path.exists(full_path) and os.path.isfile(full_path):
+            if is_blacklisted(filepath):
+                skipped_files.append(filepath)
                 continue
-            full_path = os.path.join(PROJECT_ROOT, filepath)
-            if os.path.exists(full_path) and os.path.isfile(full_path):
-                if is_blacklisted(filepath):
-                    skipped_files.append(filepath)
-                    continue
-                zf.write(full_path, filepath)
-                added_files.append(filepath)
-            else:
-                skipped_files.append(f"(missing) {filepath}")
+            planned.append((full_path, filepath.replace("\\", "/")))
+        else:
+            skipped_files.append(f"(missing) {filepath}")
 
-        # Add image and evaluation label directories
-        for src_dir, zip_dir in IMAGE_DIRS:
-            full_dir = os.path.join(PROJECT_ROOT, src_dir)
-            if os.path.exists(full_dir):
-                for fname in sorted(os.listdir(full_dir)):
-                    if fname.endswith(('.jpg', '.png', '.jpeg', '.txt')):
-                        fpath = os.path.join(full_dir, fname)
-                        arcname = f"{zip_dir}/{fname}"
-                        if not is_blacklisted(arcname):
-                            zf.write(fpath, arcname)
-                            added_files.append(arcname)
+    for src_dir, _zip_dir in TREE_DIRS:
+        for fpath, rel in _iter_tree_files(src_dir):
+            if is_blacklisted(rel):
+                skipped_files.append(rel)
+                continue
+            planned.append((fpath, rel))
+
+    # Deduplicate by arcname
+    seen = set()
+    unique_planned = []
+    for fpath, rel in planned:
+        if rel in seen:
+            continue
+        seen.add(rel)
+        unique_planned.append((fpath, rel))
+
+    write_submission_manifest([rel for _fpath, rel in unique_planned])
+    manifest_path = os.path.join(PROJECT_ROOT, "reports", "submission_manifest.json")
+    if os.path.isfile(manifest_path) and "reports/submission_manifest.json" not in seen:
+        unique_planned.append((manifest_path, "reports/submission_manifest.json"))
+
+    with zipfile.ZipFile(OUTPUT_ZIP, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+        for fpath, rel in unique_planned:
+            zf.write(fpath, rel)
+            added_files.append(rel)
 
     zip_size = os.path.getsize(OUTPUT_ZIP) / (1024 * 1024)
 

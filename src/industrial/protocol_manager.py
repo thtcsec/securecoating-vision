@@ -908,8 +908,24 @@ class IndustrialProtocolManager:
                 "hold_register": self.plc_state.hold_register,
                 "estop_register": self.plc_state.emergency_stop_register,
             },
+            "control_confirmation": {
+                "requested_action": decision["action"].value,
+                "state": (signal.metadata or {}).get("hold_state")
+                or (
+                    "HOLD_CONFIRMED"
+                    if decision["action"].value == "HOLD" and (signal.acknowledged or self.mock_mode)
+                    else (
+                        "ACKNOWLEDGED"
+                        if signal.acknowledged or self.mock_mode
+                        else "UNCONFIRMED"
+                    )
+                ),
+                "acknowledged": bool(signal.acknowledged),
+                "physical_hold_acked": bool((signal.metadata or {}).get("physical_hold_acked", False)),
+                "delivery_status": (signal.metadata or {}).get("delivery_status"),
+            },
             "communication_latency_ms": signal.latency_ms,
-            "protocol": signal.protocol
+            "protocol": signal.protocol,
         }
 
     def get_signal_history(self, limit: int = 50) -> List[Dict]:
@@ -925,7 +941,10 @@ class IndustrialProtocolManager:
                 "batch_id": s.batch_id,
                 "defect_count": s.defect_summary.get("count", 0),
                 "latency_ms": s.latency_ms,
-                "acknowledged": s.acknowledged
+                "acknowledged": s.acknowledged,
+                "hold_state": (s.metadata or {}).get("hold_state"),
+                "physical_hold_acked": (s.metadata or {}).get("physical_hold_acked"),
+                "delivery_status": (s.metadata or {}).get("delivery_status"),
             }
             for s in recent
         ]
