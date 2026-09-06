@@ -199,7 +199,8 @@ class CoatingPredictor:
             )
             if self.onnx_engine.is_loaded:
                 # Warmup CUDA kernels so first API call is not multi-second
-                dummy = np.zeros((imgsz, imgsz, 3), dtype=np.uint8)
+                warm_imgsz = int(getattr(self.onnx_engine, "imgsz", imgsz) or imgsz)
+                dummy = np.zeros((warm_imgsz, warm_imgsz, 3), dtype=np.uint8)
                 self.onnx_engine.infer(dummy)
             else:
                 logger.warning(f"ONNX file missing or unloadable: {onnx_path}")

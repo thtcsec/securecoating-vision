@@ -1,7 +1,7 @@
 import logging
 import os
 import time
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import cv2
 import numpy as np
@@ -22,6 +22,7 @@ class YOLOEngine:
         conf_thresh: float = 0.35,
         iou_thresh: float = 0.45,
         device: str = "auto",
+        precision: str = "fp32",
         num_classes: int = 4,
     ):
         self.model_path = model_path
@@ -29,6 +30,9 @@ class YOLOEngine:
         self.conf_thresh = conf_thresh
         self.iou_thresh = iou_thresh
         self.device = device
+        self.precision = precision.lower()
+        if self.precision not in {"fp32", "fp16"}:
+            raise ValueError("YOLO precision must be fp32 or fp16")
         self.num_classes = int(num_classes)
         self.model = None
         self._model_loaded = False
@@ -55,6 +59,12 @@ class YOLOEngine:
             return "CPU"
         except Exception:
             return "CPU"
+
+    @property
+    def active_precision(self) -> str:
+        if self._model_loaded and self._resolved_device not in ("cpu", "CPU"):
+            return self.precision
+        return "fp32"
 
     def _load_model(self):
         if not os.path.exists(self.model_path):
@@ -91,6 +101,7 @@ class YOLOEngine:
                 conf=self.conf_thresh,
                 iou=self.iou_thresh,
                 device=self._resolved_device,
+                half=self.precision == "fp16" and self._resolved_device not in ("cpu", "CPU"),
                 verbose=False,
             )
             self._model_loaded = True
@@ -120,6 +131,7 @@ class YOLOEngine:
             conf=self.conf_thresh,
             iou=self.iou_thresh,
             device=self._resolved_device,
+            half=self.precision == "fp16" and self._resolved_device not in ("cpu", "CPU"),
             verbose=False,
         )
         result = results[0]

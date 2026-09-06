@@ -126,6 +126,24 @@ class InferenceEngine:
         # Cache input/output metadata
         self.input_name = self.session.get_inputs()[0].name
         self.output_names = [o.name for o in self.session.get_outputs()]
+        input_shape = self.session.get_inputs()[0].shape
+        # Prefer the artifact's spatial size over the hardware-profile request so a
+        # 512-export never gets fed a 640 canvas on performance/balanced hosts.
+        if (
+            isinstance(input_shape, (list, tuple))
+            and len(input_shape) >= 4
+            and isinstance(input_shape[2], int)
+            and isinstance(input_shape[3], int)
+            and input_shape[2] == input_shape[3]
+            and input_shape[2] > 0
+            and int(input_shape[2]) != int(self.imgsz)
+        ):
+            logger.info(
+                "Aligning ONNX imgsz to artifact input: requested=%s artifact=%s",
+                self.imgsz,
+                input_shape[2],
+            )
+            self.imgsz = int(input_shape[2])
         outputs = self.session.get_outputs()
         if len(outputs) >= 2:
             det_shape = outputs[0].shape
@@ -165,10 +183,10 @@ class InferenceEngine:
         available = ort.get_available_providers()
 
         if self.device == "cuda" or self.device == "auto":
-            if "CUDAExecutionProvider" in available:
-                return ["CUDAExecutionProvider", "CPUExecutionProvider"]
-            elif "TensorrtExecutionProvider" in available:
+            if "TensorrtExecutionProvider" in available:
                 return ["TensorrtExecutionProvider", "CUDAExecutionProvider", "CPUExecutionProvider"]
+            elif "CUDAExecutionProvider" in available:
+                return ["CUDAExecutionProvider", "CPUExecutionProvider"]
             else:
                 if self.device == "cuda":
                     logger.warning("CUDA requested but not available. Falling back to CPU.")
@@ -187,6 +205,14 @@ class InferenceEngine:
         if self.session:
             return self.session.get_providers()[0]
         return "None (Mock Mode)"
+
+    @property
+    def active_precision(self) -> str:
+        """Report model input precision; provider availability does not imply FP16."""
+        if not self.session:
+            return "unknown"
+        input_type = str(self.session.get_inputs()[0].type).lower()
+        return "fp16" if "float16" in input_type else "fp32"
 
     def preprocess(self, image: np.ndarray) -> Tuple[np.ndarray, dict]:
         """
