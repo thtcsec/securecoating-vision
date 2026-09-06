@@ -8,7 +8,7 @@ plant evidence, and it never issues a line command.
 from __future__ import annotations
 
 import html
-from typing import Any, Dict
+from typing import Any
 
 import streamlit as st
 
@@ -127,6 +127,34 @@ def render_multimodal_lane(api_client: Any) -> None:
             st.metric("Gate HOLD", _fmt_mean(hold.get("mean"), percent=True))
         with m4:
             st.metric("Gate escape", _fmt_mean(escape.get("mean"), percent=True))
+
+    interim = (
+        payload.get("authors_interim_report")
+        if isinstance(payload.get("authors_interim_report"), dict)
+        else None
+    )
+    if interim and interim.get("comparable_to_paper") is not True:
+        multimodal = interim.get("multimodal") if isinstance(interim.get("multimodal"), dict) else {}
+        auroc = multimodal.get("auroc") if isinstance(multimodal.get("auroc"), dict) else {}
+        fpr = multimodal.get("fpr95") if isinstance(multimodal.get("fpr95"), dict) else {}
+        aupr = multimodal.get("aupr") if isinstance(multimodal.get("aupr"), dict) else {}
+        f1 = multimodal.get("f1_max") if isinstance(multimodal.get("f1_max"), dict) else {}
+        st.markdown("#### Authors' runner interim (not paper-comparable)")
+        st.caption(
+            str(interim.get("note") or "")
+            + " Source: reports/libad/official_dinov2_dacore_interim.json. "
+            f"n_splits={interim.get('n_splits')}. "
+            "DINOv3 ConvNeXt remains gated/unfinished on this host."
+        )
+        i1, i2, i3, i4 = st.columns(4)
+        with i1:
+            st.metric("Interim AUROC", _fmt_mean(auroc.get("mean")))
+        with i2:
+            st.metric("Interim FPR95", _fmt_mean(fpr.get("mean")))
+        with i3:
+            st.metric("Interim AUPR", _fmt_mean(aupr.get("mean")))
+        with i4:
+            st.metric("Interim F1-max", _fmt_mean(f1.get("mean")))
 
     if not present:
         st.warning(

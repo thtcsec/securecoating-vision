@@ -301,8 +301,22 @@ def render_live_strip(snapshot: Dict[str, Any]) -> None:
         or readiness.get("trained_model_ready")
     )
     engine_name = str(readiness.get("primary_engine") or "NONE").strip() or "NONE"
+    runtime = readiness.get("inference_runtime") or {}
+    provider_labels = {
+        "CPUExecutionProvider": "ONNX CPU",
+        "CUDAExecutionProvider": "ONNX CUDA",
+        "TensorrtExecutionProvider": "TENSORRT",
+    }
+    engine_name = provider_labels.get(engine_name, engine_name)
+    if str(runtime.get("active_engine") or "").lower() == "yolo":
+        engine_name = "YOLO CUDA" if "CUDA" in engine_name.upper() else "YOLO CPU"
+    profile_name = str(readiness.get("hardware_profile") or "unknown").upper()
+    precision = str(readiness.get("inference_precision") or "unknown").upper()
+    inference_imgsz = readiness.get("inference_imgsz")
     if model_ready:
-        engine_label = html.escape(engine_name)
+        engine_label = html.escape(
+            f"{profile_name} · {engine_name} · {precision} · {inference_imgsz}px"
+        )
         engine_class = "status-optimal"
     else:
         engine_label = "NO MODEL"
@@ -1040,6 +1054,11 @@ The left identity rail is not the view switcher. Collapsing it hides roll/batch 
                     "onnx_available": readiness.get("onnx_available"),
                     "yolo_available": readiness.get("yolo_available"),
                     "device": readiness.get("device"),
+                    "hardware_profile": readiness.get("hardware_profile"),
+                    "requested_hardware_profile": readiness.get("requested_hardware_profile"),
+                    "inference_precision": readiness.get("inference_precision"),
+                    "inference_imgsz": readiness.get("inference_imgsz"),
+                    "inference_fallback_reason": readiness.get("inference_fallback_reason"),
                     "model_artifact_sha256": readiness.get("model_artifact_sha256"),
                     "onnx_artifact_sha256": readiness.get("onnx_artifact_sha256"),
                 },

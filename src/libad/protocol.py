@@ -147,10 +147,12 @@ def git_source_provenance(repo_root: Optional[Path] = None) -> Dict[str, Any]:
     """
     root = repo_root or PROJECT_ROOT
     pathspec = [
-        "src", "scripts", "configs", "dashboard",
+        "src", "scripts", "configs", "dashboard", "tests",
+        ".github", ".env.example",
         ":(exclude)scripts/record_test_manifest.py",
         ":(exclude)scripts/build_submission.py",
-        "Dockerfile", "docker-compose.yml", "requirements.txt",
+        "Dockerfile", "Dockerfile.gpu", "docker-compose.yml",
+        "docker-compose.gpu.yml", "requirements.txt",
         "requirements-core.txt", "requirements-docker.txt",
         "requirements-gpu.txt", "requirements-lock.txt",
     ]
@@ -264,6 +266,55 @@ def official_local_adapter_summary() -> Optional[Dict[str, Any]]:
         "unimodal_xray_l": academic("unimodal_xray_l"),
         "multimodal": academic("multimodal"),
         "securecoating_gate": gate,
+    }
+
+
+def official_authors_interim_summary() -> Optional[Dict[str, Any]]:
+    """Checked-in authors-runner interim (DINOv2 smoke). Never a paper-table claim."""
+    path = PROJECT_ROOT / "reports" / "libad" / "official_dinov2_dacore_interim.json"
+    if not path.is_file():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        return None
+    if payload.get("comparable_to_paper") is True:
+        return None
+    experiments = payload.get("experiments") if isinstance(payload.get("experiments"), dict) else {}
+    multimodal_block = (
+        (experiments.get("multimodal") or {}).get("academic")
+        if isinstance(experiments.get("multimodal"), dict)
+        else {}
+    )
+    multimodal: Dict[str, Any] = {}
+    for metric in ("auroc", "aupr", "f1_max", "fpr95"):
+        parsed = _mean_std(multimodal_block, metric)
+        if parsed:
+            multimodal[metric] = parsed
+    if not multimodal:
+        return None
+    run_config = payload.get("run_config") if isinstance(payload.get("run_config"), dict) else {}
+    n_splits = 0
+    if isinstance(experiments.get("multimodal"), dict):
+        try:
+            n_splits = int(experiments["multimodal"].get("n_splits") or 0)
+        except (TypeError, ValueError):
+            n_splits = 0
+    return {
+        "source": "reports/libad/official_dinov2_dacore_interim.json",
+        "evidence_class": payload.get("evidence_class"),
+        "comparable_to_paper": False,
+        "feature_backbone": payload.get("feature_backbone"),
+        "dino_version": run_config.get("dino_version"),
+        "backbone_family": run_config.get("backbone_family"),
+        "backbone_variant": run_config.get("backbone_variant"),
+        "n_splits": n_splits,
+        "multimodal": multimodal,
+        "paper_comparability_blockers": list(payload.get("paper_comparability_blockers") or []),
+        "note": (
+            "Authors' evenrose/LIBAD runner interim on official splits. "
+            "DINOv2 ViT-small smoke (not DINOv3 ConvNeXt-base). Not paper-comparable."
+        ),
     }
 
 

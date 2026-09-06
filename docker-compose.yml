@@ -17,7 +17,7 @@ services:
       SECURECOATING_FACTORY_SECRET: ${SECURECOATING_FACTORY_SECRET:-}
       SECURECOATING_OPERATOR_CREDENTIALS: ${SECURECOATING_OPERATOR_CREDENTIALS:-[]}
       SECURECOATING_DB_PATH: ${SECURECOATING_DB_PATH:-/app/data/quality_history.db}
-      SECURECOATING_INFERENCE_DEVICE: "cpu"
+      SECURECOATING_HARDWARE_PROFILE: ${SECURECOATING_HARDWARE_PROFILE:-auto}
       XDG_CONFIG_HOME: /tmp/.config
       YOLO_CONFIG_DIR: /tmp
       MPLCONFIGDIR: /tmp/matplotlib
@@ -32,13 +32,24 @@ services:
       - ./logs:/app/logs
       - ./src:/app/src:ro
     command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --workers 1
+    init: true
     restart: unless-stopped
+    stop_grace_period: 20s
     read_only: true
     tmpfs:
       - /tmp:size=256m,noexec,nosuid
     cap_drop: ["ALL"]
     security_opt: ["no-new-privileges:true"]
     pids_limit: 256
+    ulimits:
+      nofile:
+        soft: 4096
+        hard: 8192
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/live', timeout=5).read()"]
       interval: 30s
@@ -69,13 +80,24 @@ services:
       api:
         condition: service_healthy
     command: streamlit run dashboard/app.py --server.address=0.0.0.0 --server.port=8501 --server.headless=true --client.toolbarMode=minimal
+    init: true
     restart: unless-stopped
+    stop_grace_period: 20s
     read_only: true
     tmpfs:
       - /tmp:size=256m,noexec,nosuid
     cap_drop: ["ALL"]
     security_opt: ["no-new-privileges:true"]
     pids_limit: 256
+    ulimits:
+      nofile:
+        soft: 2048
+        hard: 4096
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health', timeout=5).read()"]
       interval: 30s

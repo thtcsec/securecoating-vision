@@ -137,7 +137,7 @@ A release may be called **research/demo-ready** only when automated tests and ev
 
 ## Next Execution Plan
 
-1. **Next evidence slice**: laptop-safe authors' runner only — `--smoke` first, then `--allow-heavy --modalities vis_xray_l` for 10 seeds if thermals OK. DINOv3 needs HF gated Accept; if blocked use DINOv2 interim (`comparable_to_paper: false`). Then risk–coverage gate; CoatingVision seg only if time before 10 September 2026.
+1. **Next evidence slice**: defense surfaces synced to numpy 10-seed + authors' DINOv2 interim (1 seed, not paper-comparable). Rebuild zip; present white MSE Lab deck in Slideshow. DINOv3 ConvNeXt still gated — optional if access arrives before 10 September 2026.
 2. **Laptop hard rule**: no bank dumps, no live 4.84 GB tree rehash, no multi-modality × 10-seed without `--allow-heavy`, keep Task Manager open.
 3. **Next engineering slice**: keep GitHub Actions green; add Compose/browser smoke only when the runner has enough RAM.
 4. **Next integration slice**: vendor PLC HIL remains open; localhost Modbus command/ACK now runs through the live API (`scripts/run_modbus_loopback_trigger.py`).

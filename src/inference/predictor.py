@@ -8,6 +8,8 @@ import re
 import torch
 import torch.nn as nn
 
+from inference.hardware_profile import resolve_inference_profile
+
 logger = logging.getLogger("SecureCoatingVision.Predictor")
 
 # Project root (…/securecoating-vision), independent of process cwd
@@ -58,18 +60,11 @@ class CoatingPredictor:
     def __init__(self, model_config):
         self.config = model_config
 
-        requested_device = os.environ.get(
-            "SECURECOATING_INFERENCE_DEVICE",
-            self.config.get("inference", {}).get("device", "cpu"),
-        ).lower()
-        if requested_device not in {"cpu", "cuda"}:
-            raise ValueError("SECURECOATING_INFERENCE_DEVICE must be 'cpu' or 'cuda'")
-        if requested_device == "cuda" and not torch.cuda.is_available():
-            logger.warning("CUDA requested but not available. Falling back to CPU.")
-            self.device = torch.device("cpu")
-        else:
-            self.device = torch.device(requested_device)
-        self.requested_device = self.device.type
+        self.profile = resolve_inference_profile(self.config)
+        self.device = torch.device(self.profile.device)
+        self.requested_device = self.profile.device
+        self.imgsz = self.profile.imgsz
+        self.requested_precision = self.profile.requested_precision
 
         self.num_classes = int(self.config.get("model", {}).get("num_classes", 5))
         self.artifact_num_classes = int(
@@ -86,8 +81,11 @@ class CoatingPredictor:
 
         self.yolo_engine = None
         self.onnx_engine = None
-        self._init_yolo_engine()
-        self._init_onnx_engine()
+        for engine_name in self.profile.engine_priority:
+            if engine_name == "yolo":
+                self._init_yolo_engine()
+            else:
+                self._init_onnx_engine()
 
         self.h_thermal_to_rgb = np.eye(3, dtype=np.float32)
         self.h_depth_to_rgb = np.eye(3, dtype=np.float32)
@@ -164,13 +162,14 @@ class CoatingPredictor:
             self._verify_artifact(path, "weights_sha256")
             conf = self.config.get("inference", {}).get("confidence_threshold", 0.35)
             iou = self.config.get("inference", {}).get("nms_threshold", 0.45)
-            imgsz = int(self.config.get("inference", {}).get("imgsz", 640))
+            imgsz = self.imgsz
             self.yolo_engine = YOLOEngine(
                 model_path=path,
                 imgsz=imgsz,
                 conf_thresh=conf,
                 iou_thresh=iou,
                 device=self.requested_device,
+                precision=self.requested_precision,
                 num_classes=self.artifact_num_classes,
             )
         except Exception as e:
@@ -188,7 +187,7 @@ class CoatingPredictor:
             self._verify_artifact(onnx_path, "onnx_sha256")
             conf = self.config.get("inference", {}).get("confidence_threshold", 0.35)
             iou = self.config.get("inference", {}).get("nms_threshold", 0.45)
-            imgsz = int(self.config.get("inference", {}).get("imgsz", 640))
+            imgsz = self.imgsz
             self.onnx_engine = InferenceEngine(
                 model_path=onnx_path,
                 imgsz=imgsz,
@@ -304,25 +303,23 @@ class CoatingPredictor:
             if aligned_height is None:
                 logger.warning("3D Depth profile signal missing! Activating fallback degradation mode.")
 
-        # 1) Ultralytics YOLO on GPU (preferred for local RTX demos)
-        if self.yolo_available:
-            result = self.yolo_engine.infer(optical)
-            return self._pack_engine_result(
-                result,
-                fallback_active,
-                f"YOLO ({result.get('provider', 'Ultralytics')})",
-                start_time,
-            )
-
-        # 2) ONNX Runtime (submission / portable)
-        if self.onnx_available:
-            result = self.onnx_engine.infer(optical)
-            return self._pack_engine_result(
-                result,
-                fallback_active,
-                f"ONNX Runtime ({result.get('provider', 'unknown')})",
-                start_time,
-            )
+        for engine_name in self.profile.engine_priority:
+            if engine_name == "yolo" and self.yolo_available:
+                result = self.yolo_engine.infer(optical)
+                return self._pack_engine_result(
+                    result,
+                    fallback_active,
+                    f"YOLO ({result.get('provider', 'Ultralytics')})",
+                    start_time,
+                )
+            if engine_name == "onnx" and self.onnx_available:
+                result = self.onnx_engine.infer(optical)
+                return self._pack_engine_result(
+                    result,
+                    fallback_active,
+                    f"ONNX Runtime ({result.get('provider', 'unknown')})",
+                    start_time,
+                )
 
         # 3) Untrained fusion stub
         input_tensor, fallback_active = self.preprocess(
@@ -352,3 +349,39 @@ class CoatingPredictor:
             "engine": "PyTorch (Fusion Fallback)",
             "model_version": self.model_version,
         }
+
+    def runtime_info(self) -> dict:
+        """Expose requested versus active runtime without overstating acceleration."""
+        info = self.profile.as_dict()
+        preferred = self.profile.engine_priority[0]
+        if preferred == "yolo" and self.yolo_available:
+            active_engine = "yolo"
+            active_provider = self.yolo_engine.active_provider
+            active_precision = self.yolo_engine.active_precision
+        elif preferred == "onnx" and self.onnx_available:
+            active_engine = "onnx"
+            active_provider = self.onnx_engine.active_provider
+            active_precision = self.onnx_engine.active_precision
+        elif self.onnx_available:
+            active_engine = "onnx"
+            active_provider = self.onnx_engine.active_provider
+            active_precision = self.onnx_engine.active_precision
+        elif self.yolo_available:
+            active_engine = "yolo"
+            active_provider = self.yolo_engine.active_provider
+            active_precision = self.yolo_engine.active_precision
+        else:
+            active_engine = "untrained_fallback"
+            active_provider = str(self.device)
+            active_precision = "fp32"
+        info.update(
+            {
+                "active_engine": active_engine,
+                "active_provider": active_provider,
+                "active_precision": active_precision,
+                "model_version": self.model_version,
+            }
+        )
+        if active_engine != preferred and not info["fallback_reason"]:
+            info["fallback_reason"] = f"preferred engine {preferred} is unavailable"
+        return info

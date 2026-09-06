@@ -39,11 +39,13 @@ import threading
 from pathlib import Path
 from datetime import datetime, timezone
 from io import BytesIO
+from urllib.parse import urlsplit
 import yaml
 import logging
 import uvicorn
 from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File, Form, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.datastructures import MutableHeaders
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -52,6 +54,10 @@ from typing import Optional, List, Dict, Any, Literal
 import numpy as np
 import cv2
 from PIL import Image, UnidentifiedImageError
+
+# Preserve Pillow's safety-checking opener before Ultralytics installs its HEIF
+# convenience wrapper, which otherwise retries unsafe headers as optional HEIF.
+_PIL_IMAGE_OPEN = Image.open
 
 # Configure logging
 logging.basicConfig(
@@ -74,7 +80,7 @@ from industrial.protocol_manager import (
     IndustrialProtocolManager,
     apply_industrial_io_env_overrides,
 )
-from industrial.web_synchronizer import WebSynchronizer, RollMetadata
+from industrial.web_synchronizer import WebSynchronizer
 from inference.electrode_metrology import ElectrodeMetrologyEngine
 from inference.multi_stage_pipeline import MultiStageIndustrialPipeline
 from traceability.root_cause_engine import RootCauseDiagnosticEngine
@@ -126,16 +132,35 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=TRUSTED_HOSTS)
 # Authentication is fail-closed. A deliberate local-only test/demo override is
 # required to run without an API key.
 API_KEY = os.environ.get("SECURECOATING_API_KEY", "").strip()
+FACTORY_SECRET = os.environ.get("SECURECOATING_FACTORY_SECRET", "").strip()
 ALLOW_UNAUTHENTICATED_DEMO = (
     ENVIRONMENT in {"development", "test"}
     and os.environ.get("SECURECOATING_ALLOW_UNAUTHENTICATED_DEMO", "false").lower()
     in {"1", "true", "yes"}
 )
 REQUIRE_API_KEY = not ALLOW_UNAUTHENTICATED_DEMO or bool(API_KEY)
-if ENVIRONMENT == "production" and not os.environ.get("SECURECOATING_FACTORY_SECRET", "").strip():
-    raise RuntimeError("SECURECOATING_FACTORY_SECRET must be configured in production")
-if ENVIRONMENT == "production" and not API_KEY:
-    raise RuntimeError("SECURECOATING_API_KEY must be configured in production")
+if ENVIRONMENT == "production":
+    if not FACTORY_SECRET:
+        raise RuntimeError("SECURECOATING_FACTORY_SECRET must be configured in production")
+    if len(FACTORY_SECRET.encode("utf-8")) < 32:
+        raise RuntimeError("SECURECOATING_FACTORY_SECRET must contain at least 32 bytes")
+    if not API_KEY:
+        raise RuntimeError("SECURECOATING_API_KEY must be configured in production")
+    if len(API_KEY.encode("utf-8")) < 32:
+        raise RuntimeError("SECURECOATING_API_KEY must contain at least 32 bytes")
+    if "*" in ALLOWED_ORIGINS:
+        raise RuntimeError("Wildcard CORS origins are forbidden in production")
+    if "*" in TRUSTED_HOSTS:
+        raise RuntimeError("Wildcard trusted hosts are forbidden in production")
+    for origin in ALLOWED_ORIGINS:
+        parsed = urlsplit(origin)
+        if not parsed.scheme or not parsed.hostname or parsed.path not in {"", "/"}:
+            raise RuntimeError(f"Invalid production CORS origin: {origin}")
+        loopback = parsed.hostname in {"localhost", "127.0.0.1", "::1"}
+        if parsed.scheme != "https" and not loopback:
+            raise RuntimeError(
+                f"Production CORS origin must use HTTPS unless loopback: {origin}"
+            )
 
 
 @app.middleware("http")
@@ -165,12 +190,7 @@ async def optional_api_key_guard(request: Request, call_next):
                 status_code=401,
                 content={"detail": "Invalid or missing X-API-Key"},
             )
-    response = await call_next(request)
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["Referrer-Policy"] = "no-referrer"
-    response.headers["Cache-Control"] = "no-store"
-    return response
+    return await call_next(request)
 
 
 MAX_INFLIGHT_INSPECTIONS = max(
@@ -398,7 +418,7 @@ def _authenticate_control_operator(request: Request, claimed_operator_id: str, a
 def _decode_upload(file_bytes: bytes) -> np.ndarray:
     """Validate image headers/dimensions before allocating the decoded array."""
     try:
-        with Image.open(BytesIO(file_bytes)) as header:
+        with _PIL_IMAGE_OPEN(BytesIO(file_bytes)) as header:
             if header.format not in ALLOWED_IMAGE_FORMATS:
                 raise HTTPException(status_code=415, detail="Unsupported image format")
             width, height = header.size
@@ -725,6 +745,42 @@ class RequestBodyLimitMiddleware:
 
 
 app.add_middleware(RequestBodyLimitMiddleware, max_bytes=MAX_REQUEST_SIZE)
+
+
+class SecurityHeadersMiddleware:
+    """Attach defensive response headers, including to early/error responses."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_with_security_headers(message):
+            if message.get("type") == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                headers["X-Content-Type-Options"] = "nosniff"
+                headers["X-Frame-Options"] = "DENY"
+                headers["Referrer-Policy"] = "no-referrer"
+                headers["Cache-Control"] = "no-store"
+                headers["Content-Security-Policy"] = (
+                    "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
+                )
+                headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+                headers["Cross-Origin-Resource-Policy"] = "same-site"
+                headers["X-Permitted-Cross-Domain-Policies"] = "none"
+                if scope.get("scheme") == "https":
+                    headers["Strict-Transport-Security"] = (
+                        "max-age=31536000; includeSubDomains"
+                    )
+            await send(message)
+
+        await self.app(scope, receive, send_with_security_headers)
+
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 ARTIFACT_VIEWS = ("raw", "mask", "blend", "heatmap", "input", "overlay")
@@ -1402,6 +1458,11 @@ class HealthResponse(BaseModel):
     onnx_available: bool
     yolo_available: bool = False
     primary_engine: str = "unknown"
+    hardware_profile: str = "unknown"
+    requested_hardware_profile: str = "unknown"
+    inference_precision: str = "unknown"
+    inference_imgsz: int = 0
+    inference_fallback_reason: Optional[str] = None
     system_state: str
     sensors: Dict[str, str]
 
@@ -1428,21 +1489,20 @@ def _build_health_payload():
         and not SIMULATION_MODE
         and not industrial_mgr.mock_mode
     )
+    runtime = predictor.runtime_info()
     payload = {
         "status": "HEALTHY" if ready else "DEGRADED",
         "device": str(predictor.device),
         "model_version": model_config.get("model", {}).get("version", "2.0.0"),
         "onnx_available": predictor.onnx_available,
         "yolo_available": predictor.yolo_available,
-        "primary_engine": (
-            predictor.yolo_engine.active_provider
-            if predictor.yolo_available
-            else (
-                predictor.onnx_engine.active_provider
-                if predictor.onnx_available
-                else "NONE"
-            )
-        ),
+        "primary_engine": runtime["active_provider"],
+        "hardware_profile": runtime["active_profile"],
+        "requested_hardware_profile": runtime["requested_profile"],
+        "inference_precision": runtime["active_precision"],
+        "inference_imgsz": runtime["imgsz"],
+        "inference_fallback_reason": runtime["fallback_reason"],
+        "inference_runtime": runtime,
         "system_state": health["system_state"],
         "sensors": health["sensors"],
         "industrial_interlock_latched": industrial_state["interlock_latched"],
@@ -2450,6 +2510,7 @@ def system_health_report():
             ),
             "pytorch_device": str(predictor.device),
             "model_version": predictor.model_version,
+            "runtime": predictor.runtime_info(),
         }
     }
 
@@ -2505,6 +2566,7 @@ def libad_protocol():
         LIBAD_PAPER_RESULT_NOTE,
         load_project_identity,
         official_local_adapter_summary,
+        official_authors_interim_summary,
     )
 
     identity = load_project_identity()
@@ -2516,6 +2578,7 @@ def libad_protocol():
         "paper_result_note": LIBAD_PAPER_RESULT_NOTE,
         "dataset": dataset_status(),
         "local_adapter_report": official_local_adapter_summary(),
+        "authors_interim_report": official_authors_interim_summary(),
         "local_contribution": (
             "Evidence-gated PASS/REJECT/HOLD. DA-Core is the LIBAD authors' baseline, "
             "not a SecureCoating-Vision algorithm."

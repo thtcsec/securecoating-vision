@@ -37,8 +37,9 @@ inputs:
     height: 1024
 
 inference:
-  device: "cuda" # 'cuda' or 'cpu'
-  precision: "fp16" # 'fp32', 'fp16', 'int8'
+  hardware_profile: "auto" # auto, edge, balanced, performance
+  device: "auto" # backward-compatible override: auto, cuda, cpu
+  precision: "fp32" # artifact baseline; active precision is runtime-reported
   imgsz: 512
   confidence_threshold: 0.35
   nms_threshold: 0.45
@@ -57,3 +58,17 @@ inference:
       max_allowable_height_um: 50.0
     delamination:
       max_allowable_area_mm2: 10.0
+
+hardware_profiles:
+  edge:
+    imgsz: 512
+    precision: "fp32"
+    engine_priority: ["onnx", "yolo"]
+  balanced:
+    imgsz: 640
+    precision: "fp32"
+    engine_priority: ["onnx", "yolo"]
+  performance:
+    imgsz: 640
+    precision: "fp16"
+    engine_priority: ["yolo", "onnx"]

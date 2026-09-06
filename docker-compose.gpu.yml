@@ -1,0 +1,9 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.gpu
+    image: securecoating-vision-api:gpu
+    environment:
+      SECURECOATING_HARDWARE_PROFILE: ${SECURECOATING_HARDWARE_PROFILE:-performance}
+    gpus: all

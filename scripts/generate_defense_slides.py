@@ -217,7 +217,7 @@ def build() -> Path:
     add_textbox(s, Inches(7.0), Inches(1.55), Inches(5.65), Inches(4.9), [
         {"text": "LANE B  ·  VALIDATION EXTENSION", "size": 12, "color": ACCENT, "bold": True},
         {"text": "LIBAD VIS + X-rayL adapter", "size": 22, "color": INK, "bold": True},
-        {"text": "Official 10-seed ran on a hash-verified mount with the local CPU numpy descriptor (AUROC ~0.70, FPR95 ~0.84). Not DINOv3. Demo cases stay protocol fixtures.", "size": 15, "color": MUTED, "space_after": 12},
+        {"text": "Official mount hashed. Numpy 10-seed ~AUROC 0.70 / FPR95 0.84. Authors' runner interim DINOv2 (1 seed) ~AUROC 0.856 / FPR95 0.716 — still not paper DINOv3. Demo cases stay protocol fixtures.", "size": 15, "color": MUTED, "space_after": 12},
         {"text": "DA-Core is Sui et al. SecureCoating-Vision adds the evidence gate, not a new detector claim.", "size": 15, "color": ACCENT},
     ])
     footer(s, 3)
@@ -364,7 +364,7 @@ def build() -> Path:
     add_textbox(s, Inches(0.45), Inches(5.25), Inches(12.4), Inches(1.65), [
         {"text": "CLOSE", "size": 12, "color": ACCENT, "bold": True},
         {"text": "The model finds defects. The evidence gate controls when the line may act.", "size": 20, "color": INK, "bold": True, "space_after": 8},
-        {"text": "GIFs loop checked-in artifacts. RGB HOLD is real optical + mock PLC. LIBAD cases are protocol fixtures, not DINOv3. Next gate: HIL, factory calibration, roll-disjoint data.", "size": 14, "color": MUTED},
+        {"text": "GIFs loop checked-in artifacts. RGB HOLD is real optical + mock PLC. LIBAD fixtures stay protocol fixtures. Authors' interim is DINOv2 1-seed, not DINOv3. Next gate: HIL, factory calibration, roll-disjoint data.", "size": 14, "color": MUTED},
     ])
     footer(s, 8)
 

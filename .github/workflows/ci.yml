@@ -25,6 +25,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -50,6 +52,9 @@ jobs:
 
       - name: Validate Compose configuration
         run: docker compose config
+
+      - name: Validate NVIDIA Compose overlay
+        run: docker compose -f docker-compose.yml -f docker-compose.gpu.yml config
 
       - name: Audit dependencies
         run: python -m pip install pip-audit && pip-audit -r requirements-lock.txt

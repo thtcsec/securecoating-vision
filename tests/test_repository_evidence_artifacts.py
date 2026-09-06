@@ -333,7 +333,12 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertNotIn("official data execution is still pending", pitch)
         self.assertNotIn("official-data validation is pending", pitch)
         self.assertIn("official_local_adapter.json", pitch)
+        self.assertIn("official_dinov2_dacore_interim.json", pitch)
+        self.assertIn("0.856", pitch)
+        self.assertIn("0.716", pitch)
         self.assertIn("paper-comparable", pitch)
+        self.assertIn("0.856", slides)
+        self.assertIn("0.716", slides)
         self.assertNotIn(
             "Official 4.84 GB dataset and 10 splits are not in this runtime",
             slides,

@@ -42,12 +42,23 @@ class TestPredictor(unittest.TestCase):
     def test_cpu_override_is_forwarded_to_all_real_engines(self):
         cfg = _load_config()
         cfg["inference"]["device"] = "cuda"
-        with patch.dict(os.environ, {"SECURECOATING_INFERENCE_DEVICE": "cpu"}), patch(
+        with patch.dict(os.environ, {"SECURECOATING_INFERENCE_DEVICE": "cpu"}), patch.object(
+            CoatingPredictor,
+            "_resolve_path",
+            # MagicMock is not a descriptor: call args are (configured, defaults) only.
+            side_effect=lambda configured, defaults: os.path.join(ROOT, "outputs", "model.onnx"),
+        ), patch.object(
+            CoatingPredictor,
+            "_verify_artifact",
+            return_value=None,
+        ), patch(
             "inference.yolo_engine.YOLOEngine"
         ) as yolo_cls, patch("inference.onnx_engine.InferenceEngine") as onnx_cls:
             yolo_cls.return_value.is_loaded = False
             onnx_cls.return_value.is_loaded = False
             CoatingPredictor(cfg)
+        self.assertIsNotNone(yolo_cls.call_args)
+        self.assertIsNotNone(onnx_cls.call_args)
         self.assertEqual(yolo_cls.call_args.kwargs["device"], "cpu")
         self.assertEqual(onnx_cls.call_args.kwargs["device"], "cpu")
 
