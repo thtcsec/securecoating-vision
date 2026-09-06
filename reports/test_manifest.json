@@ -1,7 +1,7 @@
 {
   "release_version": "2.0.0",
   "release_label": "libad-validation-extension",
-  "commit_sha": "951d324eb69d42d67e3607fd3013f15aef2c6407",
+  "commit_sha": "b9e33bd8763d3ae68ff407a6181f1239bcced19d",
   "working_tree_dirty": false,
   "source_diff_sha256": null,
   "python_version": "3.11.9",
@@ -9,9 +9,9 @@
   "passed": 271,
   "skipped": 0,
   "failed": 0,
-  "duration_seconds": 211.51,
-  "log_sha256": "dc42e1afdb264e440d67ed717819aca0182c26f06e1efd4c8ca7f12a1c199e1f",
-  "recorded_at": "2026-09-06T08:52:46.178231+00:00",
+  "duration_seconds": 198.79,
+  "log_sha256": "bebafdce4ac9b7815bd3ff53e0c2ed668b13ecfac29066378ac4ab3fbaaebd9e",
+  "recorded_at": "2026-09-06T09:04:04.593902+00:00",
   "pytest_returncode": 0,
   "command": [
     "D:\\tu_projects\\securecoating-vision\\.venv\\Scripts\\python.exe",
