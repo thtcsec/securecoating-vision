@@ -28,7 +28,7 @@ onnxruntime>=1.16.0
 
 # Dashboard & 3D Visualization
 streamlit>=1.59.0,<2.0.0
-GitPython>=3.1.58,<4.0.0
+GitPython>=3.1.59,<4.0.0
 plotly>=6.0.0
 
 # Optional utilities (CPU docker does not need ultralytics for inference-only)
