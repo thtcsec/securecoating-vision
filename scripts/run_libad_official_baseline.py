@@ -323,6 +323,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         seeds=seeds,
         modalities=modalities,
         backbone_variant=backbone,
+        dino_version=str(config.get("dino_version", "v3")),
+        backbone_family=str(config.get("backbone_family", "convnext")),
     )
     report = build_report(
         config=config,

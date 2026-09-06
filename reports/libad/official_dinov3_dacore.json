@@ -17,7 +17,7 @@
     "da_core_attribution": "DA-Core is the density-aware coreset baseline published by the LIBAD authors. SecureCoating-Vision does not claim DA-Core as an original algorithm."
   },
   "paper_result_note": "Sui et al. report that the best LIBAD setting still has FPR95 of 54.3% at AUROC 86.7%, AUPR 95.7%, and F1-max 90.6%. The authors conclude that this false-positive rate is too high for direct deployment and call out modality disagreement and closed-loop process control as open problems. LIBAD addresses how to detect; SecureCoating-Vision addresses when a detection is safe enough to act on.",
-  "local_contribution": "SecureCoating-Vision launches and records the authors' evenrose/LIBAD DINOv3+DA-Core runner. DA-Core remains attributed to Sui et al. The repository contribution is the evidence-gated PASS/REJECT/HOLD layer.",
+  "local_contribution": "SecureCoating-Vision launches and records the authors' evenrose/LIBAD runner (Authors' runner DINO v3 convnext-tiny + DA-Core multimodal baseline). DA-Core remains attributed to Sui et al. The repository contribution is the evidence-gated PASS/REJECT/HOLD layer.",
   "evidence_class": "official_libad_authors_runner_partial_or_adapted",
   "comparable_to_paper": false,
   "paper_comparability_blockers": [
@@ -72,29 +72,29 @@
     "multimodal": {
       "academic": {
         "auroc": {
-          "mean": NaN,
-          "std": NaN,
+          "mean": null,
+          "std": null,
           "n": 0
         },
         "aupr": {
-          "mean": NaN,
-          "std": NaN,
+          "mean": null,
+          "std": null,
           "n": 0
         },
         "f1_max": {
-          "mean": NaN,
-          "std": NaN,
+          "mean": null,
+          "std": null,
           "n": 0
         },
         "fpr95": {
-          "mean": NaN,
-          "std": NaN,
+          "mean": null,
+          "std": null,
           "n": 0
         }
       },
       "n_splits": 0,
       "seeds_present": [],
-      "purpose": "Official authors' DINOv3+DA-Core multimodal baseline"
+      "purpose": "Authors' runner DINO v3 convnext-tiny + DA-Core multimodal baseline"
     }
   },
   "run_records": [
@@ -147,5 +147,7 @@
     }
   ],
   "recorded_at": "2026-09-05T00:18:01Z",
-  "source_csv": "D:/tu_projects/securecoating-vision/third_party/evenrose-libad/results/securecoating_experiment_log.csv"
+  "source_csv": "D:/tu_projects/securecoating-vision/third_party/evenrose-libad/results/securecoating_experiment_log.csv",
+  "status": "FAILED",
+  "status_note": "Retained for transparency: authors DINOv3 ConvNeXt-tiny smoke failed (returncode=1, n=0). Do not treat this file as a successful paper baseline. Gated HF weights / access blocked the run."
 }

@@ -6,4 +6,10 @@ services:
     image: securecoating-vision-api:gpu
     environment:
       SECURECOATING_HARDWARE_PROFILE: ${SECURECOATING_HARDWARE_PROFILE:-performance}
-    gpus: all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

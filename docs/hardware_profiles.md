@@ -32,9 +32,13 @@ An NVIDIA driver and NVIDIA Container Toolkit are prerequisites.
 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build -d
 ```
 
-The GPU overlay requests the GPU explicitly and uses CUDA PyTorch plus
-`onnxruntime-gpu`. If CUDA is unavailable at runtime, startup records the reason
-and resolves to the CPU-safe edge profile where the installed runtime permits.
+The GPU overlay requests the GPU explicitly (`deploy.resources.reservations.devices`
+with the NVIDIA driver) and installs CUDA PyTorch plus `onnxruntime-gpu` from
+`requirements-gpu.txt`. `Dockerfile.gpu` is still based on a slim Debian Python
+image: it does **not** vendor a full CUDA/cuDNN/TensorRT toolkit inside the image.
+Host NVIDIA drivers + NVIDIA Container Toolkit provide the GPU device; if CUDA is
+unavailable at runtime, startup records the reason and resolves to the CPU-safe
+edge profile where the installed runtime permits.
 
 ## Demo wording
 

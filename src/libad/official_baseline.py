@@ -256,10 +256,11 @@ def run_card(
     }
 
 
-def _mean_std(values: Sequence[float]) -> Dict[str, float]:
+def _mean_std(values: Sequence[float]) -> Dict[str, Any]:
     clean = [float(v) for v in values if v is not None and not math.isnan(float(v))]
     if not clean:
-        return {"mean": float("nan"), "std": float("nan"), "n": 0}
+        # Use nulls, not NaN — keep reports strict-JSON serializable.
+        return {"mean": None, "std": None, "n": 0}
     if len(clean) == 1:
         return {"mean": clean[0], "std": 0.0, "n": 1}
     return {
@@ -276,12 +277,34 @@ def _read_csv_rows(path: Path) -> List[Dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
+def _experiment_purpose(
+    modality: str,
+    *,
+    dino_version: str,
+    backbone_family: str,
+    backbone_variant: str,
+) -> str:
+    dino = str(dino_version or "v3").lower().lstrip("v")
+    family = str(backbone_family or "convnext").lower()
+    variant = str(backbone_variant or "base").lower()
+    label = f"DINO v{dino} {family}-{variant}"
+    if modality == "vis":
+        return f"Authors' runner {label} VIS baseline"
+    if modality == "xray_l":
+        return f"Authors' runner {label} X-rayL baseline"
+    if modality == "vis_xray_l":
+        return f"Authors' runner {label} + DA-Core multimodal baseline"
+    return f"Authors' runner {label} ({modality})"
+
+
 def aggregate_experiment_log(
     csv_path: Path,
     *,
     seeds: Sequence[int],
     modalities: Sequence[str],
     backbone_variant: str,
+    dino_version: str = "v3",
+    backbone_family: str = "convnext",
 ) -> Dict[str, Any]:
     rows = _read_csv_rows(csv_path)
     seed_set = {int(s) for s in seeds}
@@ -330,11 +353,12 @@ def aggregate_experiment_log(
             "academic": academic,
             "n_splits": len(kept),
             "seeds_present": [int(float(r.get("seed") or r.get("dataset_seed"))) for r in kept],
-            "purpose": {
-                "vis": "Official authors' DINOv3 VIS baseline",
-                "xray_l": "Official authors' DINOv3 X-rayL baseline",
-                "vis_xray_l": "Official authors' DINOv3+DA-Core multimodal baseline",
-            }.get(modality, modality),
+            "purpose": _experiment_purpose(
+                modality,
+                dino_version=dino_version,
+                backbone_family=backbone_family,
+                backbone_variant=backbone_variant,
+            ),
         }
     return {
         "source_csv": str(csv_path.as_posix()),
@@ -532,27 +556,52 @@ def build_report(
         if comparable
         else "official_libad_authors_runner_partial_or_adapted"
     )
+    dino_version = str(config.get("dino_version", "v3"))
+    backbone_family = str(config.get("backbone_family", "convnext"))
+    backbone_variant = str(config.get("backbone_variant", "base"))
+    records = list(run_records)
+    failed = any(int(r.get("returncode") or 0) != 0 for r in records)
+    complete = all(
+        int(((aggregation.get("experiments") or {}).get(MODALITY_KEYS.get(m, m)) or {}).get("n_splits") or 0)
+        >= len(expected_seeds)
+        for m in expected_modalities
+    )
+    status = "OK" if complete and not failed else ("FAILED" if failed else "PARTIAL")
+    runner_label = _experiment_purpose(
+        "vis_xray_l",
+        dino_version=dino_version,
+        backbone_family=backbone_family,
+        backbone_variant=backbone_variant,
+    )
     return {
         "benchmark": "LIBAD",
         "citation": LIBAD_CITATION,
         "paper_result_note": LIBAD_PAPER_RESULT_NOTE,
         "local_contribution": (
             "SecureCoating-Vision launches and records the authors' evenrose/LIBAD "
-            "DINOv3+DA-Core runner. DA-Core remains attributed to Sui et al. The "
+            f"runner ({runner_label}). DA-Core remains attributed to Sui et al. The "
             "repository contribution is the evidence-gated PASS/REJECT/HOLD layer."
         ),
         "evidence_class": evidence_class,
         "comparable_to_paper": bool(comparable),
         "paper_comparability_blockers": blockers,
-        "official_protocol_complete": all(
-            int(((aggregation.get("experiments") or {}).get(MODALITY_KEYS.get(m, m)) or {}).get("n_splits") or 0)
-            >= len(expected_seeds)
-            for m in expected_modalities
+        "status": status,
+        "status_note": (
+            None
+            if status == "OK"
+            else (
+                "Retained for transparency: authors' runner did not complete a "
+                "paper-comparable result. Do not treat empty/NaN-free null metrics "
+                "as a successful DINOv3 paper baseline."
+                if status == "FAILED"
+                else "Partial authors' runner coverage; not paper-comparable."
+            )
         ),
+        "official_protocol_complete": complete,
         "feature_backbone": (
-            f"dino{config.get('dino_version', 'v3')}_"
-            f"{config.get('backbone_family', 'convnext')}_"
-            f"{config.get('backbone_variant')}"
+            f"dino{dino_version}_"
+            f"{backbone_family}_"
+            f"{backbone_variant}"
         ),
         "coreset_method": "density_fps",
         "coreset_attribution": LIBAD_CITATION["da_core_attribution"],
@@ -561,7 +610,7 @@ def build_report(
         "run_config": config,
         "official_split_seeds": expected_seeds,
         "experiments": aggregation.get("experiments") or {},
-        "run_records": list(run_records),
+        "run_records": records,
         "recorded_at": _utc_now(),
         "source_csv": aggregation.get("source_csv"),
     }
@@ -569,4 +618,4 @@ def build_report(
 
 def write_json(path: Path, payload: Dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    path.write_text(json.dumps(payload, indent=2, allow_nan=False), encoding="utf-8")

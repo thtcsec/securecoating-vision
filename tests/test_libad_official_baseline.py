@@ -142,6 +142,51 @@ class TestLibadOfficialBaseline(unittest.TestCase):
             self.assertIn("tiny", " ".join(report["paper_comparability_blockers"]))
             self.assertEqual(report["experiments"]["multimodal"]["n_splits"], 2)
             self.assertAlmostEqual(report["experiments"]["multimodal"]["academic"]["auroc"]["mean"], 0.80)
+            self.assertIn("DINO v3", report["experiments"]["multimodal"]["purpose"])
+            self.assertEqual(report["status"], "OK")  # complete seed coverage; still not paper-comparable
+
+    def test_aggregate_purpose_names_dinov2_honestly(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            csv_path = Path(tmp) / "log.csv"
+            with csv_path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=[
+                        "seed",
+                        "modality",
+                        "backbone_variant",
+                        "coreset_selection_method",
+                        "image_auroc",
+                        "image_aupr",
+                        "image_best_f1",
+                        "image_fpr95",
+                    ],
+                )
+                writer.writeheader()
+                writer.writerow(
+                    {
+                        "seed": 347,
+                        "modality": "vis_xray_l",
+                        "backbone_variant": "small",
+                        "coreset_selection_method": "density_fps",
+                        "image_auroc": "0.85",
+                        "image_aupr": "0.95",
+                        "image_best_f1": "0.88",
+                        "image_fpr95": "0.71",
+                    }
+                )
+            agg = aggregate_experiment_log(
+                csv_path,
+                seeds=(347,),
+                modalities=("vis_xray_l",),
+                backbone_variant="small",
+                dino_version="v2",
+                backbone_family="vit",
+            )
+            purpose = agg["experiments"]["multimodal"]["purpose"]
+            self.assertIn("DINO v2", purpose)
+            self.assertNotIn("DINOv3", purpose)
+            self.assertNotIn("DINO v3", purpose)
 
     def test_run_card_and_access_status_are_serializable(self):
         # Offline-safe: probe=False must not touch the network.

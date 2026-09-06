@@ -1,6 +1,6 @@
 # Implementation Status and Upgrade Plan
 
-Last reviewed: 2026-09-02
+Last reviewed: 2026-09-06
 
 This document is the project status ledger. A feature is marked **verified** only when its behavior is covered by a reproducible repository test or a recorded manual command. Simulation is never evidence of physical PLC or factory qualification.
 

@@ -91,7 +91,9 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn("SECURECOATING_HARDWARE_PROFILE:", compose)
         gpu_compose = (ROOT / "docker-compose.gpu.yml").read_text(encoding="utf-8")
         self.assertIn("Dockerfile.gpu", gpu_compose)
-        self.assertIn("gpus: all", gpu_compose)
+        self.assertNotIn("gpus:", gpu_compose)
+        self.assertIn("driver: nvidia", gpu_compose)
+        self.assertIn("capabilities: [gpu]", gpu_compose)
         self.assertIn('SECURECOATING_DASHBOARD_SANDBOX: "false"', compose)
         self.assertNotIn('["CMD", "curl"', compose)
         dashboard_source = (ROOT / "dashboard/app.py").read_text(encoding="utf-8")
@@ -205,6 +207,19 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
             payload = json.loads(official.read_text(encoding="utf-8"))
             self.assertFalse(payload["comparable_to_paper"])
             self.assertNotEqual(payload["evidence_class"], "protocol_fixture")
+        interim = ROOT / "reports/libad/official_dinov2_dacore_interim.json"
+        if interim.is_file():
+            payload = json.loads(interim.read_text(encoding="utf-8"))
+            purpose = payload["experiments"]["multimodal"]["purpose"]
+            self.assertIn("DINO v2", purpose)
+            self.assertNotIn("DINOv3", purpose)
+            json.dumps(payload, allow_nan=False)
+        failed = ROOT / "reports/libad/official_dinov3_dacore.json"
+        if failed.is_file():
+            payload = json.loads(failed.read_text(encoding="utf-8"))
+            self.assertEqual(payload.get("status"), "FAILED")
+            self.assertFalse(payload["comparable_to_paper"])
+            json.dumps(payload, allow_nan=False)
         hashes = ROOT / "reports/libad/official_mount_hashes.json"
         if hashes.is_file():
             payload = json.loads(hashes.read_text(encoding="utf-8"))
