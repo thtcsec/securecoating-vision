@@ -303,8 +303,18 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertEqual(again_changes, 0)
         self.assertEqual(again, cleaned)
 
-        path = ROOT / "Al + Materials Competition Application Form.docx"
-        self.assertTrue(path.is_file())
+        path = next(
+            (
+                p
+                for p in (
+                    ROOT / "AI+Materials_Competition_Application_Form.docx",
+                    ROOT / "Al + Materials Competition Application Form.docx",
+                )
+                if p.is_file()
+            ),
+            None,
+        )
+        self.assertIsNotNone(path, "application form DOCX missing")
         with tempfile.TemporaryDirectory() as tmp:
             copy = Path(tmp) / "polluted.docx"
             shutil.copy2(path, copy)
