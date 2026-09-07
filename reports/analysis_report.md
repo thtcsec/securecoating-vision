@@ -95,10 +95,10 @@ safety-rated E-stop claim.
 
 Authoritative software verification is recorded in `reports/test_manifest.json` and `reports/pytest_*`.
 
-- Collected / passed / failed / skipped: **283 / 283 / 0 / 0**
+- Collected / passed / failed / skipped: **285 / 285 / 0 / 0**
 - Python: **3.11.9**
-- Snapshot commit: `17e418d1f5bf` (working_tree_dirty=False)
-- Duration: 89.21s
+- Snapshot commit: `b737c2ed17af` (working_tree_dirty=False)
+- Duration: 77.46s
 
 This count is read from the manifest at report generation time and is not hard-coded elsewhere as a mutable claim.
 
