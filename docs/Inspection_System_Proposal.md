@@ -53,14 +53,14 @@ Detail: [docs/hardware_profiles.md](hardware_profiles.md)
 | Lane | Authoritative artifact | Boundary |
 |---|---|---|
 | RGB detection | `reports/coatingvision_real_test_metrics.json` | mAP50 0.634 on a fixed 88-image public CoatingVision **image-disjoint** test split (seed 71; **not** factory roll-disjoint) |
-| Inference timing | same report → `speed_ms_per_image.inference` ≈ 21.6 ms/image (CPU) | Model inference only; not camera/PLC/line throughput |
+| Inference timing | same report → `speed_ms_per_image.inference` (CPU model-only) | Model inference only; not camera/PLC/line throughput |
 | Software tests | `reports/test_manifest.json`, `reports/pytest_*` | Authoritative software-test count, environment, and execution evidence are recorded in `reports/test_manifest.json` and `reports/pytest_*`; this document intentionally does not duplicate a mutable test count |
 | Multimodal extension | `reports/libad/official_local_adapter.json` | Local adapter mean multimodal AUROC 0.700 / FPR95 0.839 over 10 official splits; prediction artifact has 19,680 evaluation rows across lanes — **not** paper-comparable DINOv3/DA-Core |
 | Demo loops | `reports/defense_gifs/` | Presentation artifacts from checked-in evidence |
 
 ### Challenge 1 wording boundary
 
-Challenge materials may mention *image acquisition → performance prediction*. This prototype implements **image acquisition → defect/anomaly detection → evidence gate → PASS/REJECT/HOLD → traceability**. It does **not** claim experimentally validated electrochemical cell performance. A future simulation-validated downstream performance-risk proxy may be studied as a separate evidence class; it is not a current defense metric.
+Challenge materials may mention *image acquisition → performance prediction*. SecureCoating-Vision covers the **inspection-to-quality-decision** segment of that autonomous characterization pipeline: image acquisition → defect/anomaly detection → evidence gate → PASS/REJECT/HOLD → traceability. It does **not** claim experimentally validated electrochemical or material performance prediction. Property prediction is the next validation stage once plant-linked property labels become available; it is not a current defense metric.
 
 Status ledger: [docs/implementation_status.md](implementation_status.md)
 

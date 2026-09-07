@@ -464,15 +464,18 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn("0.856", pitch)
         self.assertIn("0.716", pitch)
         self.assertIn("paper-comparable", pitch)
-        self.assertIn("historical", pitch.lower())
-        self.assertIn("historical evidence", slides.lower())
-        self.assertIn("not DINOv3/DA-Core paper reproduction", slides)
-        self.assertIn("0.856", slides)
-        self.assertIn("0.716", slides)
+        self.assertIn("Q&A backup", pitch)
+        self.assertIn("external validation experiment", slides.lower())
+        self.assertIn("false-positive operating point", slides.lower())
+        self.assertIn("BUY PATH", slides)
+        self.assertIn("per-line deployment", slides)
+        self.assertIn("inspection-to-quality-decision", slides)
         self.assertNotIn(
             "Official 4.84 GB dataset and 10 splits are not in this runtime",
             slides,
         )
+        self.assertIn("0.856", pitch)
+        # DINOv2 numbers stay in pitch/Q&A backup, not required on the main Slide 3 text.
 
     def test_default_dataset_yaml_is_labelled_synthetic_only(self):
         text = (ROOT / "configs/dataset.yaml").read_text(encoding="utf-8")

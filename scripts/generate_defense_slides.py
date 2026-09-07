@@ -314,9 +314,9 @@ def build() -> Path:
     _box(s, Inches(6.8), Inches(1.4), Inches(6.05), Inches(5.3), accent=True)
     add_textbox(s, Inches(7.0), Inches(1.55), Inches(5.65), Inches(4.9), [
         {"text": "LANE B  ·  VALIDATION EXTENSION", "size": 12, "color": ACCENT, "bold": True},
-        {"text": "LIBAD VIS + X-rayL local adapter", "size": 22, "color": INK, "bold": True},
-        {"text": "Archived official-input local adapter: mean multimodal AUROC 0.700 / FPR95 0.839 over 10 official splits — historical evidence, non-paper-comparable. Authors' runner interim historical smoke (1 seed): AUROC ~0.856 / FPR95 ~0.716 — not DINOv3/DA-Core paper reproduction. Demo cases stay protocol fixtures.", "size": 13, "color": MUTED, "space_after": 12},
-        {"text": "DA-Core is Sui et al. SecureCoating-Vision adds the evidence gate, not a paper reproduction claim.", "size": 15, "color": ACCENT},
+        {"text": "LIBAD VIS + X-rayL", "size": 22, "color": INK, "bold": True},
+        {"text": "We extended validation to LIBAD's real aligned VIS and X-rayL data over its 10 official splits. The current adapter is an external validation experiment—not a claim of reproducing the authors' DA-Core paper results.", "size": 15, "color": MUTED, "space_after": 12},
+        {"text": "Even a stronger anomaly detector still leaves a false-positive operating point unsuitable for direct line authority. That is why detection is separated from disposition.", "size": 15, "color": ACCENT},
     ])
     footer(s, 3)
 
@@ -368,13 +368,11 @@ def build() -> Path:
         ])
     _box(s, Inches(8.85), Inches(1.3), Inches(4.0), Inches(5.35), accent=True)
     add_textbox(s, Inches(9.05), Inches(1.45), Inches(3.6), Inches(5.0), [
+        {"text": "BUY PATH", "size": 12, "color": ACCENT, "bold": True},
+        {"text": "Shadow inspection → PLC/HIL → controlled decision assistance → per-line deployment", "size": 14, "color": INK, "bold": True, "space_after": 10},
+        {"text": "Commercial model: per-line integration + calibration, model-monitoring and traceability support.", "size": 13, "color": MUTED, "space_after": 14},
         {"text": "NOT IN PRODUCTION", "size": 12, "color": RED, "bold": True},
-        {"text": "Recipe sliders", "size": 16, "color": INK, "bold": True, "space_after": 4},
-        {"text": "Defect injection", "size": 16, "color": INK, "bold": True, "space_after": 4},
-        {"text": "7-stage simulator", "size": 16, "color": INK, "bold": True, "space_after": 4},
-        {"text": "LIBAD 90s demo", "size": 16, "color": INK, "bold": True, "space_after": 4},
-        {"text": "Send offset to PLC", "size": 16, "color": INK, "bold": True, "space_after": 12},
-        {"text": "Sandbox-only features stay isolated from the operating surface.", "size": 13, "color": MUTED},
+        {"text": "Recipe / inject / 7-stage sim / LIBAD 90s demo / send offset — sandbox only.", "size": 13, "color": INK, "space_after": 8},
         {"text": "Control = confirm-audit only.", "size": 14, "color": ACCENT, "bold": True},
     ])
     footer(s, 5)
@@ -479,8 +477,9 @@ def build() -> Path:
         _add_picture_contain(s, LIBAD_GIF, Inches(6.9), media_top, Inches(5.85), media_h)
     add_textbox(s, Inches(0.45), Inches(5.25), Inches(12.4), Inches(1.65), [
         {"text": "CLOSE", "size": 12, "color": ACCENT, "bold": True},
-        {"text": "The model finds defects. The evidence gate controls when software may authorize a disposition.", "size": 18, "color": INK, "bold": True, "space_after": 8},
-        {"text": "This artifact validates inspection, evidence, and fail-closed contracts. Production mTLS/RBAC/OT hardening remains on the industrialization roadmap. GIFs loop checked-in artifacts. Authors' interim is DINOv2 1-seed, not DINOv3.", "size": 13, "color": MUTED},
+        {"text": "The model finds defects. The evidence gate controls when software may authorize a disposition.", "size": 17, "color": INK, "bold": True, "space_after": 6},
+        {"text": "SecureCoating covers the inspection-to-quality-decision segment of an autonomous materials characterization pipeline. Property prediction is the next validation stage once plant-linked labels exist.", "size": 13, "color": MUTED, "space_after": 4},
+        {"text": "Buy path: shadow inspection → PLC/HIL → controlled decision assistance → per-line deployment. Production mTLS/RBAC/OT hardening remains on the industrialization roadmap.", "size": 13, "color": MUTED},
     ])
     footer(s, 8)
 

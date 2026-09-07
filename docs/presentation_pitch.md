@@ -24,9 +24,9 @@ Say this, then stop talking until they look at the first defect image:
 |---|---|---|
 | Problem framing | 0:00–0:35 | Scrap / escape vs unsafe automatic PASS |
 | Novelty | 0:35–2:00 | Gate on top of YOLO + attributed LIBAD/DA-Core; HOLD is the contribution |
-| Quantitative evidence | 2:45–4:20 | CoatingVision 88-image image-disjoint split: mAP50 0.634 / P 0.645 / R 0.642 / mAP50-95 0.354; inference ≈ 21.6 ms/image (CPU, model-only); not roll-disjoint; weights/dataset hashes shown |
+| Quantitative evidence | 2:45–4:20 | CoatingVision 88-image image-disjoint split: mAP50 0.634 / P 0.645 / R 0.642 / mAP50-95 0.354; model-only CPU inference from `reports/coatingvision_real_test_metrics.json`; not roll-disjoint; weights/dataset hashes shown |
 | Materials relevance | throughout | Roll/batch identity, coating-surface frames, SPC on the coating process — not generic object detection |
-| Industrial impact | 2:00–3:35 | Fail-closed, false-accept blocked by HOLD, confirm-audit control, HMAC-SHA256 tag; **no factory yield claim** |
+| Industrial impact | 2:00–3:35 | Fail-closed HOLD; confirm-audit control; buy path shadow→HIL→decision assistance→per-line; **no factory yield / ROI claim** |
 | Demo storytelling | 5:10–6:00 | Looping GIFs: RGB HOLD replay + LIBAD fixture PASS/REJECT/REJECT/HOLD |
 | Reproducibility / limits | last 20 s + Q&A | DOI + model/dataset hashes + current test manifest; thermal/profiler simulated; roll-disjoint/HIL evidence pending |
 
@@ -54,8 +54,8 @@ Do **not** say 99.4% mAP, ≤35 ms TensorRT, real thermal/laser plant instrument
 
 ### Minute 2: Two Evidence Lanes, One Safety Contract
 *   **Lane A, already built:** two-class YOLO26n detector/ONNX on real CoatingVision RGB images, FastAPI, production operations dashboard, PASS/REJECT/HOLD, OPC UA/Modbus, HMAC certificates. Thermal and profilometry are **simulated interface adapters**.
-*   **Lane B, validation extension:** LIBAD defines aligned VIS and inline-compatible X-rayL inputs plus 10 official splits. Checked-in `reports/libad/official_local_adapter.json` is **archived historical evidence** from the official-input local numpy adapter (10 seeds) — **not** regenerated from current HEAD and **not** paper-comparable. Checked-in `reports/libad/official_dinov2_dacore_interim.json` is an **authors' runner interim historical smoke** (DINOv2, 1 seed) — **not** DINOv3/DA-Core paper reproduction. The textual paper table is **DINOv3 ViT-S/16 + DA-Core + max-NN** (`PAPER_SPEC`); common upstream ConvNeXt-base is only official-code core (adapted), still gated/unfinished here. Checked-in demo cases stay protocol fixtures for CI.
-*   **One sentence of progress:** "The initial prototype validated the software and safety contract on RGB. Archived official-input local adapter: mean multimodal AUROC 0.700 / FPR95 0.839 over 10 official splits — historical evidence, non-paper-comparable. Authors' runner interim historical smoke (1 seed): AUROC ~0.856 / FPR95 ~0.716 — not DINOv3/DA-Core paper reproduction. FPR remains too high to auto-release, which is why HOLD exists."
+*   **Lane B, validation extension:** LIBAD defines aligned VIS and inline-compatible X-rayL inputs plus 10 official splits. Stage line: "We extended validation to LIBAD's real aligned VIS and X-rayL data over its 10 official splits. The current adapter is an external validation experiment—not a claim of reproducing the authors' DA-Core paper results." Motivation (not a trophy metric): even a stronger anomaly detector still leaves an FPR operating point unsuitable for direct line authority — that is why detection is separated from disposition. Checked-in `reports/libad/official_local_adapter.json` is the local numpy adapter on official inputs (`comparable_to_paper: false`). Authors' DINOv2 one-seed interim (`reports/libad/official_dinov2_dacore_interim.json`) is **Q&A backup only**, not the main story. Paper table remains DINOv3/DA-Core (Sui et al.). Demo cases stay protocol fixtures for CI.
+*   **One sentence of progress:** "RGB proved the software contract on real optical evidence. LIBAD extends the same inspection-and-disposition problem onto real aligned VIS+X-rayL. High false-positive rates are the reason HOLD exists — not a scoreboard win."
 *   **Not a topic change.** YOLO stays. DA-Core stays attributed to Sui et al.
 
 ### Minute 3: The Evidence Gate
@@ -76,7 +76,7 @@ Do **not** say 99.4% mAP, ≤35 ms TensorRT, real thermal/laser plant instrument
 ### Minute 5: Why LIBAD Does Not End the Story
 *   **Our RGB lane (research, not factory qualification):** CoatingVision fixed 88-image **image-disjoint** test split, seed 71, DOI 10.6084/m9.figshare.29260121.v1 — mAP50 0.634, precision 0.645, recall 0.642, mAP50-95 0.354; **not** factory roll-disjoint.
 *   Show the checkpoint SHA-256 prefix and dataset-tree SHA-256 prefix from `reports/coatingvision_real_test_metrics.json` (currently weights `f72a8f2b…`, dataset-tree `d1db7823…`).
-*   **Official LIBAD local adapter (historical):** archived mean multimodal AUROC 0.700 / FPR95 0.839 over the 10 official splits — not regenerated from current HEAD; the prediction artifact contains 19,680 evaluation rows across all lanes — do **not** present 19,680 as independent multimodal samples. Authors' runner interim historical DINOv2 smoke (1 seed) AUROC about 0.856 / FPR95 about 0.716 — both `comparable_to_paper: false`. Paper table is AUROC 86.7% / FPR95 54.3% on DINOv3/DA-Core — do not mix the three. All FPR numbers are too high for unsupervised auto-PASS; that is the Track 4 point.
+*   **Official LIBAD local adapter (motivation, not trophy):** mean multimodal AUROC / FPR95 over 10 official splits live in `reports/libad/official_local_adapter.json` — use them to show that anomaly scores alone are not safe line authority (`comparable_to_paper: false`). Paper DA-Core still reports FPR95 54.3% at AUROC 86.7% — same lesson. Authors' DINOv2 interim one-seed smoke is Q&A backup only. The prediction artifact's 19,680 rows are evaluation rows across lanes, **not** 19,680 independent multimodal samples.
 *   Local throughput evidence is presented only as measured inference timing. Camera exposure, transport, PLC ACK, and target-hardware HIL remain outside that number.
 
 ### Minute 6: Real Detection, Safe Demo Disposition
@@ -115,5 +115,14 @@ PyTorch and ONNX share the same two-class map. Development simulation + mock PLC
 ### Q4: "Is this just YOLO plus a few sensors?"
 *   **Answer:** "YOLO localizes known surface defects. Thermal and the laser profiler are simulated adapters in this prototype. The contribution is the fail-closed decision layer: detection cannot self-release. That is the materials-testing problem Track 4 actually grades."
 
+### Q4b: "Challenge 1 says performance prediction — where is it?"
+*   **Answer:** "SecureCoating covers the inspection-to-quality-decision segment of that pipeline. Material or electrochemical performance prediction is the next validation stage once plant-linked property labels exist. We will not invent cell-performance numbers from coating images."
+
+### Q4c: "What about your DINOv2 / DINOv3 numbers?"
+*   **Answer:** "Backup only. The stage claim is LIBAD as external validation of the same disposition problem, not paper reproduction. Authors' DINOv2 one-seed interim and the paper DINOv3/DA-Core table stay in the reports; they are not the 45-second story."
+
 ### Q5: "Why not rebuild the model?"
 *   **Answer:** "The bottleneck the paper itself names is not another detector. It is modality disagreement and closed-loop control. That is already the safety contract of this repository."
+
+### Q6: "Who buys this, and how does it enter a factory?"
+*   **Answer:** "Shadow inspection first, then PLC/HIL validation, then controlled decision assistance, then per-line deployment. The commercial model is per-line integration plus calibration, model monitoring, and traceability support — not a fake TAM slide."

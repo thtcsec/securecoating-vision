@@ -49,6 +49,13 @@ REPLACEMENTS = (
         "downstream material/electrochemical performance prediction as future validation, "
         "not a current defense claim.",
     ),
+    (
+        "The repository does not claim factory qualification or production performance.",
+        "SecureCoating covers the inspection-to-quality-decision segment of an autonomous "
+        "materials characterization pipeline; material/electrochemical performance prediction "
+        "is the next validation stage once plant-linked property labels exist. "
+        "The repository does not claim factory qualification or production performance.",
+    ),
 )
 
 SECTION7_HEADING = "7、Team Member Information"
