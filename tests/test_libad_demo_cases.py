@@ -80,7 +80,8 @@ class TestLibadDemoCases(unittest.TestCase):
         result = run_libad_demo_case(1, secret=b"unit-test-libad-demo")
         self.assertEqual(result["title"], identity["registered_title"])
         self.assertEqual(result["tagline"], "Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing")
-        self.assertIn("High-Throughput and Zero-Trust Edge-Cloud Pipeline", result["title"])
+        self.assertIn("Evidence-Gated Multimodal AI", result["title"])
+        self.assertNotIn("High-Throughput and Zero-Trust", result["title"])
         self.assertEqual(result["brand"], "SecureCoating-Vision")
 
     def test_certificate_signature_covers_source_diff_provenance(self):

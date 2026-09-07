@@ -24,6 +24,7 @@ RGB_GIF = ROOT / "reports/defense_gifs/rgb_hold_replay.gif"
 LIBAD_GIF = ROOT / "reports/defense_gifs/libad_gate.gif"
 HELD_OUT_SURFACE = ROOT / "reports/defense_gifs/coating_surface_heldout.png"
 RGB_METRICS = ROOT / "reports/coatingvision_real_test_metrics.json"
+IDENTITY = ROOT / "configs" / "project_identity.yaml"
 
 BG = RGBColor(0xFF, 0xFF, 0xFF)
 CARD = RGBColor(0xF4, 0xF7, 0xFB)
@@ -38,12 +39,18 @@ RULE = RGBColor(0x1F, 0x5E, 0xB8)
 
 SLIDE_W = Inches(13.333)
 SLIDE_H = Inches(7.5)
-TITLE = (
-    "SecureCoating Vision: A High-Throughput and Zero-Trust Edge-Cloud "
-    "Pipeline for Inline Battery Electrode Defect Inspection and Traceable "
-    "Quality Decisions"
-)
-TAGLINE = "Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing"
+
+
+def _load_identity() -> dict:
+    import yaml
+
+    payload = yaml.safe_load(IDENTITY.read_text(encoding="utf-8"))
+    brand = str(payload.get("brand") or "").strip()
+    title = str(payload.get("registered_title") or "").strip()
+    tagline = str(payload.get("tagline") or "").strip()
+    if not brand or not title or not tagline:
+        raise ValueError("configs/project_identity.yaml missing brand/registered_title/tagline")
+    return {"brand": brand, "title": title, "tagline": tagline}
 
 
 def _load_rgb_metrics() -> dict:
@@ -191,6 +198,10 @@ def kicker(slide, code, timing):
 
 
 def build() -> Path:
+    identity = _load_identity()
+    title = identity["title"]
+    tagline = identity["tagline"]
+    brand = identity["brand"]
     rgb = _load_rgb_metrics()
     prs = Presentation()
     prs.slide_width = SLIDE_W
@@ -208,13 +219,13 @@ def build() -> Path:
         }
     ])
     add_textbox(s, Inches(0.45), Inches(1.05), Inches(12.4), Inches(0.45), [
-        {"text": "SecureCoating-Vision", "size": 32, "color": INK, "bold": True}
+        {"text": brand, "size": 32, "color": INK, "bold": True}
     ])
     add_textbox(s, Inches(0.45), Inches(1.55), Inches(12.4), Inches(1.35), [
-        {"text": TITLE, "size": 17, "color": INK, "bold": True, "space_after": 0}
+        {"text": title, "size": 17, "color": INK, "bold": True, "space_after": 0}
     ])
     add_textbox(s, Inches(0.45), Inches(3.05), Inches(12.4), Inches(0.4), [
-        {"text": TAGLINE, "size": 18, "color": ACCENT, "bold": True}
+        {"text": tagline, "size": 18, "color": ACCENT, "bold": True}
     ])
     _rule(s, Inches(0.45), Inches(3.55), Inches(12.4))
     add_textbox(s, Inches(0.45), Inches(3.85), Inches(12.4), Inches(0.9), [
@@ -245,9 +256,10 @@ def build() -> Path:
     add_textbox(s, Inches(0.45), Inches(5.55), Inches(12.4), Inches(1.1), [
         {
             "text": (
-                "Registered title describes the target Zero-Trust Edge-Cloud architecture. "
-                "This prototype validates inspection, evidence gating, and fail-closed contracts — "
-                "not completed mTLS/RBAC/OT or factory qualification."
+                "This prototype validates inspection, evidence gating, and fail-closed "
+                "contracts on real optical and multimodal evidence. Production security "
+                "hardening such as mTLS, RBAC, secret rotation, and OT segmentation remains "
+                "part of the industrialization roadmap."
             ),
             "size": 14,
             "color": MUTED,
@@ -468,7 +480,7 @@ def build() -> Path:
     add_textbox(s, Inches(0.45), Inches(5.25), Inches(12.4), Inches(1.65), [
         {"text": "CLOSE", "size": 12, "color": ACCENT, "bold": True},
         {"text": "The model finds defects. The evidence gate controls when software may authorize a disposition.", "size": 18, "color": INK, "bold": True, "space_after": 8},
-        {"text": "Registered title states the target Zero-Trust Edge-Cloud architecture; this artifact validates inspection, evidence, and fail-closed contracts — not completed mTLS/RBAC/OT. GIFs loop checked-in artifacts. Authors' interim is DINOv2 1-seed, not DINOv3.", "size": 13, "color": MUTED},
+        {"text": "This artifact validates inspection, evidence, and fail-closed contracts. Production mTLS/RBAC/OT hardening remains on the industrialization roadmap. GIFs loop checked-in artifacts. Authors' interim is DINOv2 1-seed, not DINOv3.", "size": 13, "color": MUTED},
     ])
     footer(s, 8)
 

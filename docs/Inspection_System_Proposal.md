@@ -1,6 +1,7 @@
 # Inspection System Proposal（检测系统方案）
 
 **Project:** SecureCoating-Vision  
+**Competition title:** SecureCoating-Vision: Evidence-Gated Multimodal AI for Battery Electrode Inspection and Traceable Quality Decisions  
 **Team:** 71 · Trinh Hoang Tu · HUFLIT  
 **Track:** 4 — AI + Materials Testing & Characterization  
 **Role of this file:** Track 4 *Inspection System Proposal* identity for the competition archive. It does not invent new claims; it points judges to the authoritative documents and evidence already in the submission.
@@ -11,9 +12,9 @@ Battery electrode coating defects become scrap, rework, or untraceable cell risk
 
 Detail: [docs/presentation_pitch.md](presentation_pitch.md), [docs/scoring_rubric_mapping.md](scoring_rubric_mapping.md)
 
-## 2. Target architecture and current boundary
+## 2. Current architecture and boundary
 
-Registered title names a **Zero-Trust Edge-Cloud** target. The current prototype implements optical inspection, evidence gating, PLC command/ACK contracts in software, and traceability hooks. It does **not** claim completed production mTLS/RBAC/OT segmentation or factory qualification.
+The current prototype implements optical inspection, evidence gating, PLC command/ACK contracts in software, and traceability hooks. Production security hardening such as mTLS, RBAC, secret rotation, and OT segmentation remains part of the industrialization roadmap and is **not** claimed complete. The repository does **not** claim factory qualification.
 
 Detail: [docs/system_architecture.md](system_architecture.md), [README.md](../README.md)
 

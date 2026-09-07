@@ -17,7 +17,7 @@
 [`configs/project_identity.yaml`](configs/project_identity.yaml) 为唯一来源。
 
 SecureCoating-Vision 是 **Team 71 / HUFLIT** 的证据感知、失效闭锁工业视觉原型。
-注册名称中的 Zero-Trust 指**目标** Edge-Cloud 架构；mTLS / RBAC / OT 分区尚未宣称完成。
+生产级安全加固（如 mTLS / RBAC / 密钥轮换 / OT 分区）属于产业化路线图，当前仓库**不宣称**已完成。
 当前仓库不是经产线认证的生产系统，也不宣称“零漏检”、ppm、六西格玛、安全等级急停或工厂节拍达标。
 
 ## 已实现
@@ -39,7 +39,7 @@ SecureCoating-Vision 是 **Team 71 / HUFLIT** 的证据感知、失效闭锁工�
 产业化路径见 [docs/industrialization_path.md](docs/industrialization_path.md)。检测系统方案见 [docs/Inspection_System_Proposal.md](docs/Inspection_System_Proposal.md)。
 
 <!-- TEST_MANIFEST:START -->
-当前软件验证快照为 278 项测试通过、0 项跳过、0 项失败（提交 `58e0844654bc`，工作树干净，源码差异 `none`，Python 3.11.9，耗时 101.66 秒）。权威记录为 [reports/test_manifest.json](reports/test_manifest.json)。该记录仅证明当前软件测试结果，不代表工厂性能、真实 PLC 行为、安全等级急停认证或生产资质。
+当前软件验证快照为 279 项测试通过、0 项跳过、0 项失败（提交 `fdee8f191ce9`，工作树脏，源码差异 `065bdd2ae881`，Python 3.11.9，耗时 69.84 秒）。权威记录为 [reports/test_manifest.json](reports/test_manifest.json)。该记录仅证明当前软件测试结果，不代表工厂性能、真实 PLC 行为、安全等级急停认证或生产资质。
 <!-- TEST_MANIFEST:END -->
 
 ## 评委可复现的本地演示

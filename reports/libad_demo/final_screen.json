@@ -1,6 +1,6 @@
 {
   "brand": "SecureCoating-Vision",
-  "title": "SecureCoating Vision: A High-Throughput and Zero-Trust Edge-Cloud Pipeline for Inline Battery Electrode Defect Inspection and Traceable Quality Decisions",
+  "title": "SecureCoating-Vision: Evidence-Gated Multimodal AI for Battery Electrode Inspection and Traceable Quality Decisions",
   "tagline": "Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing",
   "cases": [
     {
@@ -20,8 +20,8 @@
       },
       "calibration_state": "VERIFIED",
       "plc_state": "SIMULATED_PASS",
-      "certificate_signature": "6a124ddd914d571684d18749ec200c7f98d7593f70ca2896d47051c7f6caca1e",
-      "commit_hash": "d9823dd59ea091e25bcaa9efa1ab2f3fd786f3bb"
+      "certificate_signature": "5d57e297c9280cef46723008bf93990ad06b5f0cf42a9dc10568180feaed1553",
+      "commit_hash": "fdee8f191ce9bca509b58d3902ffb618e61fc183"
     },
     {
       "case_id": 2,
@@ -40,8 +40,8 @@
       },
       "calibration_state": "VERIFIED",
       "plc_state": "SIMULATED_REJECT",
-      "certificate_signature": "99270c20d0d8ce07c69029eab6c78ad115fda96511f11be185798be4a9c97528",
-      "commit_hash": "d9823dd59ea091e25bcaa9efa1ab2f3fd786f3bb"
+      "certificate_signature": "f8039c2b82b4bfabaa7f4224320030c37658492f27aee2871a1a34a47411def7",
+      "commit_hash": "fdee8f191ce9bca509b58d3902ffb618e61fc183"
     },
     {
       "case_id": 3,
@@ -60,8 +60,8 @@
       },
       "calibration_state": "VERIFIED",
       "plc_state": "SIMULATED_REJECT",
-      "certificate_signature": "eb625e286b076007c787b96b6a2f4e3c9c5a04415c3b6762444598dc494ca7e2",
-      "commit_hash": "d9823dd59ea091e25bcaa9efa1ab2f3fd786f3bb"
+      "certificate_signature": "2cbacdae62f01e81771d3017d111e1d3930c197f4ef70c5d80bb0aad84441160",
+      "commit_hash": "fdee8f191ce9bca509b58d3902ffb618e61fc183"
     },
     {
       "case_id": 4,
@@ -80,8 +80,8 @@
       },
       "calibration_state": "VERIFIED",
       "plc_state": "SIMULATED_HOLD",
-      "certificate_signature": "2ba5006d98dccdbee6f1abba8b246ce1f4bf9dc1780ce9e4900845e3879376b8",
-      "commit_hash": "d9823dd59ea091e25bcaa9efa1ab2f3fd786f3bb"
+      "certificate_signature": "6d377751fa0672380680c41cf6c2be0779d6689d7a699901ce517caabb074f80",
+      "commit_hash": "fdee8f191ce9bca509b58d3902ffb618e61fc183"
     }
   ],
   "closing_screen": {
@@ -99,16 +99,16 @@
     "calibration_state": "VERIFIED",
     "model_hash": null,
     "dataset_manifest_hash": null,
-    "commit_hash": "d9823dd59ea091e25bcaa9efa1ab2f3fd786f3bb",
+    "commit_hash": "fdee8f191ce9bca509b58d3902ffb618e61fc183",
     "plc_state": "SIMULATED_HOLD",
     "detector_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
     "source_tree_dirty": true,
-    "source_diff_sha256": "690624b7d96fccc388008df964749faa85ef2144b9d56141f5376729011e24d9",
-    "issued_at": "2026-09-02T13:12:53.317767+00:00",
+    "source_diff_sha256": "065bdd2ae88192a77fc326c48e91520576bd79483de5d7d1ec55444f20ab706e",
+    "issued_at": "2026-09-07T12:31:05.405669+00:00",
     "signature_algorithm": "HMAC-SHA256",
     "brand": "SecureCoating-Vision",
-    "payload_hash_sha256": "d2a54dd382eecdd01d10b91ac097d323e4164ebc0982af19adea909efdf99fb6",
-    "hmac_digital_signature": "2ba5006d98dccdbee6f1abba8b246ce1f4bf9dc1780ce9e4900845e3879376b8",
-    "canonical_payload_sha256": "d2a54dd382eecdd01d10b91ac097d323e4164ebc0982af19adea909efdf99fb6"
+    "payload_hash_sha256": "7588e41b50b025a8894b1b430240a5a3cc8abe70b59956ad46536ce0fe2e100f",
+    "hmac_digital_signature": "6d377751fa0672380680c41cf6c2be0779d6689d7a699901ce517caabb074f80",
+    "canonical_payload_sha256": "7588e41b50b025a8894b1b430240a5a3cc8abe70b59956ad46536ce0fe2e100f"
   }
 }

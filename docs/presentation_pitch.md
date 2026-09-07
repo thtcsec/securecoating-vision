@@ -1,7 +1,7 @@
 # 6-Minute Final Defense Pitch Script & Q&A Preparation Guide
 **Competition:** 2026 Global AI + Materials Innovation Application Competition (全球AI+材料创新应用大赛)  
 **Track:** Track 4 — AI + Materials Testing and Characterization (AI + 材料检测与表征)  
-**Registered title:** SecureCoating Vision: A High-Throughput and Zero-Trust Edge-Cloud Pipeline for Inline Battery Electrode Defect Inspection and Traceable Quality Decisions  
+**Competition title:** SecureCoating-Vision: Evidence-Gated Multimodal AI for Battery Electrode Inspection and Traceable Quality Decisions  
 **Tagline:** Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing  
 **Brand:** SecureCoating-Vision  
 **Format:** 6-Minute Presentation + 2-Minute Q&A  
@@ -103,8 +103,8 @@ PyTorch and ONNX share the same two-class map. Development simulation + mock PLC
 *   **Likely Q:** "If HOLD is the answer, why is HOLD rate only ~5% while escape rate is ~51%?"
 *   **Answer:** "That operating point is not a proposed plant set-point. It is an experimental gate policy used to evaluate PASS/REJECT/HOLD semantics on the local numpy adapter. The escape rate shows this threshold is not deployment-acceptable — which is why the repository remains a research prototype, not factory-qualified. Next work is a locked risk–coverage calibration curve."
 
-*   **Likely Q:** "Your title says Zero-Trust Edge-Cloud — is that delivered?"
-*   **Answer:** "Zero-Trust-ready target architecture; mTLS/RBAC/OT segmentation not claimed complete. The registered title names that target. This artifact validates edge inspection, evidence, traceability, and fail-closed control contracts."
+*   **Likely Q:** "Is production Zero-Trust / mTLS / RBAC complete?"
+*   **Answer:** "No. Production security hardening such as mTLS, RBAC, secret rotation, and OT segmentation remains on the industrialization roadmap. This artifact validates edge inspection, evidence, traceability, and fail-closed control contracts."
 
 *   **Likely Q:** "Is the certificate HMAC a digital signature?"
 *   **Answer:** "No. It is an HMAC-SHA256 authentication tag (shared-secret integrity), not a public-key digital signature. The JSON field remains `hmac_digital_signature` for API compatibility."

@@ -10,11 +10,11 @@ Already demonstrated in software with immutable evidence in this repository:
 - **Evidence / readiness gate** that blocks automatic release when sensors, calibration, inference, or communication are not ready.
 - **PASS / REJECT / HOLD** disposition semantics (HOLD is a controlled software state, not an inferred PASS).
 - **PLC command / ACK contract** verified in software (unique command sequence; matching ACK; mock I/O labelled `SIMULATED`).
-- **Traceability** hooks for roll/batch/part identity and signed certificate snapshots.
+- **Traceability** hooks for roll/batch/part identity and HMAC-SHA256 authenticated certificate snapshots.
 - **LIBAD external multimodal validation** as an adapter lane (local numpy adapter and authors' DINOv2 interim remain `comparable_to_paper: false`).
 - **Reproducibility manifests** (`reports/test_manifest.json`, `reports/submission_manifest.json`, dataset/model hashes).
 
-Registered title names a **Zero-Trust Edge-Cloud target architecture**. The current artifact implements inspection, evidence gating, and fail-closed contracts — not completed mTLS/RBAC/OT segmentation or plant safety approval.
+The current artifact implements inspection, evidence gating, and fail-closed contracts. Production security hardening such as mTLS, RBAC, secret rotation, and OT segmentation remains part of the industrialization roadmap and is not claimed complete.
 
 ## Deployment path
 

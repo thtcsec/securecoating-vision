@@ -440,7 +440,8 @@ class TestAPI(unittest.TestCase):
         resp = self.client.get("/api/libad/protocol")
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
-        self.assertIn("High-Throughput and Zero-Trust Edge-Cloud Pipeline", body["registered_title"])
+        self.assertIn("Evidence-Gated Multimodal AI", body["registered_title"])
+        self.assertNotIn("High-Throughput and Zero-Trust", body["registered_title"])
         self.assertEqual(
             body["tagline"],
             "Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing",

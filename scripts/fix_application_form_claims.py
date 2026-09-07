@@ -1,13 +1,15 @@
-"""Surgical Application Form claim fixes — touch only known section cells."""
+"""Surgical Application Form identity and claim fixes."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
+import yaml
 from docx import Document
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCX = ROOT / "Al + Materials Competition Application Form.docx"
+IDENTITY = ROOT / "configs" / "project_identity.yaml"
 
 REPLACEMENTS = (
     (
@@ -19,14 +21,30 @@ REPLACEMENTS = (
         "and can be represented in an HMAC-SHA256 authenticated certificate snapshot.",
     ),
     (
+        "This is a validation extension, not a change of topic.",
+        "The LIBAD lane extends validation of the same battery-electrode inspection and quality-decision problem.",
+    ),
+    (
         "Next Validation Steps: Obtain an independent roll-disjoint dataset, hash-verify "
         "official LIBAD, complete PLC/HIL and safety testing, validate factory calibration, "
         "and publish only measurements supported by immutable evidence.",
+        "Next Validation Steps: Obtain an independent roll-disjoint factory dataset; complete "
+        "PLC/HIL, plant calibration, and safety testing; pursue authors' DINOv3/DA-Core "
+        "validation only if paper-comparable LIBAD benchmarking is required; and treat "
+        "downstream material/electrochemical performance prediction as future validation, "
+        "not a current defense claim.",
+    ),
+    (
         "Next Validation Steps: Reproduce the official-LIBAD validation under the current "
         "clean release and preserve current-source provenance; obtain an independent "
         "roll-disjoint factory dataset; complete PLC/HIL and plant calibration; and keep "
         "any future performance-risk proxy explicitly simulation-validated and separate "
         "from electrochemical cell-performance claims.",
+        "Next Validation Steps: Obtain an independent roll-disjoint factory dataset; complete "
+        "PLC/HIL, plant calibration, and safety testing; pursue authors' DINOv3/DA-Core "
+        "validation only if paper-comparable LIBAD benchmarking is required; and treat "
+        "downstream material/electrochemical performance prediction as future validation, "
+        "not a current defense claim.",
     ),
 )
 
@@ -74,13 +92,21 @@ def _strip_advisor_block(text: str) -> str:
 
 
 def fix(path: Path = DOCX) -> dict:
+    identity = yaml.safe_load(IDENTITY.read_text(encoding="utf-8"))
+    new_title = str(identity["registered_title"]).strip()
     doc = Document(str(path))
     if len(doc.tables) < 2:
         raise SystemExit("expected cover + body tables")
-    body = doc.tables[1]
-    stats = {"replacements": 0, "section6": False, "section7": False}
 
-    # Only edit the first cell of each body section row (BTC template).
+    stats = {"title_updated": False, "replacements": 0, "section6": False, "section7": False}
+
+    # Cover title cell (table 0, row 0, value cell).
+    cover = doc.tables[0].rows[0].cells[1]
+    if cover.text.strip() != new_title:
+        _set_cell_text(cover, new_title)
+        stats["title_updated"] = True
+
+    body = doc.tables[1]
     for row in body.rows:
         cell = row.cells[0]
         text = cell.text or ""
@@ -106,10 +132,11 @@ def fix(path: Path = DOCX) -> dict:
         if updated != text:
             _set_cell_text(cell, updated)
 
-    # Cover table identity checks (do not rewrite title).
     title = doc.tables[0].rows[0].cells[1].text.strip()
-    if "Zero-Trust Edge-Cloud" not in title:
-        raise SystemExit(f"refusing to save: cover title drifted: {title[:80]!r}")
+    if title != new_title:
+        raise SystemExit(f"refusing to save: cover title mismatch: {title!r}")
+    if "High-Throughput and Zero-Trust" in title:
+        raise SystemExit("refusing to save: old competition title still present")
 
     doc.save(str(path))
     return stats
