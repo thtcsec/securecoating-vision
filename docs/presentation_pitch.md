@@ -76,7 +76,7 @@ Do **not** say 99.4% mAP, ≤35 ms TensorRT, real thermal/laser plant instrument
 ### Minute 5: Why LIBAD Does Not End the Story
 *   **Our RGB lane (research, not factory qualification):** CoatingVision fixed 88-image **image-disjoint** test split, seed 71, DOI 10.6084/m9.figshare.29260121.v1 — mAP50 0.634, precision 0.645, recall 0.642, mAP50-95 0.354; **not** factory roll-disjoint.
 *   Show the checkpoint SHA-256 prefix and dataset-tree SHA-256 prefix from `reports/coatingvision_real_test_metrics.json` (currently weights `f72a8f2b…`, dataset-tree `d1db7823…`).
-*   **Official LIBAD local adapter (motivation, not trophy):** mean multimodal AUROC / FPR95 over 10 official splits live in `reports/libad/official_local_adapter.json` — use them to show that anomaly scores alone are not safe line authority (`comparable_to_paper: false`). Paper DA-Core still reports FPR95 54.3% at AUROC 86.7% — same lesson. Authors' DINOv2 interim one-seed smoke is Q&A backup only. The prediction artifact's 19,680 rows are evaluation rows across lanes, **not** 19,680 independent multimodal samples.
+*   **Official LIBAD local adapter (motivation, not trophy):** mean multimodal AUROC / FPR95 over 10 official splits live in `reports/libad/official_local_adapter.json` — use them to show that anomaly scores alone are not safe line authority (`comparable_to_paper: false`; non-paper-comparable). Paper DA-Core still reports FPR95 54.3% at AUROC 86.7% — same lesson. Authors' DINOv2 interim one-seed smoke is Q&A backup only. The prediction artifact's 19,680 rows are evaluation rows across lanes, **not** 19,680 independent multimodal samples.
 *   Local throughput evidence is presented only as measured inference timing. Camera exposure, transport, PLC ACK, and target-hardware HIL remain outside that number.
 
 ### Minute 6: Real Detection, Safe Demo Disposition
@@ -98,7 +98,7 @@ PyTorch and ONNX share the same two-class map. Development simulation + mock PLC
 *   **Answer:** "No. DA-Core is the LIBAD authors' memory-bank baseline. Our contribution is the evidence-gated PASS/REJECT/HOLD layer that sits on top of those modality scores."
 
 ### Q3: "Your FPR is still high. Are you hiding it?"
-*   **Answer:** "We publish FPR95. On official LIBAD the local numpy multimodal FPR95 is about 0.84; the authors' DINOv2 interim smoke is about 0.716 on one seed; the paper's DINOv3 setting is still 54.3%. The claim is software fail-closed semantics: uncertain or disagreed evidence cannot become an automatic PASS or REJECT. That is not yet a factory-qualified safe operating point — local adapter escape remains ~51% at ~5% HOLD."
+*   **Answer:** "We publish FPR95. On official LIBAD the local numpy multimodal FPR95 is about 0.84; the authors' DINOv2 interim smoke is about AUROC 0.856 / FPR95 0.716 on one seed; the paper's DINOv3 setting is still 54.3%. The claim is software fail-closed semantics: uncertain or disagreed evidence cannot become an automatic PASS or REJECT. That is not yet a factory-qualified safe operating point — local adapter escape remains ~51% at ~5% HOLD."
 
 *   **Likely Q:** "If HOLD is the answer, why is HOLD rate only ~5% while escape rate is ~51%?"
 *   **Answer:** "That operating point is not a proposed plant set-point. It is an experimental gate policy used to evaluate PASS/REJECT/HOLD semantics on the local numpy adapter. The escape rate shows this threshold is not deployment-acceptable — which is why the repository remains a research prototype, not factory-qualified. Next work is a locked risk–coverage calibration curve."

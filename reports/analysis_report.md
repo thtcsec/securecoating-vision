@@ -11,17 +11,19 @@ from release authority: detections may inform, but only PASS / REJECT / HOLD may
 gate under explicit evidence and communication contracts.
 
 Authoritative RGB detection evidence is a public CoatingVision image-disjoint evaluation.
-LIBAD multimodal numbers in this archive are historical, non-paper-comparable validation
-artifacts. Electrochemical / material performance prediction is future validation, not a
-current claim.
+LIBAD multimodal numbers are official-input local-adapter validation artifacts
+(`comparable_to_paper: false`) used to motivate evidence-gated disposition, not as a
+trophy scoreboard. Electrochemical / material performance prediction is future validation,
+not a current claim. SecureCoating covers the inspection-to-quality-decision segment of an
+autonomous materials characterization pipeline.
 
 ## 2. Evidence Classes and Evaluation Boundaries
 
 | Class | Artifact | Bound |
 |---|---|---|
 | Public real optical RGB | `reports/coatingvision_real_test_metrics.json` | Image-disjoint public split; **not** factory roll-disjoint |
-| Historical LIBAD local adapter | `reports/libad/official_local_adapter.json` | Official inputs + local numpy descriptor; `comparable_to_paper: false` |
-| Historical authors' DINOv2 interim | `reports/libad/official_dinov2_dacore_interim.json` | 1-seed smoke; not DINOv3/DA-Core paper reproduction |
+| Official-input LIBAD local adapter | `reports/libad/official_local_adapter.json` | Official inputs + local numpy descriptor; `comparable_to_paper: false` |
+| Authors' DINOv2 interim (Q&A backup) | `reports/libad/official_dinov2_dacore_interim.json` | 1-seed smoke; not DINOv3/DA-Core paper reproduction |
 | Protocol fixtures | `reports/libad_demo/*`, `reports/libad/libad_benchmark.json` | Deterministic CI demos; not plant captures |
 | Software verification | `reports/test_manifest.json` | Repository contract tests only |
 | Final pack provenance | `reports/submission_manifest.json` | Hash map for the packed ZIP |
@@ -41,7 +43,7 @@ Source: CoatingVision public real optical dataset
 - Recall: **0.642**
 - mAP50: **0.634** (raw report `0.633617`)
 - mAP50-95: **0.354** (raw report `0.354307`)
-- Model-only CPU inference: **~21.6 ms/image** (`speed_ms_per_image.inference` = 21.632 ms)
+- Model-only CPU inference: **~59.5 ms/image** (`speed_ms_per_image.inference` = 59.499 ms)
 - Weights SHA-256: `f72a8f2bd64add6f9ae6c42684bb09e0705b1ed70cdc9123bb82923ef76d5719`
 - Dataset tree SHA-256: `d1db7823f8fd5789d4c9518523f408537d837d5e6bbfc0e017d4aa9e4784f48d`
 - Manifest SHA-256: `99329ef3363891951fd95b57c24ae591755137f372675d040dc07d7aacda8d75`
@@ -51,21 +53,22 @@ This lane does **not** claim factory roll-disjoint validation or line throughput
 
 ## 4. LIBAD Multimodal Validation
 
-### A. Historical local numpy adapter
+### A. Official-input local numpy adapter
 
 - Artifact: `reports/libad/official_local_adapter.json`
-- Evidence generation: `LEGACY_HISTORICAL_EVIDENCE`
-- Methodology note: historical evidence retained for continuity; **not regenerated from current HEAD**
+- Evidence generation: `CURRENT_HEAD_OFFICIAL_INPUT_ADAPTER`
+- Methodology note: local numpy descriptor on official LIBAD inputs; **not** paper-comparable DINOv3/DA-Core
 - Mean multimodal AUROC / FPR95 over 10 official splits: **0.700 / 0.839**
+- Interpretation: these rates are **motivation for the evidence gate**, not a trophy scoreboard claim
 - `comparable_to_paper`: **false**
 - Prediction artifact row count (across lanes): **19,680 evaluation rows** — these are
   evaluation rows across lanes, **not** 19,680 independent multimodal samples
 
-### B. Historical authors' DINOv2 interim smoke
+### B. Authors' DINOv2 interim smoke (Q&A backup)
 
 - Artifact: `reports/libad/official_dinov2_dacore_interim.json`
 - 1-seed interim smoke AUROC / FPR95: **0.856 / 0.716**
-- Not DINOv3 / DA-Core paper reproduction
+- Not DINOv3 / DA-Core paper reproduction; not the main stage story
 - `comparable_to_paper`: **false**
 
 ### C. Paper DA-Core reference (Sui et al.)

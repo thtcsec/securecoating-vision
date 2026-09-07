@@ -235,6 +235,42 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertFalse(cfg["auxiliary_modalities"]["thermal"]["yolo_input_channel"])
         self.assertFalse(cfg["auxiliary_modalities"]["profilometry"]["yolo_input_channel"])
 
+    def test_coatingvision_metrics_point_to_current_clean_head_when_tree_is_clean(self):
+        metrics = json.loads(
+            (ROOT / "reports/coatingvision_real_test_metrics.json").read_text(encoding="utf-8")
+        )
+        libad = json.loads(
+            (ROOT / "reports/libad/official_local_adapter.json").read_text(encoding="utf-8")
+        )
+        current = git_source_provenance(ROOT)
+        self.assertEqual(metrics["weights_sha256"][:16], "f72a8f2bd64add6f")
+        self.assertFalse(metrics["factory_roll_disjoint"])
+        self.assertAlmostEqual(float(metrics["metrics"]["metrics/mAP50(B)"]), 0.633617, places=5)
+        self.assertEqual(metrics["source_commit"], libad["hashes"]["commit"])
+        self.assertEqual(libad.get("evidence_generation"), "CURRENT_HEAD_OFFICIAL_INPUT_ADAPTER")
+        self.assertFalse(libad["comparable_to_paper"])
+        # Evaluation commit must match HEAD on a clean tree, or be an ancestor when only
+        # report/manifest commits landed after the eval (fixed-point of tracked metrics).
+        if current["working_tree_dirty"] is False and current.get("commit"):
+            head = current["commit"]
+            evaluated = metrics["source_commit"]
+            if evaluated != head:
+                import subprocess
+
+                probe = subprocess.run(
+                    ["git", "merge-base", "--is-ancestor", evaluated, head],
+                    cwd=ROOT,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(
+                    probe.returncode,
+                    0,
+                    f"evaluation commit {evaluated} is not HEAD {head} or an ancestor",
+                )
+            self.assertFalse(libad["hashes"]["source_provenance"]["working_tree_dirty"])
+
     def test_analysis_report_is_evidence_grounded_and_dynamic_on_tests(self):
         report = (ROOT / "reports/analysis_report.md").read_text(encoding="utf-8")
         manifest = json.loads((ROOT / "reports/test_manifest.json").read_text(encoding="utf-8"))
@@ -251,6 +287,8 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn(str(manifest["passed"]), report)
         self.assertNotIn("278/278", report)
         self.assertNotIn("This report is not model-performance evidence.", report)
+        self.assertIn("inspection-to-quality-decision", report)
+        self.assertIn("CURRENT_HEAD_OFFICIAL_INPUT_ADAPTER", report)
 
     def test_libad_artifacts_never_claim_paper_comparability(self):
         paths = [
