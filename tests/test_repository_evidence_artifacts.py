@@ -225,6 +225,121 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         dates = [p.text.strip() for p in doc.paragraphs if p.text.strip().startswith("Date:")]
         self.assertEqual(dates, ["Date: 07 / 09 / 2026"])
 
+    def test_application_form_performance_boundary_once_and_fixer_idempotent(self):
+        import shutil
+        import tempfile
+
+        from scripts.fix_application_form_claims import (
+            PERFORMANCE_PREDICTION_BOUNDARY,
+            fix,
+        )
+
+        docx_candidates = (
+            ROOT / "AI+Materials_Competition_Application_Form.docx",
+            ROOT / "Al + Materials Competition Application Form.docx",
+        )
+        path = next((p for p in docx_candidates if p.is_file()), None)
+        self.assertIsNotNone(path, "application form DOCX missing")
+
+        checked_in = _docx_text(path)
+        self.assertEqual(
+            checked_in.count(PERFORMANCE_PREDICTION_BOUNDARY),
+            1,
+            "performance-prediction boundary must appear exactly once in the Application Form",
+        )
+        self.assertIn(
+            f"{PERFORMANCE_PREDICTION_BOUNDARY} The repository does not claim factory "
+            "qualification or production performance.",
+            checked_in,
+        )
+        email = "tht.csec2005@gmail.com"
+        self.assertIn(email, checked_in)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            copy = Path(tmp) / "application_form.docx"
+            shutil.copy2(path, copy)
+            stats_first = fix(copy)
+            text_first = _docx_text(copy)
+            self.assertEqual(text_first.count(PERFORMANCE_PREDICTION_BOUNDARY), 1)
+            stats_second = fix(copy)
+            text_second = _docx_text(copy)
+            self.assertEqual(text_second.count(PERFORMANCE_PREDICTION_BOUNDARY), 1)
+            self.assertEqual(
+                text_first,
+                text_second,
+                "second fixer run must not change semantic Application Form text",
+            )
+            self.assertEqual(stats_second.get("boundary_normalizations"), 0)
+            self.assertEqual(stats_first.get("boundary_normalizations"), 0)
+
+    def test_application_form_fixer_collapses_duplicate_boundary_sentences(self):
+        import shutil
+        import tempfile
+
+        from docx import Document
+
+        from scripts.fix_application_form_claims import (
+            FACTORY_NONCLAIM,
+            PERFORMANCE_PREDICTION_BOUNDARY,
+            _set_cell_text,
+            ensure_performance_prediction_boundary,
+            fix,
+        )
+
+        # Pure helper: three consecutive boundary copies collapse to one.
+        polluted = (
+            f"{PERFORMANCE_PREDICTION_BOUNDARY} "
+            f"{PERFORMANCE_PREDICTION_BOUNDARY} "
+            f"{PERFORMANCE_PREDICTION_BOUNDARY} {FACTORY_NONCLAIM}"
+        )
+        cleaned, changes = ensure_performance_prediction_boundary(polluted)
+        self.assertGreater(changes, 0)
+        self.assertEqual(cleaned.count(PERFORMANCE_PREDICTION_BOUNDARY), 1)
+        self.assertEqual(
+            cleaned,
+            f"{PERFORMANCE_PREDICTION_BOUNDARY} {FACTORY_NONCLAIM}",
+        )
+        again, again_changes = ensure_performance_prediction_boundary(cleaned)
+        self.assertEqual(again_changes, 0)
+        self.assertEqual(again, cleaned)
+
+        path = ROOT / "Al + Materials Competition Application Form.docx"
+        self.assertTrue(path.is_file())
+        with tempfile.TemporaryDirectory() as tmp:
+            copy = Path(tmp) / "polluted.docx"
+            shutil.copy2(path, copy)
+            doc = Document(str(copy))
+            cell = doc.tables[1].rows[0].cells[0]
+            cell_text = cell.text
+            while PERFORMANCE_PREDICTION_BOUNDARY in cell_text:
+                cell_text = cell_text.replace(
+                    f"{PERFORMANCE_PREDICTION_BOUNDARY} ",
+                    "",
+                )
+                cell_text = cell_text.replace(PERFORMANCE_PREDICTION_BOUNDARY, "")
+            while "  " in cell_text:
+                cell_text = cell_text.replace("  ", " ")
+            if FACTORY_NONCLAIM not in cell_text:
+                self.fail("expected factory non-claim anchor in Section 1")
+            cell_text = cell_text.replace(
+                FACTORY_NONCLAIM,
+                f"{PERFORMANCE_PREDICTION_BOUNDARY} "
+                f"{PERFORMANCE_PREDICTION_BOUNDARY} "
+                f"{PERFORMANCE_PREDICTION_BOUNDARY} {FACTORY_NONCLAIM}",
+                1,
+            )
+            _set_cell_text(cell, cell_text)
+            doc.save(str(copy))
+            before = _docx_text(copy)
+            self.assertEqual(before.count(PERFORMANCE_PREDICTION_BOUNDARY), 3)
+            fix(copy)
+            after = _docx_text(copy)
+            self.assertEqual(after.count(PERFORMANCE_PREDICTION_BOUNDARY), 1)
+            fix(copy)
+            after_second = _docx_text(copy)
+            self.assertEqual(after_second.count(PERFORMANCE_PREDICTION_BOUNDARY), 1)
+            self.assertEqual(after, after_second)
+
     def test_model_config_separates_rgb_detector_from_auxiliary_modalities(self):
         cfg = yaml.safe_load((ROOT / "configs/model.yaml").read_text(encoding="utf-8"))
         rgb_names = [c["name"] for c in cfg["inputs"]["rgb_channels"]]
