@@ -360,6 +360,27 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertFalse(cfg["auxiliary_modalities"]["thermal"]["yolo_input_channel"])
         self.assertFalse(cfg["auxiliary_modalities"]["profilometry"]["yolo_input_channel"])
 
+    def test_local_compute_environment_artifact_is_honest(self):
+        path = ROOT / "reports/local_compute_environment.json"
+        self.assertTrue(path.is_file(), "local compute environment artifact missing")
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(
+            payload.get("evidence_scope"),
+            "local development/reproducibility environment",
+        )
+        self.assertIn("NVIDIA GeForce RTX 4050", str(payload.get("gpu") or ""))
+        self.assertTrue(payload.get("cuda_available"))
+        self.assertIn("factory throughput", payload.get("not_claimed") or [])
+        self.assertIn("TensorRT benchmark", payload.get("not_claimed") or [])
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("reports/local_compute_environment.json", readme)
+        self.assertNotIn("privileged competition infrastructure", readme)
+        self.assertNotIn("unavailable cloud resources", readme)
+        train = (ROOT / "src/training/train_yolo.py").read_text(encoding="utf-8")
+        self.assertIn("LEGACY DEVELOPMENT-ONLY TRAINING PATH", train)
+        self.assertIn("scripts/train_coatingvision_real.py", train)
+        self.assertNotIn("international participant", (ROOT / "docs/presentation_pitch.md").read_text(encoding="utf-8"))
+
     def test_coatingvision_metrics_point_to_current_clean_head_when_tree_is_clean(self):
         metrics = json.loads(
             (ROOT / "reports/coatingvision_real_test_metrics.json").read_text(encoding="utf-8")

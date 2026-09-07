@@ -159,6 +159,8 @@ WHITELIST = [
     "scripts/verify_coatingvision_dataset.py" if os.path.exists("scripts/verify_coatingvision_dataset.py") else None,
     "scripts/train_coatingvision_real.py" if os.path.exists("scripts/train_coatingvision_real.py") else None,
     "reports/coatingvision_real_test_metrics.json" if os.path.exists("reports/coatingvision_real_test_metrics.json") else None,
+    "reports/local_compute_environment.json" if os.path.exists("reports/local_compute_environment.json") else None,
+    "scripts/record_local_compute_environment.py" if os.path.exists("scripts/record_local_compute_environment.py") else None,
     # Documentation
     "README.md",
     "README_CN.md",
@@ -285,6 +287,8 @@ ARTIFACT_REQUIRED_PATHS = [
     "reports/defense_gifs/rgb_hold_replay.gif",
     "reports/defense_gifs/libad_gate.gif",
     "reports/defense_gifs/coating_surface_heldout.png",
+    "reports/local_compute_environment.json",
+    "scripts/record_local_compute_environment.py",
     "docs/industrialization_path.md",
     "docs/Inspection_System_Proposal.md",
     "scripts/generate_defense_gifs.py",

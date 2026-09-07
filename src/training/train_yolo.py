@@ -1,10 +1,19 @@
 """
-SecureCoating-Vision: YOLOv8 Segmentation Training Script
-=========================================================
-Optimized for RTX 4050 6GB VRAM. Uses YOLOv8n-seg or YOLOv8s-seg for 
-efficient training on coating defect detection datasets.
+LEGACY DEVELOPMENT-ONLY TRAINING PATH
+=====================================
+This script trains the earlier synthetic YOLOv8-seg development baseline.
+It is NOT the current competition defense model.
 
-Usage:
+Current defense model:
+- YOLO26n detection
+- training entrypoint: scripts/train_coatingvision_real.py
+- authoritative metrics: reports/coatingvision_real_test_metrics.json
+
+Historical note: batch/imgsz helpers below were tuned for commodity GPUs such as
+an RTX 4050 6GB laptop during early synthetic development. That does not make
+this script the authoritative defense training path.
+
+Usage (legacy / synthetic only):
     python src/training/train_yolo.py --model yolov8n-seg --epochs 50 --imgsz 640
     python src/training/train_yolo.py --model yolov8s-seg --epochs 30 --imgsz 512 --batch 4
 """

@@ -78,11 +78,9 @@ TensorRT 动态库，系统会记录原因并回退到 YOLO CUDA FP16。详见
 
 ## 计算环境与可复现性
 
-赛事方提供了若干云与 HPC 可选接入通道。开发过程中曾评估这些资源，但它们**不属于**本提交的权威证据路径。
+赛事方提供了云与 HPC 支持通道。本提交的**权威证据路径不依赖**这些环境。最终原型与验证流程可在本地通用硬件上复现：GPU 相关工作负载在 NVIDIA GeForce RTX 4050 笔记本电脑 GPU 上执行；CPU 推理另行测量（model-only）。云 / HPC 仍可作为更大规模后续实验的可选加速路径。
 
-最终原型、回归测试、模型评估与演示流程均在本地开发工作站上复现。GPU 相关工作负载在 NVIDIA GeForce RTX 4050 笔记本电脑 GPU 上执行；文档中的 CPU 推理基准另行报告，为 **model-only CPU** 计时（与 `reports/coatingvision_real_test_metrics.json` 中的 CPU ms/image 一致，互不替代）。
-
-采用本地优先验证是刻意的可复现选择：当前报告结果不依赖赛事专属基础设施或不可用的云资源。更大规模的云 / HPC 执行仍可作为后续加速路径，而非复现本原型的前提。
+本地环境 provenance：[`reports/local_compute_environment.json`](reports/local_compute_environment.json)（由 `scripts/record_local_compute_environment.py` 生成；非工厂吞吐或 TensorRT 基准）。
 
 ## 数据集与证据等级
 
@@ -169,18 +167,13 @@ LIBAD 官方挂载验证：
 
 ## 状态与后续升级方向
 
-分阶段实现、证据矩阵与发布门槛见 [实施状态](docs/implementation_status.md)。
+分阶段实现、证据矩阵与发布门槛见 [实施状态](docs/implementation_status.md)。更完整的产业化 backlog 见 [产业化路径](docs/industrialization_path.md)。
 
-本仓库作为产线系统是**刻意未完成**的。还有大量可继续研究与产业化的工作——以下均**不宣称已完成**：
+**下一步验证门槛**（均不宣称已完成）：
 
-- **风险–覆盖率（risk–coverage）标定**：为证据门控建立可锁定的 HOLD / PASS / REJECT 工作曲线，而不是单一实验阈值
-- **可与论文对比的 LIBAD DINOv3 / DA-Core 复现**（仅在确有需要时；保留作者方法归属）
-- **目标工控硬件上的 GPU / TensorRT 基准**（端到端实测，而非仅 CPU model-only 耗时）
-- **独立的 roll-disjoint 工厂光学数据**，超越当前 CoatingVision image-disjoint 划分
-- **真实 PLC 硬件在环（HIL）**，以及执行与数据库落盘非原子时的厂商 ACK / 恢复策略
-- **与产线标签联动的材料 / 电化学性能预测**（有属性标签之后；不能从涂层图像凭空编造）
-- **真实标定台架**（光学 / 多模态），替代当前仿真热成像与轮廓仪适配器
-- 生产级安全加固仍在路线图上：mTLS、RBAC、密钥轮换、OT 分区，以及仓库外的安全等级急停责任边界
+- **工厂证据** — 独立 roll-disjoint 数据 + 产线标定。
+- **硬件验证** — PLC/HIL + 目标边缘性能实测。
+- **研究扩展** — risk–coverage 标定，以及有真实标签时的下游性能预测。
 
 ## 演示时应该怎么说
 

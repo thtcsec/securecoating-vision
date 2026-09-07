@@ -1,0 +1,24 @@
+{
+  "recorded_at": "2026-09-07T16:39:48.875384+00:00",
+  "evidence_scope": "local development/reproducibility environment",
+  "gpu": "NVIDIA GeForce RTX 4050 Laptop GPU",
+  "vram_gb": 6.0,
+  "cuda_available": true,
+  "torch": "2.13.0+cu130",
+  "torch_cuda": "13.0",
+  "python": "3.11.9",
+  "os": "Windows 10 (10.0.26200)",
+  "machine": "AMD64",
+  "processor": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel",
+  "not_claimed": [
+    "factory throughput",
+    "TensorRT benchmark",
+    "competition cloud benchmark",
+    "end-to-end production latency"
+  ],
+  "notes": [
+    "GPU-capable workloads may use this device when CUDA is available.",
+    "Documented CoatingVision inference timing in reports/coatingvision_real_test_metrics.json is model-only CPU timing and is reported separately.",
+    "This file is environment provenance, not a performance scoreboard."
+  ]
+}

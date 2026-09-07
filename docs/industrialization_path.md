@@ -43,3 +43,18 @@ A realistic transfer path is a **software + edge inference appliance + integrati
 ## Explicit non-claims
 
 Not claimed here: factory qualification, roll-disjoint validation of the current RGB headline metric, physical safety-rated E-stop, completed production Zero-Trust controls, or electrochemical performance prediction.
+
+## Research and industrialization backlog
+
+Honest follow-on work (none of this is claimed complete in the current submission):
+
+- **Risk–coverage calibration** for the evidence gate (locked HOLD / PASS / REJECT operating curves instead of a single experimental threshold).
+- **Paper-comparable LIBAD DINOv3 / DA-Core reproduction** only if required, with authors' stack attribution preserved.
+- **GPU / TensorRT benchmarks** on target edge hardware (measured end-to-end, not only model-only CPU timing).
+- **Independent roll-disjoint factory optical data** beyond the current image-disjoint CoatingVision split.
+- **Physical PLC hardware-in-the-loop (HIL)** and vendor ACK recovery for non-atomic actuation vs database finalization.
+- **Plant-linked material / electrochemical property prediction** once labeled property data exist (not inventable from coating images alone).
+- **Real calibration rigs** for optical / multimodal sensors (replace simulated thermal and profilometry adapters).
+- Production security hardening still on the roadmap: mTLS, RBAC, secret rotation, OT segmentation, and safety-rated E-stop ownership outside this software prototype.
+
+README keeps only three next-validation-gate groups; this section is the full confession booth.

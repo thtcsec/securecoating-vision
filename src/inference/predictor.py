@@ -143,6 +143,8 @@ class CoatingPredictor:
             from inference.yolo_engine import YOLOEngine
 
             weights = self.config.get("model", {}).get("weights_path", "outputs/best.pt")
+            # Legacy development fallback (synthetic YOLOv8-seg run dir); not an
+            # authoritative competition artifact. Prefer outputs/best.pt / model.yaml.
             path = self._resolve_path(
                 weights,
                 [
