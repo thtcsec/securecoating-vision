@@ -5,6 +5,14 @@
   "expected_action": "REJECT",
   "evidence_class": "protocol_fixture",
   "comparable_to_paper": false,
+  "fixture_generation_provenance": {
+    "scope": "protocol_fixture_generation_only",
+    "commit": "988dac2816138f52a9d5cf5ce81cfc237d2b5309",
+    "working_tree_dirty_at_generation": true,
+    "source_diff_sha256": "02aca4c7d9c00afffed3973b9b86e2428b9c49b6ca193b4552d56e97e19efbd7",
+    "note": "Records the repository state when this protocol fixture was generated. It is not final competition release provenance and must not be read as the packed ZIP HEAD. Final release provenance is reports/submission_manifest.json."
+  },
+  "release_provenance_ref": "reports/submission_manifest.json",
   "decision": {
     "action": "REJECT",
     "reason": "REJECT \u2014 complementary X-ray evidence: internal/density anomaly with near-normal VIS",
@@ -48,17 +56,18 @@
     "calibration_state": "VERIFIED",
     "model_hash": null,
     "dataset_manifest_hash": null,
-    "commit_hash": "fdee8f191ce9bca509b58d3902ffb618e61fc183",
+    "commit_hash": "988dac2816138f52a9d5cf5ce81cfc237d2b5309",
     "plc_state": "SIMULATED_REJECT",
     "detector_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
     "source_tree_dirty": true,
-    "source_diff_sha256": "065bdd2ae88192a77fc326c48e91520576bd79483de5d7d1ec55444f20ab706e",
-    "issued_at": "2026-09-07T12:31:05.241767+00:00",
+    "source_diff_sha256": "02aca4c7d9c00afffed3973b9b86e2428b9c49b6ca193b4552d56e97e19efbd7",
+    "provenance_scope": "protocol_fixture_generation",
+    "issued_at": "2026-09-07T12:59:12.682526+00:00",
     "signature_algorithm": "HMAC-SHA256",
     "brand": "SecureCoating-Vision",
-    "payload_hash_sha256": "d47214c3a270059b0dac172af26f759bde3ca8dffe1b4935a85cda34b57997b9",
-    "hmac_digital_signature": "2cbacdae62f01e81771d3017d111e1d3930c197f4ef70c5d80bb0aad84441160",
-    "canonical_payload_sha256": "d47214c3a270059b0dac172af26f759bde3ca8dffe1b4935a85cda34b57997b9"
+    "payload_hash_sha256": "a1522777fc29e42faba9a97eafdf51ee2356c0f0f4687964e09a5b5e65e268ae",
+    "hmac_digital_signature": "03e4728f374e9972a39eead765a25ce2d2f7aa9222c3dd0f75cdbfa4316a77c6",
+    "canonical_payload_sha256": "a1522777fc29e42faba9a97eafdf51ee2356c0f0f4687964e09a5b5e65e268ae"
   },
   "title": "SecureCoating-Vision: Evidence-Gated Multimodal AI for Battery Electrode Inspection and Traceable Quality Decisions",
   "tagline": "Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing",
@@ -86,9 +95,11 @@
     }
   },
   "source_provenance": {
-    "commit": "fdee8f191ce9bca509b58d3902ffb618e61fc183",
+    "commit": "988dac2816138f52a9d5cf5ce81cfc237d2b5309",
     "working_tree_dirty": true,
-    "source_diff_sha256": "065bdd2ae88192a77fc326c48e91520576bd79483de5d7d1ec55444f20ab706e"
+    "source_diff_sha256": "02aca4c7d9c00afffed3973b9b86e2428b9c49b6ca193b4552d56e97e19efbd7",
+    "scope": "protocol_fixture_generation_only",
+    "note": "Records the repository state when this protocol fixture was generated. It is not final competition release provenance and must not be read as the packed ZIP HEAD. Final release provenance is reports/submission_manifest.json."
   },
   "overlay": "reports/libad_demo/case_03.png"
 }

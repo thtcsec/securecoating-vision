@@ -57,6 +57,8 @@ def main() -> int:
         "brand": results[0]["brand"],
         "title": results[0]["title"],
         "tagline": results[0]["tagline"],
+        "evidence_class": "protocol_fixture",
+        "release_provenance_ref": "reports/submission_manifest.json",
         "cases": [
             {
                 "case_id": item["case_id"],
@@ -69,6 +71,8 @@ def main() -> int:
                 "plc_state": item["plc_state"],
                 "certificate_signature": item["certificate"]["hmac_digital_signature"],
                 "commit_hash": item["certificate"]["commit_hash"],
+                "provenance_scope": item["certificate"].get("provenance_scope"),
+                "fixture_generation_provenance": item["fixture_generation_provenance"],
             }
             for item in results
         ],

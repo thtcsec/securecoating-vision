@@ -286,9 +286,12 @@ class TestEvaluationIntegrity(unittest.TestCase):
 
     def test_analysis_report_does_not_cite_stale_fixture_metrics(self):
         text = (ROOT / "reports" / "analysis_report.md").read_text(encoding="utf-8")
-        self.assertIn("not model-performance evidence", text.lower())
-        self.assertIn("reports/evaluation_results.json", text)
+        self.assertIn("# SecureCoating-Vision — Analysis Report", text)
         self.assertIn("reports/coatingvision_real_test_metrics.json", text)
+        self.assertIn("reports/test_manifest.json", text)
+        self.assertIn("reports/submission_manifest.json", text)
+        # Synthetic evaluator fixture numbers must not appear as defense metrics.
+        self.assertNotIn("reports/evaluation_results.json", text)
         self.assertNotIn("0.5000", text)
         self.assertNotIn("0.6667", text)
         self.assertNotIn("100.90", text)

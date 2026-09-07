@@ -180,6 +180,14 @@ def record_test_manifest(pytest_args: list[str] | None = None) -> dict:
     )
     _replace_marked_block(PROJECT_ROOT / "README_CN.md", readme_cn_body)
     _replace_marked_block(PROJECT_ROOT / "docs" / "implementation_status.md", status_body)
+    # Keep the judge-facing analysis report synchronized with the fresh test snapshot.
+    try:
+        from scripts.generate_analysis_report import build_report
+
+        analysis_path = PROJECT_ROOT / "reports" / "analysis_report.md"
+        analysis_path.write_text(build_report(), encoding="utf-8", newline="\n")
+    except Exception as exc:  # noqa: BLE001 - release path should still emit the test manifest
+        sys.stderr.write(f"[warn] analysis report refresh failed: {exc}\n")
     print(json.dumps(manifest, indent=2))
     if completed.returncode != 0:
         sys.stderr.write(log)

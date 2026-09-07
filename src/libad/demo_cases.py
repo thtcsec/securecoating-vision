@@ -258,6 +258,8 @@ def run_libad_demo_case(
     part_id = f"PART_LIBAD_DEMO_{case_id:02d}"
     plc_state = "SIMULATED_HOLD" if decision.action == "HOLD" else f"SIMULATED_{decision.action}"
     source_provenance = git_source_provenance()
+    # Certificate commit/dirty fields record *fixture generation* provenance only.
+    # Final competition release provenance is reports/submission_manifest.json.
     certificate: EvidenceCertificate = build_evidence_certificate(
         roll_id=roll_id,
         batch_id=batch_id,
@@ -277,8 +279,20 @@ def run_libad_demo_case(
         detector_attribution=bank.scorer.provenance()["coreset_attribution"],
         source_tree_dirty=source_provenance["working_tree_dirty"],
         source_diff_sha256=source_provenance["source_diff_sha256"],
+        provenance_scope="protocol_fixture_generation",
         secret=secret,
     )
+    fixture_generation_provenance = {
+        "scope": "protocol_fixture_generation_only",
+        "commit": source_provenance["commit"],
+        "working_tree_dirty_at_generation": source_provenance["working_tree_dirty"],
+        "source_diff_sha256": source_provenance["source_diff_sha256"],
+        "note": (
+            "Records the repository state when this protocol fixture was generated. "
+            "It is not final competition release provenance and must not be read as "
+            "the packed ZIP HEAD. Final release provenance is reports/submission_manifest.json."
+        ),
+    }
     return {
         "case_id": case_id,
         "case_name": spec["name"],
@@ -286,6 +300,8 @@ def run_libad_demo_case(
         "expected_action": spec["expected_action"],
         "evidence_class": "protocol_fixture",
         "comparable_to_paper": False,
+        "fixture_generation_provenance": fixture_generation_provenance,
+        "release_provenance_ref": "reports/submission_manifest.json",
         "decision": decision.to_dict(),
         "scores": {
             "vis": score.vis_score,
@@ -308,7 +324,12 @@ def run_libad_demo_case(
         "tagline": identity["tagline"],
         "brand": identity["brand"],
         "detector_provenance": bank.scorer.provenance(),
-        "source_provenance": source_provenance,
+        # Backward-compatible alias; prefer fixture_generation_provenance for judges.
+        "source_provenance": {
+            **source_provenance,
+            "scope": "protocol_fixture_generation_only",
+            "note": fixture_generation_provenance["note"],
+        },
     }
 
 

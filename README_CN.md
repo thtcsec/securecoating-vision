@@ -85,11 +85,12 @@ TensorRT 动态库，系统会记录原因并回退到 YOLO CUDA FP16。详见
 | 合成配对涂层数据 | 开发、故障注入、接口和安全契约测试 | 永远不作为真实产线性能 |
 | 热成像 / 轮廓仪适配器 | 配准与失效闭锁接口验证 | 未连接并标定工厂仪器时属于仿真或注入输入 |
 
-Git 不收录 4.84 GB LIBAD 官方数据。可用 `scripts/download_libad.py` 在本地挂载，
-再运行 `scripts/record_libad_official_manifest.py` 固化文件树哈希。已跟踪的
+Git 不收录门控官方 LIBAD 下载归档（压缩后约 4.84 GB）。可用 `scripts/download_libad.py`
+在本地解压后挂载，再运行 `scripts/record_libad_official_manifest.py` 固化文件树哈希
+（见 `reports/libad/official_mount_hashes.json`）。已跟踪的
 `reports/libad/libad_benchmark.json` 是确定性 `protocol_fixture`；官方输入上的本地
-numpy 结果位于 `reports/libad/official_local_adapter.json`，始终保持
-`comparable_to_paper: false`。详见 [LIBAD 验证扩展](docs/libad_validation_extension.md)。
+numpy 结果位于 `reports/libad/official_local_adapter.json`（历史证据，非当前 HEAD 重跑），
+始终保持 `comparable_to_paper: false`。详见 [LIBAD 验证扩展](docs/libad_validation_extension.md)。
 
 ## 安全决策契约
 

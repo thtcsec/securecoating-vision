@@ -1,4 +1,8 @@
 # SecureCoating-Vision: Model Configuration
+#
+# The YOLO/ONNX detector consumes RGB only.
+# Thermal and profilometry are auxiliary simulated/injected adapters used by the
+# fusion/failsafe path — they are NOT additional YOLO input channels.
 
 model:
   name: "CoatingVision-YOLO26n-detect"
@@ -16,7 +20,8 @@ model:
   onnx_sha256: "fa1c467a5857bb68d226eb0b76c7ca4eeee1f94e0f710559401a5f223f8a1a14"
 
 inputs:
-  channels:
+  # Detector tensor channels (RGB YOLO/ONNX).
+  rgb_channels:
     - name: "optical_r"
       source: "rgb_camera"
       index: 0
@@ -26,15 +31,22 @@ inputs:
     - name: "optical_b"
       source: "rgb_camera"
       index: 2
-    - name: "thermal"
-      source: "lwir_camera"
-      index: 3
-    - name: "height"
-      source: "laser_profiler"
-      index: 4
   dimensions:
     width: 1024
     height: 1024
+
+# Auxiliary modalities used by sensor-fusion / failsafe contracts.
+# These are not stacked into the YOLO/ONNX input tensor.
+auxiliary_modalities:
+  thermal:
+    source: "lwir_camera"
+    interface: "simulated_or_injected_adapter"
+    yolo_input_channel: false
+  profilometry:
+    source: "laser_profiler"
+    interface: "simulated_or_injected_adapter"
+    yolo_input_channel: false
+    field: "height"
 
 inference:
   hardware_profile: "auto" # auto, edge, balanced, performance

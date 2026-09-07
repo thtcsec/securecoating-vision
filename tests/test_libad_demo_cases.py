@@ -44,10 +44,31 @@ class TestLibadDemoCases(unittest.TestCase):
             self.assertEqual(item["evidence_class"], "protocol_fixture")
             self.assertFalse(item["comparable_to_paper"])
             self.assertEqual(
+                item["release_provenance_ref"], "reports/submission_manifest.json"
+            )
+            self.assertEqual(
+                item["fixture_generation_provenance"]["scope"],
+                "protocol_fixture_generation_only",
+            )
+            self.assertEqual(
+                cert["provenance_scope"], "protocol_fixture_generation"
+            )
+            self.assertEqual(
+                cert["source_tree_dirty"],
+                item["fixture_generation_provenance"]["working_tree_dirty_at_generation"],
+            )
+            self.assertEqual(
+                cert["source_diff_sha256"],
+                item["fixture_generation_provenance"]["source_diff_sha256"],
+            )
+            self.assertEqual(
                 cert["source_tree_dirty"], item["source_provenance"]["working_tree_dirty"]
             )
             self.assertEqual(
                 cert["source_diff_sha256"], item["source_provenance"]["source_diff_sha256"]
+            )
+            self.assertEqual(
+                item["source_provenance"]["scope"], "protocol_fixture_generation_only"
             )
 
     def test_case_four_holds_when_the_descriptor_skips_the_uncertainty_band(self):

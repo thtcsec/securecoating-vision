@@ -54,7 +54,7 @@ Detail: [docs/hardware_profiles.md](hardware_profiles.md)
 |---|---|---|
 | RGB detection | `reports/coatingvision_real_test_metrics.json` | mAP50 0.634 on a fixed 88-image public CoatingVision **image-disjoint** test split (seed 71; **not** factory roll-disjoint) |
 | Inference timing | same report → `speed_ms_per_image.inference` ≈ 21.6 ms/image (CPU) | Model inference only; not camera/PLC/line throughput |
-| Software tests | `reports/test_manifest.json`, `reports/pytest_*.` | Authoritative count lives in the manifest (currently 278/278, 0 skip, 0 fail on Python 3.11.9); do not hardcode stale counts in prose |
+| Software tests | `reports/test_manifest.json`, `reports/pytest_*` | Authoritative software-test count, environment, and execution evidence are recorded in `reports/test_manifest.json` and `reports/pytest_*`; this document intentionally does not duplicate a mutable test count |
 | Multimodal extension | `reports/libad/official_local_adapter.json` | Local adapter mean multimodal AUROC 0.700 / FPR95 0.839 over 10 official splits; prediction artifact has 19,680 evaluation rows across lanes — **not** paper-comparable DINOv3/DA-Core |
 | Demo loops | `reports/defense_gifs/` | Presentation artifacts from checked-in evidence |
 

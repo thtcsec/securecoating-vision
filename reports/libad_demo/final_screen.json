@@ -2,6 +2,8 @@
   "brand": "SecureCoating-Vision",
   "title": "SecureCoating-Vision: Evidence-Gated Multimodal AI for Battery Electrode Inspection and Traceable Quality Decisions",
   "tagline": "Evidence-Gated Multimodal Inspection for Battery Electrode Manufacturing",
+  "evidence_class": "protocol_fixture",
+  "release_provenance_ref": "reports/submission_manifest.json",
   "cases": [
     {
       "case_id": 1,
@@ -20,8 +22,16 @@
       },
       "calibration_state": "VERIFIED",
       "plc_state": "SIMULATED_PASS",
-      "certificate_signature": "5d57e297c9280cef46723008bf93990ad06b5f0cf42a9dc10568180feaed1553",
-      "commit_hash": "fdee8f191ce9bca509b58d3902ffb618e61fc183"
+      "certificate_signature": "8545a74513d29658c4a295f74c5701cc04dfb120f713c64a5c51ebf65c4951fc",
+      "commit_hash": "988dac2816138f52a9d5cf5ce81cfc237d2b5309",
+      "provenance_scope": "protocol_fixture_generation",
+      "fixture_generation_provenance": {
+        "scope": "protocol_fixture_generation_only",
+        "commit": "988dac2816138f52a9d5cf5ce81cfc237d2b5309",
+        "working_tree_dirty_at_generation": true,
+        "source_diff_sha256": "02aca4c7d9c00afffed3973b9b86e2428b9c49b6ca193b4552d56e97e19efbd7",
+        "note": "Records the repository state when this protocol fixture was generated. It is not final competition release provenance and must not be read as the packed ZIP HEAD. Final release provenance is reports/submission_manifest.json."
+      }
     },
     {
       "case_id": 2,
@@ -40,8 +50,16 @@
       },
       "calibration_state": "VERIFIED",
       "plc_state": "SIMULATED_REJECT",
-      "certificate_signature": "f8039c2b82b4bfabaa7f4224320030c37658492f27aee2871a1a34a47411def7",
-      "commit_hash": "fdee8f191ce9bca509b58d3902ffb618e61fc183"
+      "certificate_signature": "6e7183ff162df6a7ed559205cbb83ae2c42fd745a8f115322d526cb365a28f65",
+      "commit_hash": "988dac2816138f52a9d5cf5ce81cfc237d2b5309",
+      "provenance_scope": "protocol_fixture_generation",
+      "fixture_generation_provenance": {
+        "scope": "protocol_fixture_generation_only",
+        "commit": "988dac2816138f52a9d5cf5ce81cfc237d2b5309",
+        "working_tree_dirty_at_generation": true,
+        "source_diff_sha256": "02aca4c7d9c00afffed3973b9b86e2428b9c49b6ca193b4552d56e97e19efbd7",
+        "note": "Records the repository state when this protocol fixture was generated. It is not final competition release provenance and must not be read as the packed ZIP HEAD. Final release provenance is reports/submission_manifest.json."
+      }
     },
     {
       "case_id": 3,
@@ -60,8 +78,16 @@
       },
       "calibration_state": "VERIFIED",
       "plc_state": "SIMULATED_REJECT",
-      "certificate_signature": "2cbacdae62f01e81771d3017d111e1d3930c197f4ef70c5d80bb0aad84441160",
-      "commit_hash": "fdee8f191ce9bca509b58d3902ffb618e61fc183"
+      "certificate_signature": "03e4728f374e9972a39eead765a25ce2d2f7aa9222c3dd0f75cdbfa4316a77c6",
+      "commit_hash": "988dac2816138f52a9d5cf5ce81cfc237d2b5309",
+      "provenance_scope": "protocol_fixture_generation",
+      "fixture_generation_provenance": {
+        "scope": "protocol_fixture_generation_only",
+        "commit": "988dac2816138f52a9d5cf5ce81cfc237d2b5309",
+        "working_tree_dirty_at_generation": true,
+        "source_diff_sha256": "02aca4c7d9c00afffed3973b9b86e2428b9c49b6ca193b4552d56e97e19efbd7",
+        "note": "Records the repository state when this protocol fixture was generated. It is not final competition release provenance and must not be read as the packed ZIP HEAD. Final release provenance is reports/submission_manifest.json."
+      }
     },
     {
       "case_id": 4,
@@ -80,8 +106,16 @@
       },
       "calibration_state": "VERIFIED",
       "plc_state": "SIMULATED_HOLD",
-      "certificate_signature": "6d377751fa0672380680c41cf6c2be0779d6689d7a699901ce517caabb074f80",
-      "commit_hash": "fdee8f191ce9bca509b58d3902ffb618e61fc183"
+      "certificate_signature": "2fb7a46fff333ae7f81422e5dc468b525a85dd81bca3b24a9a251eb8ef072255",
+      "commit_hash": "988dac2816138f52a9d5cf5ce81cfc237d2b5309",
+      "provenance_scope": "protocol_fixture_generation",
+      "fixture_generation_provenance": {
+        "scope": "protocol_fixture_generation_only",
+        "commit": "988dac2816138f52a9d5cf5ce81cfc237d2b5309",
+        "working_tree_dirty_at_generation": true,
+        "source_diff_sha256": "02aca4c7d9c00afffed3973b9b86e2428b9c49b6ca193b4552d56e97e19efbd7",
+        "note": "Records the repository state when this protocol fixture was generated. It is not final competition release provenance and must not be read as the packed ZIP HEAD. Final release provenance is reports/submission_manifest.json."
+      }
     }
   ],
   "closing_screen": {
@@ -99,16 +133,17 @@
     "calibration_state": "VERIFIED",
     "model_hash": null,
     "dataset_manifest_hash": null,
-    "commit_hash": "fdee8f191ce9bca509b58d3902ffb618e61fc183",
+    "commit_hash": "988dac2816138f52a9d5cf5ce81cfc237d2b5309",
     "plc_state": "SIMULATED_HOLD",
     "detector_attribution": "fps follows PatchCore (Roth et al.); density_fps follows DA-Core (Sui et al., LIBAD 2026). Neither is claimed as a SecureCoating-Vision algorithm.",
     "source_tree_dirty": true,
-    "source_diff_sha256": "065bdd2ae88192a77fc326c48e91520576bd79483de5d7d1ec55444f20ab706e",
-    "issued_at": "2026-09-07T12:31:05.405669+00:00",
+    "source_diff_sha256": "02aca4c7d9c00afffed3973b9b86e2428b9c49b6ca193b4552d56e97e19efbd7",
+    "provenance_scope": "protocol_fixture_generation",
+    "issued_at": "2026-09-07T12:59:12.860511+00:00",
     "signature_algorithm": "HMAC-SHA256",
     "brand": "SecureCoating-Vision",
-    "payload_hash_sha256": "7588e41b50b025a8894b1b430240a5a3cc8abe70b59956ad46536ce0fe2e100f",
-    "hmac_digital_signature": "6d377751fa0672380680c41cf6c2be0779d6689d7a699901ce517caabb074f80",
-    "canonical_payload_sha256": "7588e41b50b025a8894b1b430240a5a3cc8abe70b59956ad46536ce0fe2e100f"
+    "payload_hash_sha256": "aa3ae00f217d1785ed482f391ff4f2823c386e9568750a6333fb4028b283e128",
+    "hmac_digital_signature": "2fb7a46fff333ae7f81422e5dc468b525a85dd81bca3b24a9a251eb8ef072255",
+    "canonical_payload_sha256": "aa3ae00f217d1785ed482f391ff4f2823c386e9568750a6333fb4028b283e128"
   }
 }

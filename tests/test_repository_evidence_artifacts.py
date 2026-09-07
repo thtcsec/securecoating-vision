@@ -195,6 +195,55 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn("History", docx)
         self.assertIn("Multimodal", docx)
 
+    def test_application_form_separates_contestants_from_advisor(self):
+        from docx import Document
+
+        path = ROOT / "Al + Materials Competition Application Form.docx"
+        doc = Document(str(path))
+        cover_members = doc.tables[0].rows[3].cells[1].text.strip()
+        self.assertEqual(cover_members, "N/A")
+        section6 = doc.tables[1].rows[5].cells[0].text
+        self.assertIn("Prof. Kris Singh", section6)
+        self.assertIn("Advisor", section6)
+        section7 = doc.tables[1].rows[6].cells[0]
+        self.assertNotIn("Team Leader —", section7.text)
+        self.assertNotIn("Team Member —", section7.text)
+        self.assertTrue(section7.tables)
+        roster = "\n".join(c.text for r in section7.tables[0].rows for c in r.cells)
+        self.assertIn("Trịnh Hoàng Tú", roster)
+        self.assertNotIn("Kris", roster)
+        self.assertNotIn("kris@thesrii.org", roster)
+        self.assertNotIn("External Advisor", roster)
+        dates = [p.text.strip() for p in doc.paragraphs if p.text.strip().startswith("Date:")]
+        self.assertEqual(dates, ["Date: 07 / 09 / 2026"])
+
+    def test_model_config_separates_rgb_detector_from_auxiliary_modalities(self):
+        cfg = yaml.safe_load((ROOT / "configs/model.yaml").read_text(encoding="utf-8"))
+        rgb_names = [c["name"] for c in cfg["inputs"]["rgb_channels"]]
+        self.assertEqual(rgb_names, ["optical_r", "optical_g", "optical_b"])
+        self.assertNotIn("channels", cfg["inputs"])
+        self.assertIn("thermal", cfg["auxiliary_modalities"])
+        self.assertIn("profilometry", cfg["auxiliary_modalities"])
+        self.assertFalse(cfg["auxiliary_modalities"]["thermal"]["yolo_input_channel"])
+        self.assertFalse(cfg["auxiliary_modalities"]["profilometry"]["yolo_input_channel"])
+
+    def test_analysis_report_is_evidence_grounded_and_dynamic_on_tests(self):
+        report = (ROOT / "reports/analysis_report.md").read_text(encoding="utf-8")
+        manifest = json.loads((ROOT / "reports/test_manifest.json").read_text(encoding="utf-8"))
+        self.assertIn("# SecureCoating-Vision — Analysis Report", report)
+        self.assertIn("## 1. Executive Summary", report)
+        self.assertIn("## 9. Next Validation Gates", report)
+        self.assertIn("0.645", report)
+        self.assertIn("0.634", report)
+        self.assertIn("0.700", report)
+        self.assertIn("0.839", report)
+        self.assertIn("19,680", report)
+        self.assertIn("comparable_to_paper", report)
+        self.assertIn("reports/submission_manifest.json", report)
+        self.assertIn(str(manifest["passed"]), report)
+        self.assertNotIn("278/278", report)
+        self.assertNotIn("This report is not model-performance evidence.", report)
+
     def test_libad_artifacts_never_claim_paper_comparability(self):
         paths = [
             ROOT / "reports/libad/libad_benchmark.json",
@@ -407,6 +456,9 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn("0.856", pitch)
         self.assertIn("0.716", pitch)
         self.assertIn("paper-comparable", pitch)
+        self.assertIn("historical", pitch.lower())
+        self.assertIn("historical evidence", slides.lower())
+        self.assertIn("not DINOv3/DA-Core paper reproduction", slides)
         self.assertIn("0.856", slides)
         self.assertIn("0.716", slides)
         self.assertNotIn(
