@@ -51,11 +51,15 @@ Detail: [docs/hardware_profiles.md](hardware_profiles.md)
 
 | Lane | Authoritative artifact | Boundary |
 |---|---|---|
-| RGB detection | `reports/coatingvision_real_test_metrics.json` | Image-disjoint public optical split; not factory roll-disjoint |
+| RGB detection | `reports/coatingvision_real_test_metrics.json` | mAP50 0.634 on a fixed 88-image public CoatingVision **image-disjoint** test split (seed 71; **not** factory roll-disjoint) |
 | Inference timing | same report → `speed_ms_per_image.inference` ≈ 21.6 ms/image (CPU) | Model inference only; not camera/PLC/line throughput |
-| Software tests | `reports/test_manifest.json`, `reports/pytest_*.` | Software contract evidence |
-| Multimodal extension | `reports/libad/official_local_adapter.json`, DINOv2 interim | Not paper-comparable DINOv3/DA-Core |
+| Software tests | `reports/test_manifest.json`, `reports/pytest_*.` | Authoritative count lives in the manifest (currently 278/278, 0 skip, 0 fail on Python 3.11.9); do not hardcode stale counts in prose |
+| Multimodal extension | `reports/libad/official_local_adapter.json` | Local adapter mean multimodal AUROC 0.700 / FPR95 0.839 over 10 official splits; prediction artifact has 19,680 evaluation rows across lanes — **not** paper-comparable DINOv3/DA-Core |
 | Demo loops | `reports/defense_gifs/` | Presentation artifacts from checked-in evidence |
+
+### Challenge 1 wording boundary
+
+Challenge materials may mention *image acquisition → performance prediction*. This prototype implements **image acquisition → defect/anomaly detection → evidence gate → PASS/REJECT/HOLD → traceability**. It does **not** claim experimentally validated electrochemical cell performance. A future simulation-validated downstream performance-risk proxy may be studied as a separate evidence class; it is not a current defense metric.
 
 Status ledger: [docs/implementation_status.md](implementation_status.md)
 

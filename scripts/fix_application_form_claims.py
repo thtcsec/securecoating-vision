@@ -1,27 +1,35 @@
-"""Apply final Application Form claim/advisor placement rules."""
+"""Surgical Application Form claim fixes — touch only known section cells."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 from docx import Document
-from docx.oxml.ns import qn
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCX = ROOT / "Al + Materials Competition Application Form.docx"
 
-OLD = (
-    "Reproducible Evaluation Boundaries: The evaluation engine validates artifact hashes, "
-    "requires an immutable roll-disjoint manifest, uses one instance-matching policy for "
-    "box and mask metrics, and records model, dataset, manifest, and source-commit provenance."
-)
-NEW = (
-    "Reproducible Evaluation Boundaries: The evaluation engine validates immutable dataset "
-    "manifests, records split provenance, and enforces consistent metric semantics. "
-    "Independent roll-disjoint evidence remains a required gate for factory qualification."
+REPLACEMENTS = (
+    (
+        "certificates use canonical HMAC-SHA256 payloads",
+        "certificates use HMAC-SHA256 authenticated traceability tags",
+    ),
+    (
+        "and can be represented in a signed certificate snapshot.",
+        "and can be represented in an HMAC-SHA256 authenticated certificate snapshot.",
+    ),
+    (
+        "Next Validation Steps: Obtain an independent roll-disjoint dataset, hash-verify "
+        "official LIBAD, complete PLC/HIL and safety testing, validate factory calibration, "
+        "and publish only measurements supported by immutable evidence.",
+        "Next Validation Steps: Reproduce the official-LIBAD validation under the current "
+        "clean release and preserve current-source provenance; obtain an independent "
+        "roll-disjoint factory dataset; complete PLC/HIL and plant calibration; and keep "
+        "any future performance-risk proxy explicitly simulation-validated and separate "
+        "from electrochemical cell-performance claims.",
+    ),
 )
 
-# Section 7 keeps the BTC team-member template for contestants only.
 TEAM = (
     "7、Team Member Information\n\n"
     "Team Leader — Trịnh Hoàng Tú\n"
@@ -50,86 +58,61 @@ def _set_cell_text(cell, text: str) -> None:
         cell.add_paragraph(line)
 
 
-def _replace_in_cell(cell, old: str, new: str) -> bool:
-    text = cell.text or ""
-    if old not in text:
-        return False
-    updated = text.replace(old, new)
-    paragraphs = cell.paragraphs
-    if not paragraphs:
-        return False
-    for paragraph in paragraphs:
-        for run in paragraph.runs:
-            run.text = ""
-    paragraphs[0].clear()
-    paragraphs[0].add_run(updated)
-    for paragraph in list(paragraphs[1:]):
-        parent = paragraph._element.getparent()
-        if parent is not None:
-            parent.remove(paragraph._element)
-    return True
-
-
-def _strip_advisor_lines(text: str) -> str:
-    lines = []
-    for line in (text or "").splitlines():
-        stripped = line.strip()
-        if stripped.startswith("Advisor") or stripped.startswith("指导老师"):
+def _strip_advisor_block(text: str) -> str:
+    keep = []
+    for line in text.splitlines():
+        s = line.strip()
+        if (
+            s.startswith("Advisor")
+            or s.startswith("指导老师")
+            or s.startswith("Advisory scope")
+            or "kris@thesrii.org" in s
+        ):
             continue
-        lines.append(line)
-    return "\n".join(lines).rstrip()
+        keep.append(line)
+    return "\n".join(keep).rstrip()
 
 
 def fix(path: Path = DOCX) -> dict:
     doc = Document(str(path))
-    replaced = 0
-    team_filled = 0
-    advisor_placed = 0
-    for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                raw = cell.text or ""
-                if OLD in raw and _replace_in_cell(cell, OLD, NEW):
-                    replaced += 1
-                    raw = cell.text or ""
+    if len(doc.tables) < 2:
+        raise SystemExit("expected cover + body tables")
+    body = doc.tables[1]
+    stats = {"replacements": 0, "section6": False, "section7": False}
 
-                text = raw.strip()
-                if text.startswith("7、Team Member Information"):
-                    _set_cell_text(cell, TEAM)
-                    team_filled += 1
-                    continue
+    # Only edit the first cell of each body section row (BTC template).
+    for row in body.rows:
+        cell = row.cells[0]
+        text = cell.text or ""
+        updated = text
+        for old, new in REPLACEMENTS:
+            if old in updated:
+                updated = updated.replace(old, new)
+                stats["replacements"] += 1
 
-                if text.startswith("6、Additional Information"):
-                    body = _strip_advisor_lines(text)
-                    if ADVISOR_LINE not in body:
-                        body = body.rstrip() + "\n\n" + ADVISOR_LINE
-                    _set_cell_text(cell, body)
-                    advisor_placed += 1
+        if updated.strip().startswith("6、Additional Information"):
+            updated = _strip_advisor_block(updated)
+            if ADVISOR_LINE not in updated:
+                updated = updated.rstrip() + "\n\n" + ADVISOR_LINE
+            _set_cell_text(cell, updated)
+            stats["section6"] = True
+            continue
 
-    body = doc.element.body
-    removed_paras = 0
-    for child in list(body):
-        if child.tag != qn("w:p"):
+        if updated.strip().startswith("7、Team Member Information"):
+            _set_cell_text(cell, TEAM)
+            stats["section7"] = True
             continue
-        text = "".join(node.text or "" for node in child.iter() if node.text)
-        has_drawing = any(True for _ in child.iter(qn("w:drawing"))) or any(
-            True for _ in child.iter(qn("w:pict"))
-        )
-        if text.strip() or has_drawing:
-            continue
-        ppr = child.find(qn("w:pPr"))
-        if ppr is not None and ppr.find(qn("w:sectPr")) is not None:
-            continue
-        body.remove(child)
-        removed_paras += 1
+
+        if updated != text:
+            _set_cell_text(cell, updated)
+
+    # Cover table identity checks (do not rewrite title).
+    title = doc.tables[0].rows[0].cells[1].text.strip()
+    if "Zero-Trust Edge-Cloud" not in title:
+        raise SystemExit(f"refusing to save: cover title drifted: {title[:80]!r}")
 
     doc.save(str(path))
-    return {
-        "roll_disjoint_sentence_replaced": replaced,
-        "team_member_rows_filled": team_filled,
-        "advisor_in_section_6": advisor_placed,
-        "empty_paragraphs_removed": removed_paras,
-    }
+    return stats
 
 
 def main() -> None:

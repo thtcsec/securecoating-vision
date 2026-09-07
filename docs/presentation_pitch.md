@@ -24,7 +24,7 @@ Say this, then stop talking until they look at the first defect image:
 |---|---|---|
 | Problem framing | 0:00–0:35 | Scrap / escape vs unsafe automatic PASS |
 | Novelty | 0:35–2:00 | Gate on top of YOLO + attributed LIBAD/DA-Core; HOLD is the contribution |
-| Quantitative evidence | 2:45–4:20 | CoatingVision 88-image test split: mAP50 0.633 / P 0.645 / R 0.642 / mAP50-95 0.354; inference ≈ 21.6 ms/image (CPU, model-only); weights and dataset-tree hashes shown |
+| Quantitative evidence | 2:45–4:20 | CoatingVision 88-image image-disjoint split: mAP50 0.634 / P 0.645 / R 0.642 / mAP50-95 0.354; inference ≈ 21.6 ms/image (CPU, model-only); not roll-disjoint; weights/dataset hashes shown |
 | Materials relevance | throughout | Roll/batch identity, coating-surface frames, SPC on the coating process — not generic object detection |
 | Industrial impact | 2:00–3:35 | Fail-closed, false-accept blocked by HOLD, confirm-audit control, HMAC-SHA256 tag; **no factory yield claim** |
 | Demo storytelling | 5:10–6:00 | Looping GIFs: RGB HOLD replay + LIBAD fixture PASS/REJECT/REJECT/HOLD |
@@ -71,12 +71,12 @@ Do **not** say 99.4% mAP, ≤35 ms TensorRT, real thermal/laser plant instrument
 *   Operator E-stop, reset, and inference reset require API authentication, an exact confirmation phrase, and a durable control-audit row. Mock PLC remains labelled `SIMULATED`.
 *   Every decision carries roll, batch, and part identity. Trace rows stay PENDING until PLC finalization.
 *   Physical PLC actuation and the SQLite final-state write are **not atomic**; if ACK succeeds but DB finalization fails, plant deployments need HIL/factory recovery (research-prototype limitation).
-*   Certificates attach a tamper-evident HMAC-SHA256 authentication tag to the canonical payload (API field `hmac_digital_signature` for compatibility).
+*   Certificates attach a tamper-evident **HMAC-SHA256 authenticated tag** to the canonical payload (API field `hmac_digital_signature` for compatibility; not a public-key digital signature).
 
 ### Minute 5: Why LIBAD Does Not End the Story
-*   **Our RGB lane (research, not factory qualification):** CoatingVision fixed 88-image test split, seed 71, DOI 10.6084/m9.figshare.29260121.v1 — mAP50 0.633, precision 0.645, recall 0.642, mAP50-95 0.354.
-*   Show the checkpoint SHA-256 prefix and dataset-tree SHA-256 prefix from `reports/coatingvision_real_test_metrics.json` (currently weights `f72a8f2b…`, dataset-tree `d1db7823…`). State that the split is image-disjoint, not factory roll-disjoint.
-*   **Official LIBAD:** numpy 10-seed multimodal AUROC about 0.70 / FPR95 about 0.84; authors' runner interim DINOv2 (1 seed) AUROC about 0.856 / FPR95 about 0.716 — both `comparable_to_paper: false`. Paper table is AUROC 86.7% / FPR95 54.3% on DINOv3/DA-Core — do not mix the three. All FPR numbers are too high for unsupervised auto-PASS; that is the Track 4 point.
+*   **Our RGB lane (research, not factory qualification):** CoatingVision fixed 88-image **image-disjoint** test split, seed 71, DOI 10.6084/m9.figshare.29260121.v1 — mAP50 0.634, precision 0.645, recall 0.642, mAP50-95 0.354; **not** factory roll-disjoint.
+*   Show the checkpoint SHA-256 prefix and dataset-tree SHA-256 prefix from `reports/coatingvision_real_test_metrics.json` (currently weights `f72a8f2b…`, dataset-tree `d1db7823…`).
+*   **Official LIBAD local adapter:** mean multimodal AUROC 0.700 / FPR95 0.839 over the 10 official splits; the prediction artifact contains 19,680 evaluation rows across all lanes — do **not** present 19,680 as independent multimodal samples. Authors' runner interim DINOv2 (1 seed) AUROC about 0.856 / FPR95 about 0.716 — both `comparable_to_paper: false`. Paper table is AUROC 86.7% / FPR95 54.3% on DINOv3/DA-Core — do not mix the three. All FPR numbers are too high for unsupervised auto-PASS; that is the Track 4 point.
 *   Local throughput evidence is presented only as measured inference timing. Camera exposure, transport, PLC ACK, and target-hardware HIL remain outside that number.
 
 ### Minute 6: Real Detection, Safe Demo Disposition

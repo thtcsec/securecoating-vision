@@ -2,7 +2,7 @@
 
 This directory is the **held-out image-disjoint test split** used to reproduce
 `reports/coatingvision_real_test_metrics.json` (authoritative RGB defense metrics,
-mAP50 ≈ 0.633).
+mAP50 ≈ 0.634).
 
 ## What this is
 

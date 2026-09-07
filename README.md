@@ -134,7 +134,7 @@ For a running local API in explicit development simulation mode, use the existin
 
 ## Model and metric evidence
 
-The authoritative model report is [reports/coatingvision_real_test_metrics.json](reports/coatingvision_real_test_metrics.json): public real optical data, a fixed 88-image image-disjoint test split, precision 0.645, recall 0.642, mAP50 0.633, and mAP50-95 0.354. It is explicitly **not** factory roll-disjoint evidence. Older synthetic segmentation reports are retained only as development baselines and must not be presented as current-model evidence.
+The authoritative model report is [reports/coatingvision_real_test_metrics.json](reports/coatingvision_real_test_metrics.json): public real optical data, a fixed 88-image image-disjoint test split (seed 71), precision 0.645, recall 0.642, mAP50 0.634, and mAP50-95 0.354. It is explicitly **not** factory roll-disjoint evidence. Older synthetic segmentation reports are retained only as development baselines and must not be presented as current-model evidence.
 
 The repository deliberately makes no claim of 99.4% mAP, zero escapes, ppm performance, factory yield improvement, production latency, Six Sigma capability, or standards certification. Such claims require an immutable model hash, roll-disjoint dataset manifest, raw measurements, methodology, confidence intervals, and independent review.
 

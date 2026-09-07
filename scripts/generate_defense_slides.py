@@ -276,7 +276,7 @@ def build() -> Path:
     add_textbox(s, Inches(0.65), Inches(4.45), Inches(7.0), Inches(2.1), [
         {"text": "MEASURED ON REAL OPTICAL DATA", "size": 12, "color": RED, "bold": True},
         {"text": f"{rgb['n_test']} held-out images · mAP50 {rgb['map50_short']}", "size": 18, "color": INK, "bold": True, "space_after": 8},
-        {"text": f"Public CoatingVision image-disjoint split, seed {rgb['seed']}. Not factory roll-disjoint; HIL and calibration remain pilot gates.", "size": 14, "color": MUTED},
+        {"text": f"Public CoatingVision image-disjoint test split, seed {rgb['seed']}; not factory roll-disjoint.", "size": 14, "color": MUTED},
     ])
     if HELD_OUT_SURFACE.is_file():
         _box(s, Inches(8.15), Inches(0.55), Inches(4.7), Inches(6.2))
@@ -296,15 +296,15 @@ def build() -> Path:
     add_textbox(s, Inches(0.65), Inches(1.55), Inches(5.65), Inches(4.9), [
         {"text": "LANE A  ·  IMPLEMENTED", "size": 12, "color": GREEN, "bold": True},
         {"text": "RGB YOLO26n detect / ONNX", "size": 22, "color": INK, "bold": True},
-        {"text": "FastAPI  ·  SQLite PENDING→final  ·  OPC UA / Modbus command+ACK  ·  HMAC certificate", "size": 15, "color": MUTED, "space_after": 12},
+        {"text": "FastAPI  ·  SQLite PENDING→final  ·  OPC UA / Modbus command+ACK  ·  HMAC-SHA256 authenticated certificate", "size": 15, "color": MUTED, "space_after": 12},
         {"text": "Thermal and profilometry are simulated adapters. They are not plant-instrument measurements.", "size": 15, "color": HOLD},
     ])
     _box(s, Inches(6.8), Inches(1.4), Inches(6.05), Inches(5.3), accent=True)
     add_textbox(s, Inches(7.0), Inches(1.55), Inches(5.65), Inches(4.9), [
         {"text": "LANE B  ·  VALIDATION EXTENSION", "size": 12, "color": ACCENT, "bold": True},
-        {"text": "LIBAD VIS + X-rayL adapter", "size": 22, "color": INK, "bold": True},
-        {"text": "Official mount hashed. Numpy 10-seed ~AUROC 0.70 / FPR95 0.84. Authors' runner interim DINOv2 (1 seed) ~AUROC 0.856 / FPR95 0.716 — still not paper DINOv3. Demo cases stay protocol fixtures.", "size": 15, "color": MUTED, "space_after": 12},
-        {"text": "DA-Core is Sui et al. SecureCoating-Vision adds the evidence gate, not a new detector claim.", "size": 15, "color": ACCENT},
+        {"text": "LIBAD VIS + X-rayL local adapter", "size": 22, "color": INK, "bold": True},
+        {"text": "Official mount hashed. Local numpy adapter mean multimodal AUROC 0.700 / FPR95 0.839 over 10 official splits — non-paper-comparable. Authors' DINOv2 interim (1 seed) ~AUROC 0.856 / FPR95 0.716; not paper DINOv3/DA-Core. Demo cases stay protocol fixtures.", "size": 14, "color": MUTED, "space_after": 12},
+        {"text": "DA-Core is Sui et al. SecureCoating-Vision adds the evidence gate, not a paper reproduction claim.", "size": 15, "color": ACCENT},
     ])
     footer(s, 3)
 
@@ -378,7 +378,7 @@ def build() -> Path:
         ("2", "PENDING", "SQLite claims (batch, part)"),
         ("3", "PLC", "One command owner + ACK sequence"),
         ("4", "Confirm", "PASS/REJECT only after ACK; HOLD_REQUESTED ≠ HOLD_CONFIRMED"),
-        ("5", "Certificate", "HMAC-SHA256 over canonical payload"),
+        ("5", "Certificate", "HMAC-SHA256 authenticated tag over canonical payload"),
         ("6", "Audit", "Operator confirm phrase is durable"),
     ]
     for i, (number, title, body) in enumerate(steps):
