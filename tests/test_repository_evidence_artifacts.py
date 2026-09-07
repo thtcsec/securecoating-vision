@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+import re
 import unittest
 import xml.etree.ElementTree as ET
 import zipfile
@@ -165,17 +166,12 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
 
     def test_public_identity_matches_single_source_of_truth(self):
         identity = yaml.safe_load((ROOT / "configs/project_identity.yaml").read_text(encoding="utf-8"))
-        docx_path = next(
-            (
-                path
-                for path in (
-                    ROOT / "Al + Materials Competition Application Form.docx",
-                    ROOT / "AI+Materials_Competition_Application_Form.docx",
-                )
-                if path.is_file()
-            ),
-            None,
+        # Prefer the judge-facing remapped ZIP name when present (packed-artifact verify).
+        docx_candidates = (
+            ROOT / "AI+Materials_Competition_Application_Form.docx",
+            ROOT / "Al + Materials Competition Application Form.docx",
         )
+        docx_path = next((path for path in docx_candidates if path.is_file()), None)
         self.assertIsNotNone(docx_path, "application form DOCX missing")
         sources = [
             (ROOT / "README.md").read_text(encoding="utf-8"),
@@ -187,8 +183,15 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
             self.assertIn(identity["brand"], source)
             self.assertIn(identity["registered_title"], source)
             self.assertIn(identity["tagline"], source)
-            self.assertNotIn("82 passing tests", source)
-            self.assertNotIn("85 passing tests", source)
+            # Avoid false positives inside current counts such as "282 passing tests".
+            self.assertIsNone(
+                re.search(r"(?<!\d)82 passing tests", source),
+                "stale 82-test claim",
+            )
+            self.assertIsNone(
+                re.search(r"(?<!\d)85 passing tests", source),
+                "stale 85-test claim",
+            )
         docx = _docx_text(docx_path)
         self.assertNotIn("YOLOv8-seg", docx)
         self.assertIn("YOLO26n", docx)
@@ -198,7 +201,12 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
     def test_application_form_separates_contestants_from_advisor(self):
         from docx import Document
 
-        path = ROOT / "Al + Materials Competition Application Form.docx"
+        docx_candidates = (
+            ROOT / "AI+Materials_Competition_Application_Form.docx",
+            ROOT / "Al + Materials Competition Application Form.docx",
+        )
+        path = next((p for p in docx_candidates if p.is_file()), None)
+        self.assertIsNotNone(path, "application form DOCX missing")
         doc = Document(str(path))
         cover_members = doc.tables[0].rows[3].cells[1].text.strip()
         self.assertEqual(cover_members, "N/A")
