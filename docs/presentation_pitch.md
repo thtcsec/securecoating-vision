@@ -87,6 +87,9 @@ Let the two GIFs loop in Slideshow. Do not narrate every frame.
 
 PyTorch and ONNX share the same two-class map. Development simulation + mock PLC + unverified calibration is why the RGB loop ends on HOLD, not PASS.
 
+**Oral (~10–15 s) — compute / reproducibility (if asked or if closing needs one sentence):**
+> Optional cloud and HPC channels were evaluated during development. The authoritative evidence path is independently reproducible on a local workstation: GPU-capable workloads ran on a laptop RTX 4050; the documented CPU inference benchmark is model-only timing measured separately. The prototype does not require competition-specific infrastructure.
+
 ---
 
 ## 2. Anticipated 2-Minute Q&A Defense Script
@@ -126,3 +129,9 @@ PyTorch and ONNX share the same two-class map. Development simulation + mock PLC
 
 ### Q6: "Who buys this, and how does it enter a factory?"
 *   **Answer:** "Shadow inspection first, then PLC/HIL validation, then controlled decision assistance, then per-line deployment. The commercial model is per-line integration plus calibration, model monitoring, and traceability support — not a fake TAM slide."
+
+### Q7: "Did you use competition computing resources?"
+*   **Answer:** "Not for the final authoritative evidence path. We kept the release independently reproducible on commodity local hardware: GPU-capable workloads on a laptop RTX 4050, with the CPU inference benchmark measured separately as model-only timing. Cloud and HPC remain optional acceleration for larger future experiments, not a requirement to reproduce this prototype."
+
+### Q7b: "Why not use them?"
+*   **Answer:** "Access and environment constraints for some platforms—especially for an international participant—made a local, deterministic evidence path the safer choice for reproducibility. We do not frame that as organizer compute failure; cloud/HPC stay optional future acceleration. Do not name specific platforms as failing unless a judge asks."

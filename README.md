@@ -77,6 +77,14 @@ Do not describe the GPU path as TensorRT unless the live card reports TensorRT.
 When TensorRT libraries are unavailable, the tested RTX path falls back to YOLO
 CUDA FP16 and records the reason. See [adaptive inference profiles](docs/hardware_profiles.md).
 
+## Compute Environment and Reproducibility
+
+Competition organizers provided optional access channels for several cloud and HPC platforms. These resources were evaluated during development but are not part of the authoritative evidence path of this submission.
+
+The final prototype, regression suite, model evaluation, and demo workflow were reproduced on a local development workstation. GPU-capable workloads were executed on an NVIDIA GeForce RTX 4050 Laptop GPU, while the documented CPU inference benchmark is reported separately as model-only CPU timing.
+
+This local-first validation is intentional for reproducibility: the reported results do not depend on privileged competition infrastructure or unavailable cloud resources. Larger-scale cloud/HPC execution remains an optional future acceleration path rather than a requirement for reproducing the current prototype.
+
 ## Data inventory and evidence classes
 
 | Source | Role | Evidence boundary |
