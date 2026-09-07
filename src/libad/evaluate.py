@@ -266,15 +266,18 @@ def evaluate_official_splits(
         ),
         "comparable_to_paper": comparable,
         "evidence_generation": (
-            "CURRENT_HEAD_OFFICIAL_INPUT_ADAPTER" if official_data else "PROTOCOL_FIXTURE_OR_PARTIAL"
+            "CLEAN_SOURCE_OFFICIAL_INPUT_ADAPTER" if official_data else "PROTOCOL_FIXTURE_OR_PARTIAL"
         ),
         "methodology_note": (
-            "Local numpy_patch_descriptor on official LIBAD inputs under the current repository HEAD. "
-            "Not regenerated as a paper-comparable DINOv3/DA-Core result. "
+            "Local numpy_patch_descriptor on official LIBAD inputs evaluated from a clean "
+            "adapter-implementation source commit (see hashes.commit). "
+            "Final packed-release provenance is reports/submission_manifest.json. "
+            "Not a paper-comparable DINOv3/DA-Core result. "
             "PAPER_SPEC remains DINOv3 ViT-S/16 (paper↔code mismatch vs common ConvNeXt upstream defaults)."
             if official_data
             else "Protocol fixture or incomplete official inputs; not paper-comparable."
         ),
+        "final_release_provenance": "reports/submission_manifest.json",
         "official_protocol_complete": official_protocol_complete,
         "paper_comparability_blockers": paper_comparability_blockers,
         "official_code": submission_official_code_meta(code_status),

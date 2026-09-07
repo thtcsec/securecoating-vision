@@ -56,7 +56,9 @@ This lane does **not** claim factory roll-disjoint validation or line throughput
 ### A. Official-input local numpy adapter
 
 - Artifact: `reports/libad/official_local_adapter.json`
-- Evidence generation: `CURRENT_HEAD_OFFICIAL_INPUT_ADAPTER`
+- Evidence generation: `CLEAN_SOURCE_OFFICIAL_INPUT_ADAPTER`
+- Evaluated source commit: `abcff20bb07543e699b0ab882d0558cb2b33aef3`
+- Final release provenance: `reports/submission_manifest.json`
 - Methodology note: local numpy descriptor on official LIBAD inputs; **not** paper-comparable DINOv3/DA-Core
 - Mean multimodal AUROC / FPR95 over 10 official splits: **0.700 / 0.839**
 - Interpretation: these rates are **motivation for the evidence gate**, not a trophy scoreboard claim

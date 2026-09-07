@@ -32,8 +32,8 @@
   ],
   "evidence_class": "official_libad_local_adapter",
   "comparable_to_paper": false,
-  "evidence_generation": "CURRENT_HEAD_OFFICIAL_INPUT_ADAPTER",
-  "methodology_note": "Local numpy_patch_descriptor on official LIBAD inputs under the current repository HEAD. Not regenerated as a paper-comparable DINOv3/DA-Core result. PAPER_SPEC remains DINOv3 ViT-S/16 (paper\u2194code mismatch vs common ConvNeXt upstream defaults).",
+  "evidence_generation": "CLEAN_SOURCE_OFFICIAL_INPUT_ADAPTER",
+  "methodology_note": "Local numpy_patch_descriptor on official LIBAD inputs evaluated from a clean adapter-implementation source commit (see hashes.commit). Final packed-release provenance is reports/submission_manifest.json. Not a paper-comparable DINOv3/DA-Core result. PAPER_SPEC remains DINOv3 ViT-S/16 (paper\u2194code mismatch vs common ConvNeXt upstream defaults).",
   "official_protocol_complete": true,
   "paper_comparability_blockers": [
     "The local feature backbone is numpy_patch_descriptor, not the authors' official DINOv3 implementation",
@@ -1925,5 +1925,7 @@
   "predictions": "19680 rows written to predictions file",
   "feature_backbone": "numpy_patch_descriptor",
   "feature_backbone_note": "Local 20-D numpy patch descriptor (intensity stats + gradient magnitude/orientation histograms). Official paper numbers require the authors' DINOv3 + DA-Core implementation and the 4.84 GB dataset.",
-  "predictions_path": "outputs/official_local_adapter_predictions.json"
+  "predictions_path": "outputs/official_local_adapter_predictions.json",
+  "final_release_provenance": "reports/submission_manifest.json",
+  "evaluated_commit": "abcff20bb07543e699b0ab882d0558cb2b33aef3"
 }

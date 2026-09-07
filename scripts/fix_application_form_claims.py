@@ -165,6 +165,20 @@ def _fix_section7_contestant_roster(cell) -> dict:
     _set_nested_cell(leader.cells[4], CONTESTANT_LEADER["email"])
     stats["leader_set"] = True
 
+    # Widen Email Address so long addresses do not wrap mid-token in judge PDFs.
+    try:
+        from docx.shared import Cm
+
+        # Role, Full Name, Affiliation, Phone, Email
+        widths = (Cm(2.4), Cm(3.4), Cm(3.2), Cm(3.0), Cm(5.0))
+        for row in roster.rows:
+            for idx, width in enumerate(widths):
+                if idx < len(row.cells):
+                    row.cells[idx].width = width
+        stats["email_column_widened"] = True
+    except Exception:
+        stats["email_column_widened"] = False
+
     for row in list(roster.rows)[2:]:
         name = (row.cells[1].text or "").strip().lower()
         role = (row.cells[0].text or "").strip().lower()
@@ -266,6 +280,13 @@ def fix(path: Path = DOCX) -> dict:
         raise SystemExit("refusing to save: redundant plain-text roster lines remain in Section 7")
     if ADVISOR_LINE.split(":")[0] not in full and "Prof. Kris Singh" not in full:
         raise SystemExit("refusing to save: advisor line missing from Application Form")
+
+    # Scrub machine/vendor core properties for provenance-facing submission packs.
+    cp = doc.core_properties
+    cp.author = "Trinh Hoang Tu"
+    cp.last_modified_by = "Trinh Hoang Tu"
+    cp.title = "AI + Materials Competition Application Form — Team 71"
+    cp.subject = "Track 4 submission — SecureCoating-Vision"
 
     doc.save(str(path))
     return stats

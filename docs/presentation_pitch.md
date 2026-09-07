@@ -113,7 +113,7 @@ PyTorch and ONNX share the same two-class map. Development simulation + mock PLC
 *   **Answer:** "Physical actuation and SQLite finalization are not atomic in this prototype. Software latches HOLD and leaves the row PENDING so it cannot look like PASS, but a plant deployment still needs HIL/factory recovery for that race."
 
 ### Q4: "Is this just YOLO plus a few sensors?"
-*   **Answer:** "YOLO localizes known surface defects. Thermal and the laser profiler are simulated adapters in this prototype. The contribution is the fail-closed decision layer: detection cannot self-release. That is the materials-testing problem Track 4 actually grades."
+*   **Answer:** "YOLO localizes known surface defects. Thermal and the laser profiler are simulated adapters in this prototype. The contribution is the fail-closed decision layer: detection cannot self-release. That is central to the published Track 4 scope."
 
 ### Q4b: "Challenge 1 says performance prediction — where is it?"
 *   **Answer:** "SecureCoating covers the inspection-to-quality-decision segment of that pipeline. Material or electrochemical performance prediction is the next validation stage once plant-linked property labels exist. We will not invent cell-performance numbers from coating images."

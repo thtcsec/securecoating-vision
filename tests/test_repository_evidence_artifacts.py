@@ -247,7 +247,10 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertFalse(metrics["factory_roll_disjoint"])
         self.assertAlmostEqual(float(metrics["metrics"]["metrics/mAP50(B)"]), 0.633617, places=5)
         self.assertEqual(metrics["source_commit"], libad["hashes"]["commit"])
-        self.assertEqual(libad.get("evidence_generation"), "CURRENT_HEAD_OFFICIAL_INPUT_ADAPTER")
+        self.assertEqual(libad.get("evidence_generation"), "CLEAN_SOURCE_OFFICIAL_INPUT_ADAPTER")
+        self.assertEqual(
+            libad.get("final_release_provenance"), "reports/submission_manifest.json"
+        )
         self.assertFalse(libad["comparable_to_paper"])
         # Evaluation commit must match HEAD on a clean tree, or be an ancestor when only
         # report/manifest commits landed after the eval (fixed-point of tracked metrics).
@@ -288,7 +291,8 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertNotIn("278/278", report)
         self.assertNotIn("This report is not model-performance evidence.", report)
         self.assertIn("inspection-to-quality-decision", report)
-        self.assertIn("CURRENT_HEAD_OFFICIAL_INPUT_ADAPTER", report)
+        self.assertIn("CLEAN_SOURCE_OFFICIAL_INPUT_ADAPTER", report)
+        self.assertIn("reports/submission_manifest.json", report)
 
     def test_libad_artifacts_never_claim_paper_comparability(self):
         paths = [
