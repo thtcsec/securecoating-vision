@@ -18,6 +18,8 @@ OUT = ROOT / "reports" / "defense_gifs"
 RGB_SIZE = (960, 540)
 LIBAD_SIZE = (720, 480)
 CAPTION_H = 64
+# Shared beat with the Minute-6 MP4 composer so left/right never drift.
+FRAME_DURATION_MS = 3500
 BG = (10, 13, 20)
 ACCENT = (0, 229, 255)
 WHITE = (255, 255, 255)
@@ -119,7 +121,7 @@ def build_rgb_hold_replay() -> Path:
             title_color=YELLOW,
         ),
     ]
-    return _save_gif(OUT / "rgb_hold_replay.gif", frames, 3000)
+    return _save_gif(OUT / "rgb_hold_replay.gif", frames, FRAME_DURATION_MS)
 
 
 def build_libad_gate() -> Path:
@@ -141,7 +143,7 @@ def build_libad_gate() -> Path:
                 title_color=colors[action],
             )
         )
-    return _save_gif(OUT / "libad_gate.gif", frames, 3200)
+    return _save_gif(OUT / "libad_gate.gif", frames, FRAME_DURATION_MS)
 
 
 def build_all() -> list[Path]:
