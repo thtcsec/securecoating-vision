@@ -27,6 +27,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+          # Full history is required so evaluation commits recorded in
+          # reports/*.json can be verified as ancestors of HEAD.
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5

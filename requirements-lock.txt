@@ -23,3 +23,5 @@ httpx==0.28.1
 requests==2.34.2
 asyncua==1.1.8
 pymodbus==3.7.4
+python-docx==1.2.0
+python-pptx==1.0.2

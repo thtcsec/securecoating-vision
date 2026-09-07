@@ -385,6 +385,19 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
             if evaluated != head:
                 import subprocess
 
+                exists = subprocess.run(
+                    ["git", "cat-file", "-e", f"{evaluated}^{{commit}}"],
+                    cwd=ROOT,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(
+                    exists.returncode,
+                    0,
+                    f"evaluation commit {evaluated} is missing from local git history "
+                    f"(shallow clone?). CI must fetch full history to verify ancestry.",
+                )
                 probe = subprocess.run(
                     ["git", "merge-base", "--is-ancestor", evaluated, head],
                     cwd=ROOT,
@@ -395,7 +408,8 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
                 self.assertEqual(
                     probe.returncode,
                     0,
-                    f"evaluation commit {evaluated} is not HEAD {head} or an ancestor",
+                    f"evaluation commit {evaluated} is not HEAD {head} or an ancestor "
+                    f"(stderr={probe.stderr.strip()!r})",
                 )
             self.assertFalse(libad["hashes"]["source_provenance"]["working_tree_dirty"])
 
