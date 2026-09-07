@@ -60,3 +60,7 @@ docker-data/
 # Ultralytics label caches
 *.cache
 
+
+# Local preview / scratch (not submission evidence)
+reports/_docx_preview_final/
+reports/_pytest_ci_fix.txt
