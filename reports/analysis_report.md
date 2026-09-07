@@ -97,8 +97,8 @@ Authoritative software verification is recorded in `reports/test_manifest.json` 
 
 - Collected / passed / failed / skipped: **283 / 283 / 0 / 0**
 - Python: **3.11.9**
-- Snapshot commit: `980ca64f3d11` (working_tree_dirty=False)
-- Duration: 83.7s
+- Snapshot commit: `17e418d1f5bf` (working_tree_dirty=False)
+- Duration: 89.21s
 
 This count is read from the manifest at report generation time and is not hard-coded elsewhere as a mutable claim.
 
