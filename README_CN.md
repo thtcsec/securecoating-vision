@@ -89,8 +89,9 @@ Git 不收录门控官方 LIBAD 下载归档（压缩后约 4.84 GB）。可用 
 在本地解压后挂载，再运行 `scripts/record_libad_official_manifest.py` 固化文件树哈希
 （见 `reports/libad/official_mount_hashes.json`）。已跟踪的
 `reports/libad/libad_benchmark.json` 是确定性 `protocol_fixture`；官方输入上的本地
-numpy 结果位于 `reports/libad/official_local_adapter.json`（历史证据，非当前 HEAD 重跑），
-始终保持 `comparable_to_paper: false`。详见 [LIBAD 验证扩展](docs/libad_validation_extension.md)。
+numpy 结果位于 `reports/libad/official_local_adapter.json`（clean-source official-input
+adapter；`comparable_to_paper: false`；最终打包 provenance 见
+`reports/submission_manifest.json`）。详见 [LIBAD 验证扩展](docs/libad_validation_extension.md)。
 
 ## 安全决策契约
 
@@ -157,6 +158,21 @@ LIBAD 官方挂载验证：
 .venv\Scripts\python.exe scripts/record_libad_official_manifest.py
 .venv\Scripts\python.exe scripts/run_libad_benchmark.py --require-official --out reports/libad/official_local_adapter.json
 ```
+
+## 状态与后续升级方向
+
+分阶段实现、证据矩阵与发布门槛见 [实施状态](docs/implementation_status.md)。
+
+本仓库作为产线系统是**刻意未完成**的。还有大量可继续研究与产业化的工作——以下均**不宣称已完成**：
+
+- **风险–覆盖率（risk–coverage）标定**：为证据门控建立可锁定的 HOLD / PASS / REJECT 工作曲线，而不是单一实验阈值
+- **可与论文对比的 LIBAD DINOv3 / DA-Core 复现**（仅在确有需要时；保留作者方法归属）
+- **目标工控硬件上的 GPU / TensorRT 基准**（端到端实测，而非仅 CPU model-only 耗时）
+- **独立的 roll-disjoint 工厂光学数据**，超越当前 CoatingVision image-disjoint 划分
+- **真实 PLC 硬件在环（HIL）**，以及执行与数据库落盘非原子时的厂商 ACK / 恢复策略
+- **与产线标签联动的材料 / 电化学性能预测**（有属性标签之后；不能从涂层图像凭空编造）
+- **真实标定台架**（光学 / 多模态），替代当前仿真热成像与轮廓仪适配器
+- 生产级安全加固仍在路线图上：mTLS、RBAC、密钥轮换、OT 分区，以及仓库外的安全等级急停责任边界
 
 ## 演示时应该怎么说
 

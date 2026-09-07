@@ -119,7 +119,7 @@ def build_rgb_hold_replay() -> Path:
             title_color=YELLOW,
         ),
     ]
-    return _save_gif(OUT / "rgb_hold_replay.gif", frames, 1400)
+    return _save_gif(OUT / "rgb_hold_replay.gif", frames, 3000)
 
 
 def build_libad_gate() -> Path:
@@ -141,7 +141,7 @@ def build_libad_gate() -> Path:
                 title_color=colors[action],
             )
         )
-    return _save_gif(OUT / "libad_gate.gif", frames, 1600)
+    return _save_gif(OUT / "libad_gate.gif", frames, 3200)
 
 
 def build_all() -> list[Path]:

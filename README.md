@@ -126,6 +126,17 @@ These properties are covered by software tests, but physical actuator behavior s
 
 The staged implementation checklist, evidence matrix, release gates, and next-step plan are maintained in [docs/implementation_status.md](docs/implementation_status.md).
 
+This repository is intentionally incomplete as a plant system. There is a long list of honest follow-on research and industrialization work — none of it is claimed done here:
+
+- **Risk–coverage calibration** for the evidence gate (locked HOLD / PASS / REJECT operating curves instead of a single experimental threshold)
+- **Paper-comparable LIBAD DINOv3 / DA-Core reproduction** only if required, with authors' stack attribution preserved
+- **GPU / TensorRT benchmarks** on target edge hardware (measured end-to-end, not only model-only CPU timing)
+- **Independent roll-disjoint factory optical data** beyond the current image-disjoint CoatingVision split
+- **Physical PLC hardware-in-the-loop (HIL)** and vendor ACK recovery for non-atomic actuation vs database finalization
+- **Plant-linked material / electrochemical property prediction** once labeled property data exist (not inventable from coating images alone)
+- **Real calibration rigs** for optical / multimodal sensors (replace simulated thermal and profilometry adapters)
+- Production security hardening still on the roadmap: mTLS, RBAC, secret rotation, OT segmentation, and safety-rated E-stop ownership outside this software prototype
+
 For a running local API in explicit development simulation mode, use the existing smoke script:
 
 ```powershell
