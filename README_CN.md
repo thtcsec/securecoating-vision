@@ -39,7 +39,7 @@ SecureCoating-Vision 是 **Team 71 / HUFLIT** 的证据感知、失效闭锁工�
 产业化路径见 [docs/industrialization_path.md](docs/industrialization_path.md)。检测系统方案见 [docs/Inspection_System_Proposal.md](docs/Inspection_System_Proposal.md)。
 
 <!-- TEST_MANIFEST:START -->
-当前软件验证快照为 286 项测试通过、0 项跳过、0 项失败（提交 `7a1688aa262c`，工作树干净，源码差异 `none`，Python 3.11.9，耗时 82.01 秒）。权威记录为 [reports/test_manifest.json](reports/test_manifest.json)。该记录仅证明当前软件测试结果，不代表工厂性能、真实 PLC 行为、安全等级急停认证或生产资质。
+当前软件验证快照为 286 项测试通过、0 项跳过、0 项失败（提交 `293ce7be0d96`，工作树干净，源码差异 `none`，Python 3.11.9，耗时 105.42 秒）。权威记录为 [reports/test_manifest.json](reports/test_manifest.json)。该记录仅证明当前软件测试结果，不代表工厂性能、真实 PLC 行为、安全等级急停认证或生产资质。
 <!-- TEST_MANIFEST:END -->
 
 ## 评委可复现的本地演示
