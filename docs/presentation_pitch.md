@@ -118,8 +118,8 @@ PyTorch and ONNX share the same two-class map. Development simulation + mock PLC
 ### Q4: "Is this just YOLO plus a few sensors?"
 *   **Answer:** "YOLO localizes known surface defects. Thermal and the laser profiler are simulated adapters in this prototype. The contribution is the fail-closed decision layer: detection cannot self-release. That is central to the published Track 4 scope."
 
-### Q4b: "Challenge 1 says performance prediction — where is it?"
-*   **Answer:** "SecureCoating covers the inspection-to-quality-decision segment of that pipeline. Material or electrochemical performance prediction is the next validation stage once plant-linked property labels exist. We will not invent cell-performance numbers from coating images."
+### Q4b: "Does the current system predict downstream electrochemical performance?"
+*   **Answer:** "Not yet. SecureCoating-Vision currently covers the inspection-to-quality-decision and traceability segment of the materials testing pipeline. Downstream electrochemical/material performance prediction is a future validation stage that requires plant-linked property labels, which we do not fabricate."
 
 ### Q4c: "What about your DINOv2 / DINOv3 numbers?"
 *   **Answer:** "Backup only. The stage claim is LIBAD as external validation of the same disposition problem, not paper reproduction. Authors' DINOv2 one-seed interim and the paper DINOv3/DA-Core table stay in the reports; they are not the 45-second story."

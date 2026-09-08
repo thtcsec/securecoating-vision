@@ -58,9 +58,9 @@ Detail: [docs/hardware_profiles.md](hardware_profiles.md)
 | Multimodal extension | `reports/libad/official_local_adapter.json` | Official-input local adapter over 10 splits (`comparable_to_paper: false`); use as motivation that FPR remains too high for unsupervised line authority — not a trophy metric |
 | Demo loops | `reports/defense_gifs/` | Presentation artifacts from checked-in evidence |
 
-### Challenge 1 wording boundary
+### Performance-Prediction Scope Boundary
 
-Challenge materials may mention *image acquisition → performance prediction*. SecureCoating-Vision covers the **inspection-to-quality-decision** segment of that autonomous characterization pipeline: image acquisition → defect/anomaly detection → evidence gate → PASS/REJECT/HOLD → traceability. It does **not** claim experimentally validated electrochemical or material performance prediction. Property prediction is the next validation stage once plant-linked property labels become available; it is not a current defense metric.
+SecureCoating-Vision covers the **inspection-to-quality-decision** and **traceability** segment of the Track 4 materials-testing pipeline: image acquisition → defect/anomaly detection → evidence gate → PASS/REJECT/HOLD → traceability. It does **not** claim experimentally validated electrochemical or material performance prediction. Downstream property prediction is a future validation stage that requires plant-linked property labels; it is not a current defense metric and is not treated as a missing Track 4 requirement.
 
 Status ledger: [docs/implementation_status.md](implementation_status.md)
 
