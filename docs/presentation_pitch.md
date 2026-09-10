@@ -8,7 +8,7 @@
 
 Do not introduce a fourth title. Present `SecureCoating-Vision_Final_Defense_6min.pptx` (git): clean typography title slide for Team 71 / HUFLIT — no organizer lab logo as product branding. Do not present leftover `*_Fixed.pptx` or `*_Evidence_Aware.pptx` decks.
 
-**Slide 1 identity (small, contestant first):** Team 71 · Track 4; Trinh Hoang Tu · HUFLIT; Advisor line smaller — Prof. Kris Singh · Visiting Professor, Tsinghua University · Founder & CEO, SRII.
+**Slide 1 identity (small, contestant first):** Team 71 · Track 4; Trinh Hoang Tu · HUFLIT; **Core engineer:** system architecture, evidence-gate / PLC contracts, embedded integration & cybersecurity; Advisor line smaller — Prof. Kris Singh · Visiting Professor, Tsinghua University · Founder & CEO, SRII.
 
 Organizer update: final materials deadline is **10 September 2026**. Play the two looping GIFs in minute 6 (Slideshow mode so GIF animates).
 
@@ -36,14 +36,15 @@ Do **not** say 99.4% mAP, ≤35 ms TensorRT, real thermal/laser plant instrument
 
 ## 1. 6-Minute Presentation Deck & Timing Structure
 
+Target spoken length: **≈5:45** (leave ~15 s buffer). Do not frame this as a business-plan / fundraising pitch.
+
 ```
 +-------------------------------------------------------------------------------------+
-|  Minute 1: Problem — electrode scrap, escapes, and unsafe automatic release        |
-|  Minute 2: Architecture — RGB contract first, then LIBAD-compatible evidence lane |
-|  Minute 3: Evidence gate — HOLD turns uncertainty into a controlled industrial state|
-|  Minute 4: Operations console, confirm-audit control, certificate, PLC contracts |
-|  Minute 5: LIBAD numbers vs SecureCoating operational metrics                      |
-|  Minute 6: Four-case demo close and honest roadmap                                 |
+|  0:00–1:00  Slides 1–2  Title + industrial problem (skip long greetings)           |
+|  1:00–2:30  Slides 3–4  Multimodal lanes + fail-closed PASS/REJECT/HOLD             |
+|  2:30–4:00  Slides 5–6  Dashboard readiness + PLC intent→command→ACK                |
+|  4:00–5:00  Slide 7     Bounded metrics (mAP50 0.634 honesty; no fake 99%)          |
+|  5:00–5:45  Slide 8     Demo loops + close: model finds; evidence gate authorizes   |
 +-------------------------------------------------------------------------------------+
 ```
 
