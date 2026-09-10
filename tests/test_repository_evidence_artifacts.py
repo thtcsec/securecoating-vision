@@ -669,8 +669,12 @@ class TestRepositoryEvidenceArtifacts(unittest.TestCase):
         self.assertIn("Q&A backup", pitch)
         self.assertIn("external validation experiment", slides.lower())
         self.assertIn("false-positive operating point", slides.lower())
-        self.assertIn("BUY PATH", slides)
+        self.assertIn("DEPLOYMENT ROADMAP", slides)
+        self.assertIn("Integration & maintenance strategy", slides)
+        self.assertNotIn("BUY PATH", slides)
+        self.assertNotIn("Commercial model", slides)
         self.assertIn("per-line deployment", slides)
+        self.assertIn("Core engineer", slides)
         self.assertIn("inspection-to-quality-decision", slides)
         self.assertNotIn(
             "Official 4.84 GB dataset and 10 splits are not in this runtime",

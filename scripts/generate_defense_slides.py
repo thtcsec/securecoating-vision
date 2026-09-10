@@ -237,20 +237,30 @@ def build() -> Path:
         {"text": tagline, "size": 18, "color": ACCENT, "bold": True}
     ])
     _rule(s, Inches(0.45), Inches(3.55), Inches(12.4))
-    add_textbox(s, Inches(0.45), Inches(3.85), Inches(12.4), Inches(0.9), [
+    add_textbox(s, Inches(0.45), Inches(3.85), Inches(12.4), Inches(1.15), [
         {
             "text": "Team 71 · Track 4 — AI + Materials Testing & Characterization",
             "size": 18,
             "color": INK,
             "bold": True,
-            "space_after": 8,
+            "space_after": 6,
         },
         {
             "text": "Trinh Hoang Tu · HUFLIT",
             "size": 18,
             "color": INK,
             "bold": True,
-            "space_after": 10,
+            "space_after": 4,
+        },
+        {
+            "text": (
+                "Core engineer: system architecture, evidence-gate / PLC contracts, "
+                "and cybersecurity for the inspection pipeline"
+            ),
+            "size": 13,
+            "color": ACCENT,
+            "bold": False,
+            "space_after": 8,
         },
         {
             "text": (
@@ -377,9 +387,9 @@ def build() -> Path:
         ])
     _box(s, Inches(8.85), Inches(1.3), Inches(4.0), Inches(5.35), accent=True)
     add_textbox(s, Inches(9.05), Inches(1.45), Inches(3.6), Inches(5.0), [
-        {"text": "BUY PATH", "size": 12, "color": ACCENT, "bold": True},
+        {"text": "DEPLOYMENT ROADMAP", "size": 12, "color": ACCENT, "bold": True},
         {"text": "Shadow inspection → PLC/HIL → controlled decision assistance → per-line deployment", "size": 14, "color": INK, "bold": True, "space_after": 10},
-        {"text": "Commercial model: per-line integration + calibration, model-monitoring and traceability support.", "size": 13, "color": MUTED, "space_after": 14},
+        {"text": "Integration & maintenance strategy: per-line integration + calibration, model monitoring, and traceability support.", "size": 13, "color": MUTED, "space_after": 14},
         {"text": "NOT IN PRODUCTION", "size": 12, "color": RED, "bold": True},
         {"text": "Recipe / inject / 7-stage sim / LIBAD 90s demo / send offset — sandbox only.", "size": 13, "color": INK, "space_after": 8},
         {"text": "Control = confirm-audit only.", "size": 14, "color": ACCENT, "bold": True},
@@ -488,7 +498,7 @@ def build() -> Path:
         {"text": "CLOSE", "size": 12, "color": ACCENT, "bold": True},
         {"text": "The model finds defects. The evidence gate controls when software may authorize a disposition.", "size": 17, "color": INK, "bold": True, "space_after": 6},
         {"text": "SecureCoating covers the inspection-to-quality-decision segment of an autonomous materials characterization pipeline. Property prediction is the next validation stage once plant-linked labels exist.", "size": 13, "color": MUTED, "space_after": 4},
-        {"text": "Buy path: shadow inspection → PLC/HIL → controlled decision assistance → per-line deployment. Production mTLS/RBAC/OT hardening remains on the industrialization roadmap.", "size": 13, "color": MUTED},
+        {"text": "Deployment roadmap: shadow inspection → PLC/HIL → controlled decision assistance → per-line deployment. Production mTLS/RBAC/OT hardening remains on the industrialization roadmap.", "size": 13, "color": MUTED},
     ])
     footer(s, 8)
 

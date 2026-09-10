@@ -26,7 +26,7 @@ Say this, then stop talking until they look at the first defect image:
 | Novelty | 0:35–2:00 | Gate on top of YOLO + attributed LIBAD/DA-Core; HOLD is the contribution |
 | Quantitative evidence | 2:45–4:20 | CoatingVision 88-image image-disjoint split: mAP50 0.634 / P 0.645 / R 0.642 / mAP50-95 0.354; model-only CPU inference from `reports/coatingvision_real_test_metrics.json`; not roll-disjoint; weights/dataset hashes shown |
 | Materials relevance | throughout | Roll/batch identity, coating-surface frames, SPC on the coating process — not generic object detection |
-| Industrial impact | 2:00–3:35 | Fail-closed HOLD; confirm-audit control; buy path shadow→HIL→decision assistance→per-line; **no factory yield / ROI claim** |
+| Industrial impact | 2:00–3:35 | Fail-closed HOLD; confirm-audit control; deployment roadmap shadow→HIL→decision assistance→per-line; **no factory yield / ROI claim** |
 | Demo storytelling | 5:10–6:00 | Looping GIFs: RGB HOLD replay + LIBAD fixture PASS/REJECT/REJECT/HOLD |
 | Reproducibility / limits | last 20 s + Q&A | DOI + model/dataset hashes + current test manifest; thermal/profiler simulated; roll-disjoint/HIL evidence pending |
 
@@ -128,7 +128,7 @@ PyTorch and ONNX share the same two-class map. Development simulation + mock PLC
 *   **Answer:** "The bottleneck the paper itself names is not another detector. It is modality disagreement and closed-loop control. That is already the safety contract of this repository."
 
 ### Q6: "Who buys this, and how does it enter a factory?"
-*   **Answer:** "Shadow inspection first, then PLC/HIL validation, then controlled decision assistance, then per-line deployment. The commercial model is per-line integration plus calibration, model monitoring, and traceability support — not a fake TAM slide."
+*   **Answer:** "Shadow inspection first, then PLC/HIL validation, then controlled decision assistance, then per-line deployment. The integration and maintenance strategy is per-line integration plus calibration, model monitoring, and traceability support — not a commercial fundraising pitch."
 
 ### Q7: "Did you use competition computing resources?"
 *   **Answer:** "Not for the final authoritative evidence path. We kept the release independently reproducible on commodity local hardware: GPU-capable workloads on a laptop RTX 4050, with the CPU inference benchmark measured separately as model-only timing. Cloud and HPC remain optional acceleration for larger future experiments, not a requirement to reproduce this prototype."
